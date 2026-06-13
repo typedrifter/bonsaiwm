@@ -4,22 +4,22 @@
 include config.mk
 
 # flags for compiling
-DWLCPPFLAGS = -I. -DWLR_USE_UNSTABLE -D_POSIX_C_SOURCE=200809L \
+BONSAIWMCPPFLAGS = -I. -DWLR_USE_UNSTABLE -D_POSIX_C_SOURCE=200809L \
 	-DVERSION=\"$(VERSION)\" $(XWAYLAND)
-DWLDEVCFLAGS = -g -Wpedantic -Wall -Wextra -Wdeclaration-after-statement \
+BONSAIWMDEVCFLAGS = -g -Wpedantic -Wall -Wextra -Wdeclaration-after-statement \
 	-Wno-unused-parameter -Wshadow -Wunused-macros -Werror=strict-prototypes \
 	-Werror=implicit -Werror=return-type -Werror=incompatible-pointer-types \
 	-Wfloat-conversion
 
 # CFLAGS / LDFLAGS
 PKGS      = wayland-server xkbcommon libinput $(XLIBS)
-DWLCFLAGS = `$(PKG_CONFIG) --cflags $(PKGS)` $(WLR_INCS) $(DWLCPPFLAGS) $(DWLDEVCFLAGS) $(CFLAGS)
+BONSAIWMCFLAGS = `$(PKG_CONFIG) --cflags $(PKGS)` $(WLR_INCS) $(BONSAIWMCPPFLAGS) $(BONSAIWMDEVCFLAGS) $(CFLAGS)
 LDLIBS    = `$(PKG_CONFIG) --libs $(PKGS)` $(WLR_LIBS) -lm $(LIBS)
 
-all: dwl
-dwl: dwl.o util.o
-	$(CC) dwl.o util.o $(DWLCFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
-dwl.o: dwl.c client.h config.h config.mk cursor-shape-v1-protocol.h \
+all: bonsaiwm
+bonsaiwm: bonsaiwm.o util.o
+	$(CC) bonsaiwm.o util.o $(BONSAIWMCFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
+bonsaiwm.o: bonsaiwm.c client.h config.h config.mk cursor-shape-v1-protocol.h \
 	pointer-constraints-unstable-v1-protocol.h wlr-layer-shell-unstable-v1-protocol.h \
 	wlr-output-power-management-unstable-v1-protocol.h xdg-shell-protocol.h
 util.o: util.c util.h
@@ -49,31 +49,31 @@ xdg-shell-protocol.h:
 config.h:
 	cp config.def.h $@
 clean:
-	rm -f dwl *.o *-protocol.h
+	rm -f bonsaiwm *.o *-protocol.h
 
 dist: clean
-	mkdir -p dwl-$(VERSION)
+	mkdir -p bonsaiwm-$(VERSION)
 	cp -R LICENSE* Makefile CHANGELOG.md README.md client.h config.def.h \
-		config.mk protocols dwl.1 dwl.c util.c util.h dwl.desktop \
-		dwl-$(VERSION)
-	tar -caf dwl-$(VERSION).tar.gz dwl-$(VERSION)
-	rm -rf dwl-$(VERSION)
+		config.mk protocols bonsaiwm.1 bonsaiwm.c util.c util.h bonsaiwm.desktop \
+		bonsaiwm-$(VERSION)
+	tar -caf bonsaiwm-$(VERSION).tar.gz bonsaiwm-$(VERSION)
+	rm -rf bonsaiwm-$(VERSION)
 
-install: dwl
+install: bonsaiwm
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	rm -f $(DESTDIR)$(PREFIX)/bin/dwl
-	cp -f dwl $(DESTDIR)$(PREFIX)/bin
-	chmod 755 $(DESTDIR)$(PREFIX)/bin/dwl
+	rm -f $(DESTDIR)$(PREFIX)/bin/bonsaiwm
+	cp -f bonsaiwm $(DESTDIR)$(PREFIX)/bin
+	chmod 755 $(DESTDIR)$(PREFIX)/bin/bonsaiwm
 	mkdir -p $(DESTDIR)$(MANDIR)/man1
-	cp -f dwl.1 $(DESTDIR)$(MANDIR)/man1
-	chmod 644 $(DESTDIR)$(MANDIR)/man1/dwl.1
+	cp -f bonsaiwm.1 $(DESTDIR)$(MANDIR)/man1
+	chmod 644 $(DESTDIR)$(MANDIR)/man1/bonsaiwm.1
 	mkdir -p $(DESTDIR)$(DATADIR)/wayland-sessions
-	cp -f dwl.desktop $(DESTDIR)$(DATADIR)/wayland-sessions/dwl.desktop
-	chmod 644 $(DESTDIR)$(DATADIR)/wayland-sessions/dwl.desktop
+	cp -f bonsaiwm.desktop $(DESTDIR)$(DATADIR)/wayland-sessions/bonsaiwm.desktop
+	chmod 644 $(DESTDIR)$(DATADIR)/wayland-sessions/bonsaiwm.desktop
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/dwl $(DESTDIR)$(MANDIR)/man1/dwl.1 \
-		$(DESTDIR)$(DATADIR)/wayland-sessions/dwl.desktop
+	rm -f $(DESTDIR)$(PREFIX)/bin/bonsaiwm $(DESTDIR)$(MANDIR)/man1/bonsaiwm.1 \
+		$(DESTDIR)$(DATADIR)/wayland-sessions/bonsaiwm.desktop
 
 .SUFFIXES: .c .o
 .c.o:
-	$(CC) $(CPPFLAGS) $(DWLCFLAGS) -o $@ -c $<
+	$(CC) $(CPPFLAGS) $(BONSAIWMCFLAGS) -o $@ -c $<

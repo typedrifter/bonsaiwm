@@ -1,4 +1,4 @@
-dwl
+bonsaiwm
 *.o
 *-protocol.c
 *-protocol.h
