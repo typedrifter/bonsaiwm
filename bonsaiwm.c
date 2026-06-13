@@ -2779,7 +2779,7 @@ tile(Monitor *m)
   // no gaps smartgaps is enable and only one tiled window 
   if (smartgaps == n) {
     oe = 0;
-    ie = 0;
+    ie = 0; // TODO: check if correct
   }
 
   /* master width: include inner gap in calculation */
