@@ -6,11 +6,9 @@ BonsaiWM is a compact, opinionated [Wayland] compositor based on [dwl].
 - Minimal external dependencies
 - Extensible via Lua
 
-- Easy to understand, hack on, and extend with patches
-- One C source file (or a very small number) configurable via `config.h`
-- Tied to as few external dependencies as possible
+## Roadmap
 
-## Getting Started:
+See [ROADMAP.md](ROADMAP.md) for what's planned.
 
 ## Development
 
