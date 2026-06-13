@@ -14,6 +14,13 @@ static const float urgentcolor[]           = COLOR(0xff0000ff);
 /* This conforms to the xdg-protocol. Set the alpha to zero to restore the old behavior */
 static const float fullscreen_bg[]         = {0.0f, 0.0f, 0.0f, 1.0f}; /* You can also use glsl colors */
 
+static int enablegaps                      = 1;  /* focus follows mouse */
+static const int smartgaps                 = 1;  /* 1 = no outer gap when only one window */
+static  unsigned int gappih           = 10; /* horiz inner gap between windows */
+static  unsigned int gappiv           = 10; /* vert inner gap between windows */
+static  unsigned int gappoh           = 20; /* horiz outer gap between windows and screen edge */
+static  unsigned int gappov           = 20; /* vert outer gap between windows and screen edge */
+
 /* tagging - TAGCOUNT must be no greater than 31 */
 #define TAGCOUNT (9)
 
@@ -160,6 +167,10 @@ static const Key keys[] = {
 	/* Ctrl-Alt-Fx is used to switch to another VT, if you don't know what a VT is
 	 * do not remove them.
 	 */
+  { MODKEY,                    XKB_KEY_g,      togglegaps, {0} },
+  { MODKEY|WLR_MODIFIER_SHIFT,                    XKB_KEY_g,    defaultgaps, {0} },
+  { MODKEY,           XKB_KEY_Up,      incgaps,    {.i = +1 } },
+{ MODKEY,           XKB_KEY_Down,      incgaps,    {.i = -1 } },
 #define CHVT(n) { WLR_MODIFIER_CTRL|WLR_MODIFIER_ALT,XKB_KEY_XF86Switch_VT_##n, chvt, {.ui = (n)} }
 	CHVT(1), CHVT(2), CHVT(3), CHVT(4), CHVT(5), CHVT(6),
 	CHVT(7), CHVT(8), CHVT(9), CHVT(10), CHVT(11), CHVT(12),

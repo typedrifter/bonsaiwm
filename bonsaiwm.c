@@ -198,6 +198,10 @@ struct Monitor {
 	struct wlr_box w; /* window area, layout-relative */
 	struct wl_list layers[4]; /* LayerSurface.link */
 	const Layout *lt[2];
+  int gappih; /* horizontal gap between windows */
+  int gappiv; /* vertical gap between windows */
+  int gappoh; /* horizontal outer gaps */
+  int gappov; /* vertical outer gaps */
 	unsigned int seltags;
 	unsigned int sellt;
 	uint32_t tagset[2];
@@ -291,6 +295,10 @@ static void fullscreennotify(struct wl_listener *listener, void *data);
 static void gpureset(struct wl_listener *listener, void *data);
 static void handlesig(int signo);
 static void incnmaster(const Arg *arg);
+static void togglegaps(const Arg *arg);
+static void defaultgaps(const Arg *arg);
+static void incgaps(const Arg *arg);
+static void setgaps(int oh, int ov, int ih, int iv);
 static void inputdevice(struct wl_listener *listener, void *data);
 static int keybinding(uint32_t mods, xkb_keysym_t sym);
 static void keypress(struct wl_listener *listener, void *data);
@@ -1056,6 +1064,12 @@ createmon(struct wl_listener *listener, void *data)
 	for (i = 0; i < LENGTH(m->layers); i++)
 		wl_list_init(&m->layers[i]);
 
+  /* initialize gap values from config defaults */
+  m->gappih = gappih;
+  m->gappiv = gappiv;
+  m->gappoh = gappoh;
+  m->gappov = gappov;
+
 	wlr_output_state_init(&state);
 	/* Initialize monitor state using configured rules */
 	m->tagset[0] = m->tagset[1] = 1;
@@ -1574,6 +1588,42 @@ incnmaster(const Arg *arg)
 		return;
 	selmon->nmaster = MAX(selmon->nmaster + arg->i, 0);
 	arrange(selmon);
+}
+
+/* toggle gaps on/off (Super+0) */
+void togglegaps(const Arg *arg)
+{
+    enablegaps = !enablegaps;
+    arrange(selmon);
+}
+
+
+
+void
+setgaps(int oh, int ov, int ih, int iv)
+{
+    selmon->gappoh = MAX(oh, 0);  /* clamp to minimum 0 */
+    selmon->gappov = MAX(ov, 0);
+    selmon->gappih = MAX(ih, 0);
+    selmon->gappiv = MAX(iv, 0);
+    arrange(selmon);  /* re-tile with new gaps */
+}
+
+void incgaps(const Arg *arg)
+{
+    setgaps(
+        selmon->gappoh + arg->i,
+        selmon->gappov + arg->i,
+        selmon->gappih + arg->i,
+        selmon->gappiv + arg->i
+    );
+}
+
+
+/* Reset to config defaults (Super+Shift+) */
+void defaultgaps(const Arg *arg)
+{
+    setgaps(gappoh, gappov, gappih, gappiv);
 }
 
 void
@@ -2116,6 +2166,8 @@ printstatus(void)
 			sel = 0;
 		}
 
+		printf("%s gaps %u %u %u %u\n", m->wlr_output->name, m->gappoh, m->gappov, m->gappih, m->gappiv);
+		printf("%s smartgaps %u\n", m->wlr_output->name, smartgaps);
 		printf("%s selmon %u\n", m->wlr_output->name, m == selmon);
 		printf("%s tags %"PRIu32" %"PRIu32" %"PRIu32" %"PRIu32"\n",
 			m->wlr_output->name, occ, m->tagset[m->seltags], sel, urg);
@@ -2714,7 +2766,7 @@ tagmon(const Arg *arg)
 void
 tile(Monitor *m)
 {
-	unsigned int mw, my, ty;
+  unsigned int mw, my, ty, h, r, oe = enablegaps, ie = enablegaps;
 	int i, n = 0;
 	Client *c;
 
@@ -2724,22 +2776,49 @@ tile(Monitor *m)
 	if (n == 0)
 		return;
 
-	if (n > m->nmaster)
-		mw = m->nmaster ? (int)roundf(m->w.width * m->mfact) : 0;
-	else
-		mw = m->w.width;
-	i = my = ty = 0;
+  // no gaps smartgaps is enable and only one tiled window 
+  if (smartgaps == n) {
+    oe = 0;
+    ie = 0;
+  }
+
+  /* master width: include inner gap in calculation */
+  if (n > m->nmaster)
+    mw = m->nmaster ? (int)roundf((m->w.width + m->gappiv*ie) * m->mfact) : 0;
+  else
+    mw = m->w.width - 2*m->gappov*oe + m->gappiv*ie;
+    i = 0;
+    // start below outer gap
+    my = ty = m->gappoh*oe;
+
 	wl_list_for_each(c, &clients, link) {
 		if (!VISIBLEON(c, m) || c->isfloating || c->isfullscreen)
 			continue;
 		if (i < m->nmaster) {
-			resize(c, (struct wlr_box){.x = m->w.x, .y = m->w.y + my, .width = mw,
-				.height = (m->w.height - my) / (MIN(n, m->nmaster) - i)}, 0);
-			my += c->geom.height;
+      /* master windows */
+
+      r = MIN(n, m->nmaster) - i;  /* remaining master windows */
+      h = (m->w.height - my - m->gappoh*oe - m->gappih*ie * (r - 1)) / r;
+
+      resize(c, (struct wlr_box){
+                .x = m->w.x + m->gappov*oe,
+                .y = m->w.y + my,
+                .width = mw - m->gappiv*ie,
+                .height = h
+            }, 0);
+            my += c->geom.height + m->gappih*ie;
+
 		} else {
-			resize(c, (struct wlr_box){.x = m->w.x + mw, .y = m->w.y + ty,
-				.width = m->w.width - mw, .height = (m->w.height - ty) / (n - i)}, 0);
-			ty += c->geom.height;
+      /* stack windows */
+            r = n - i;  /* remaining stack windows */
+            h = (m->w.height - ty - m->gappoh*oe - m->gappih*ie * (r - 1)) / r;
+            resize(c, (struct wlr_box){
+                .x = m->w.x + mw + m->gappov*oe,
+                .y = m->w.y + ty,
+                .width = m->w.width - mw - 2*m->gappov*oe,
+                .height = h
+            }, 0);
+            ty += c->geom.height + m->gappih*ie;
 		}
 		i++;
 	}
