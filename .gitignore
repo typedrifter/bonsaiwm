@@ -3,4 +3,4 @@ bonsaiwm
 *-protocol.c
 *-protocol.h
 .ccls-cache
-config.h
+# config.h we shouldnt need to edit config.h file once we have a proper configuration system
