@@ -1,6 +1,8 @@
 /*
  * See LICENSE file for copyright and license details.
  */
+#include "bonsaiwm.h"
+#include "bonsaiwm_lua.h"
 #include <getopt.h>
 #include <libinput.h>
 #include <linux/input-event-codes.h>
@@ -314,7 +316,6 @@ static void incnmaster(const Arg *arg);
 static void togglegaps(const Arg *arg);
 static void defaultgaps(const Arg *arg);
 static void incgaps(const Arg *arg);
-static void setgaps(int oh, int ov, int ih, int iv);
 static void inputdevice(struct wl_listener *listener, void *data);
 static int keybinding(uint32_t mods, xkb_keysym_t sym);
 static void keypress(struct wl_listener *listener, void *data);
@@ -378,6 +379,7 @@ static Monitor *xytomon(double x, double y);
 static void xytonode(double x, double y, struct wlr_surface **psurface,
                      Client **pc, LayerSurface **pl, double *nx, double *ny);
 static void zoom(const Arg *arg);
+static void reloadconfig(const Arg *arg);
 
 /* variables */
 static pid_t child_pid = -1;
@@ -714,6 +716,7 @@ void checkidleinhibitor(struct wlr_surface *exclude) {
 
 void cleanup(void) {
   cleanuplisteners();
+  lua_close(L);
 #ifdef XWAYLAND
   wlr_xwayland_destroy(xwayland);
   xwayland = NULL;
@@ -2206,8 +2209,12 @@ void run(char *startup_cmd) {
     die("startup: display_add_socket_auto");
   setenv("WAYLAND_DISPLAY", socket, 1);
 
-  /* Start the backend. This will enumerate outputs and inputs, become the DRM
-   * master, etc */
+  L = bonsaiwm_lua_init();
+  if (!L)
+    die("failed to init lua");
+
+  /* Start the backend. This will enumerate outputs and inputs, become the
+   * DRM master, etc */
   if (!wlr_backend_start(backend))
     die("startup: backend_start");
 
@@ -2239,6 +2246,8 @@ void run(char *startup_cmd) {
   if (fd_set_nonblock(STDOUT_FILENO) < 0)
     close(STDOUT_FILENO);
 
+  /* load the lua config file */
+  bonsaiwm_lua_load_config("./config.lua");
   printstatus();
 
   /* At this point the outputs are initialized, choose initial selmon based on
@@ -2337,6 +2346,9 @@ void setlayout(const Arg *arg) {
           LENGTH(selmon->ltsymbol));
   arrange(selmon);
   printstatus();
+
+  lua_pushstring(L, selmon->ltsymbol);
+  bonsaiwm_lua_hook("arrange", 1); /* call hook with 1 argument */
 }
 
 /* arg > 1.0 will set mfact absolutely */
@@ -2649,6 +2661,7 @@ void tag(const Arg *arg) {
   sel->tags = arg->ui & TAGMASK;
   focusclient(focustop(selmon), 1);
   arrange(selmon);
+
   printstatus();
 }
 
@@ -2932,6 +2945,8 @@ void view(const Arg *arg) {
   focusclient(focustop(selmon), 1);
   arrange(selmon);
   printstatus();
+
+  bonsaiwm_lua_hook("tag_switch", 0);
 }
 
 void virtualkeyboard(struct wl_listener *listener, void *data) {
@@ -3023,6 +3038,16 @@ void zoom(const Arg *arg) {
 
   focusclient(sel, 1);
   arrange(selmon);
+}
+
+static void deferred_reload(void *data) {
+  bonsaiwm_lua_load_config("./config.lua");
+  arrange(selmon);
+  printstatus();
+}
+
+static void reloadconfig(const Arg *arg) {
+  wl_event_loop_add_idle(event_loop, deferred_reload, NULL);
 }
 
 #ifdef XWAYLAND
