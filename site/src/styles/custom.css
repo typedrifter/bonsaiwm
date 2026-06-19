@@ -1,0 +1,15 @@
+
+.roadmap ul {
+  margin: 0;
+  padding: 0;
+}
+
+.roadmap li {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.roadmap input[type="checkbox"] {
+  margin: 0 .5rem 0 0 ;
+}

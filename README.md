@@ -8,7 +8,7 @@ BonsaiWM is a compact, opinionated [Wayland] compositor based on [dwl].
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for what's planned.
+See [the roadmap](./ROADMAP.md) for what's planned.
 
 ## Development
 
