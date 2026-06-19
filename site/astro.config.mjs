@@ -26,6 +26,7 @@ export default defineConfig({
           label: "BonsaiWM",
           items: [
             { label: "About", slug: "about" },
+            { label: "Changelog", slug: "changelog" },
             { label: "Roadmap", slug: "roadmap" },
           ],
         },
