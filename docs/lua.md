@@ -6,6 +6,8 @@ title: Lua
 
 This document describes the Lua API exposed by bonsaiwm.
 
+For planned API additions, see the [Lua API Roadmap](LUA-ROADMAP.md).
+
 ## `bonsaiwm.set_gaps`
 
 Set outer and inner gaps on the selected monitor. Values are in pixels.
