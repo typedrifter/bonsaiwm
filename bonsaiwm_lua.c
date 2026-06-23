@@ -15,6 +15,7 @@ static int config_loaded = 0;
  * always passes L. Using a parameter named L would shadow the global, so
  * we use luaL (lua state, local) instead. */
 
+/* Set outer/inner gaps on selmon. Mirrors the setgaps() C keybinding. */
 static int bonsaiwm_set_gaps(lua_State *luaL) {
   int oh = luaL_checkinteger(luaL, 1);
   int ov = luaL_checkinteger(luaL, 2);
@@ -24,22 +25,22 @@ static int bonsaiwm_set_gaps(lua_State *luaL) {
   return 0;
 }
 
+/* Log to stderr. */
 static int bonsaiwm_log(lua_State *luaL) {
   const char *msg = luaL_checkstring(luaL, 1);
   fprintf(stderr, "[bonsaiwm] %s\n", msg);
   return 0;
 }
 
-/* Always run a shell command, even on reload. */
+/* Run a shell command. Fires on every config reload. */
 static int bonsaiwm_exec(lua_State *luaL) {
   const char *cmd = luaL_checkstring(luaL, 1);
   system(cmd);
   return 0;
 }
 
-/* Run a shell command only on the first config load, skip on reload.
- * This avoids spawning duplicate processes like waybar or wallpaper
- * setters every time the user hits the reload keybind. */
+/* Run a shell command, but only on the first load. Skipped on reloads
+ * so we don't respawn waybar/bgs etc. */
 static int bonsaiwm_exec_once(lua_State *luaL) {
   const char *cmd = luaL_checkstring(luaL, 1);
   if (!config_loaded)
@@ -47,11 +48,8 @@ static int bonsaiwm_exec_once(lua_State *luaL) {
   return 0;
 }
 
-/* Register a Lua function as a hook for a given event name.
- * Hooks are stored in a single registry table keyed by event name
- * (e.g. _bonsaiwm_hooks["tag_switch"] = fn), so adding new event
- * types requires no C changes — just call bonsaiwm.on("new_event", fn)
- * from Lua. */
+/* Register a Lua callback for event. Replaces any existing hook.
+ * Events are fired from C via bonsaiwm_lua_hook(). */
 static int bonsaiwm_on(lua_State *luaL) {
   const char *event = luaL_checkstring(luaL, 1);
   luaL_checktype(luaL, 2, LUA_TFUNCTION);
