@@ -30,10 +30,19 @@ function bonsaiwm.exec_once(cmd) end
 ---If the callback errors, the message is logged to stderr and execution continues.
 ---
 ---Available events:
----- **"arrange"** — layout changed. Receives the layout symbol string.
----- **"tag_switch"** — viewed tags changed. Receives no arguments.
+---
+--- - `"arrange"`: layout changed. Receives the layout symbol string.
+--- - `"tag_switch"`: viewed tags changed. Receives no arguments.
+--- - `"client_mapped"`: a new client window appeared. Receives app_id and title.
+--- - `"client_unmapped"`: a client window was hidden/unmapped. Receives app_id and title.
+--- - `"client_destroyed"`: a client window was destroyed. Receives app_id and title.
+--- - `"focus_change"`: focused client changed. Receives new and old app_id/title (nil if none).
 ---@overload fun(event: "arrange", callback: fun(layout: string))
 ---@overload fun(event: "tag_switch", callback: fun())
+---@overload fun(event: "client_mapped", callback: fun(app_id: string, title: string))
+---@overload fun(event: "client_unmapped", callback: fun(app_id: string, title: string))
+---@overload fun(event: "client_destroyed", callback: fun(app_id: string, title: string))
+---@overload fun(event: "focus_change", callback: fun(new_app: string?, new_title: string?, old_app: string?, old_title: string?))
 ---@param event string Event name
 ---@param callback function Called when the event fires
 function bonsaiwm.on(event, callback) end

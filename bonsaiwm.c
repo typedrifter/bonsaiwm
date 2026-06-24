@@ -1343,6 +1343,10 @@ void destroynotify(struct wl_listener *listener, void *data) {
     wl_list_remove(&c->unmap.link);
     wl_list_remove(&c->maximize.link);
   }
+  lua_pushstring(L, client_get_appid(c));
+  lua_pushstring(L, client_get_title(c));
+  bonsaiwm_lua_hook("client_destroyed", 2);
+
   free(c);
 }
 
@@ -1445,6 +1449,12 @@ void focusclient(Client *c, int lift) {
     }
   }
   printstatus();
+
+  lua_pushstring(L, c ? client_get_appid(c) : NULL);
+  lua_pushstring(L, c ? client_get_title(c) : NULL);
+  lua_pushstring(L, old_c ? client_get_appid(old_c) : NULL);
+  lua_pushstring(L, old_c ? client_get_title(old_c) : NULL);
+  bonsaiwm_lua_hook("focus_change", 4);
 
   if (!c) {
     /* With no client, all we have left is to clear focus */
@@ -1778,6 +1788,9 @@ void mapnotify(struct wl_listener *listener, void *data) {
     applyrules(c);
   }
   printstatus();
+  lua_pushstring(L, client_get_appid(c));
+  lua_pushstring(L, client_get_title(c));
+  bonsaiwm_lua_hook("client_mapped", 2); /* 2 = number of args pushed */
 
 unset_fullscreen:
   m = c->mon ? c->mon : xytomon(c->geom.x, c->geom.y);
@@ -2805,6 +2818,11 @@ void unmapnotify(struct wl_listener *listener, void *data) {
   }
 
   wlr_scene_node_destroy(&c->scene->node);
+
+  lua_pushstring(L, client_get_appid(c));
+  lua_pushstring(L, client_get_title(c));
+  bonsaiwm_lua_hook("client_unmapped", 2);
+
   printstatus();
   motionnotify(0, NULL, 0, 0, 0, 0);
 }
