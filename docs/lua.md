@@ -115,6 +115,30 @@ Skipped on reloads so you don't respawn waybar, wallpaper daemons, etc.
 
 ---
 
+## `bonsaiwm.spawn`
+
+Spawn a long-lived process via /bin/sh -c.
+Forks and detaches so the child can't block the compositor.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `cmd` | `string` | Shell command to execute |
+
+---
+
+## `bonsaiwm.bind_key`
+
+Register a keybinding. Calls fn when (mod, key) is pressed.
+key is resolved via xkb_keysym_from_name at bind time (e.g. "Return", "a").
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `mod` | `integer` | Modifier bitmask; see the `bonsaiwm.mod` constants below |
+| `key` | `string` | Key name, resolved via xkb_keysym_from_name |
+| `fn` | `function` | Called with no arguments when the key is pressed |
+
+---
+
 ## `bonsaiwm.on`
 
 Register a Lua callback for a compositor event.
@@ -166,5 +190,18 @@ function bonsaiwm.on(event: "monitor_destroyed", callback: fun(name: string))
 |-----------|------|-------------|
 | `event` | `string` | Event name |
 | `callback` | `function` | Called when the event fires |
+
+---
+
+## Constants: `bonsaiwm.mod`
+
+| Name | Type | Description |
+|------|------|-------------|
+| `shift` | `integer` | Left or right Shift key. |
+| `caps` | `integer` | Caps Lock key. |
+| `ctrl` | `integer` | Left or right Control key. |
+| `alt` | `integer` | Left or right Alt key. The default MODKEY used by config.h. |
+| `mod2` | `integer` | Mod2 — typically Num Lock. |
+| `logo` | `integer` | Super/Windows/Logo key. |
 
 ---

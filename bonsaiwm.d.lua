@@ -57,6 +57,18 @@ function bonsaiwm.exec(cmd) end
 ---@param cmd string Shell command to execute once
 function bonsaiwm.exec_once(cmd) end
 
+---Spawn a long-lived process via /bin/sh -c.
+---Forks and detaches so the child can't block the compositor.
+---@param cmd string Shell command to execute
+function bonsaiwm.spawn(cmd) end
+
+---Register a keybinding. Calls fn when (mod, key) is pressed.
+---key is resolved via xkb_keysym_from_name at bind time (e.g. "Return", "a").
+---@param mod integer Modifier bitmask; see the `bonsaiwm.mod` constants below
+---@param key string Key name, resolved via xkb_keysym_from_name
+---@param fn function Called with no arguments when the key is pressed
+function bonsaiwm.bind_key(mod, key, fn) end
+
 ---Register a Lua callback for a compositor event.
 ---Only one hook per event is kept — registering again replaces the old one.
 ---If the callback errors, the message is logged to stderr and execution continues.
@@ -82,3 +94,32 @@ function bonsaiwm.exec_once(cmd) end
 ---@param event string Event name
 ---@param callback function Called when the event fires
 function bonsaiwm.on(event, callback) end
+
+---Modifier bitmask constants. Combine with bitwise OR (e.g. `bonsaiwm.mod.ctrl | bonsaiwm.mod.alt`).
+---Referenced by `bonsaiwm.bind_key`.
+---@class bonsaiwm.mod
+bonsaiwm.mod = {}
+
+---Left or right Shift key.
+---@type integer
+bonsaiwm.mod.shift = nil
+
+---Caps Lock key.
+---@type integer
+bonsaiwm.mod.caps = nil
+
+---Left or right Control key.
+---@type integer
+bonsaiwm.mod.ctrl = nil
+
+---Left or right Alt key. The default MODKEY used by config.h.
+---@type integer
+bonsaiwm.mod.alt = nil
+
+---Mod2 — typically Num Lock.
+---@type integer
+bonsaiwm.mod.mod2 = nil
+
+---Super/Windows/Logo key.
+---@type integer
+bonsaiwm.mod.logo = nil

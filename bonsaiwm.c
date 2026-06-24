@@ -76,7 +76,6 @@
 /* macros */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
-#define CLEANMASK(mask) (mask & ~WLR_MODIFIER_CAPS)
 #define VISIBLEON(C, M)                                                        \
   ((M) && (C)->mon == (M) && ((C)->tags & (M)->tagset[(M)->seltags]))
 #define LENGTH(X) (sizeof X / sizeof X[0])
@@ -1681,11 +1680,6 @@ void inputdevice(struct wl_listener *listener, void *data) {
 }
 
 int keybinding(uint32_t mods, xkb_keysym_t sym) {
-  /*
-   * Here we handle compositor keybindings. This is when the compositor is
-   * processing keys, rather than passing them on to the client for its own
-   * processing.
-   */
   const Key *k;
   for (k = keys; k < END(keys); k++) {
     if (CLEANMASK(mods) == CLEANMASK(k->mod) &&
@@ -1694,7 +1688,9 @@ int keybinding(uint32_t mods, xkb_keysym_t sym) {
       return 1;
     }
   }
-  return 0;
+  /* No static match — consult the Lua registry. Normalize the same way
+   * the static loop does: strip Caps, fold case. */
+  return bonsaiwm_lua_keybind(CLEANMASK(mods), xkb_keysym_to_lower(sym));
 }
 
 void keypress(struct wl_listener *listener, void *data) {

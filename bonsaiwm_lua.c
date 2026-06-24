@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <wlr/types/wlr_keyboard.h>
+#include <xkbcommon/xkbcommon.h>
 
 lua_State *L = NULL;
 
@@ -95,6 +99,48 @@ static int bonsaiwm_exec_once(lua_State *luaL) {
   return 0;
 }
 
+/* Spawn a long-lived process via /bin/sh -c. Forks, detaches the session,
+ * and routes child stdout to stderr so it can't block the event loop.
+ * Mirrors the C spawn() action's fork+setsid pattern. */
+static int bonsaiwm_spawn(lua_State *luaL) {
+  const char *cmd = luaL_checkstring(luaL, 1);
+
+  if (fork() == 0) {
+    dup2(STDERR_FILENO, STDOUT_FILENO);
+    setsid();
+    execl("/bin/sh", "/bin/sh", "-c", cmd, (char *)NULL);
+    /* If execl returned, it failed. fprintf works because we're the child. */
+    fprintf(stderr, "bonsaiwm: spawn failed: %s\n", cmd);
+    _exit(EXIT_FAILURE); /* don't flush the compositor's stdio */
+  }
+  return 0;
+}
+
+/* Register a keybinding. Calls fn (no args) when (mod, keyname)
+ * is pressed. keyname is resolved via xkb_keysym_from_name at bind time.
+ * The (mod, keysym) pair is packed into a 64-bit integer key and
+ * stored in the _bonsaiwm_keybinds registry table. */
+static int bonsaiwm_bind_key(lua_State *luaL) {
+  uint32_t mod = luaL_checkinteger(luaL, 1);
+  const char *name = luaL_checkstring(luaL, 2);
+  luaL_checktype(luaL, 3, LUA_TFUNCTION);
+
+  xkb_keysym_t sym = xkb_keysym_from_name(name, XKB_KEYSYM_NO_FLAGS);
+  if (sym == XKB_KEY_NoSymbol)
+    return luaL_error(luaL, "unknown key name: %s", name);
+
+  mod = CLEANMASK(mod);
+  sym = xkb_keysym_to_lower(sym);
+  lua_Integer key = ((lua_Integer)mod << 32) | (lua_Integer)sym;
+
+  /* Same pattern as bonsaiwm_on: get table, store fn under key, pop table */
+  lua_getfield(luaL, LUA_REGISTRYINDEX, "_bonsaiwm_keybinds");
+  lua_pushvalue(luaL, 3);     /* copy the fn */
+  lua_rawseti(luaL, -2, key); /* t[key] = fn (raw, skips metamethods) */
+  lua_pop(luaL, 1);
+  return 0;
+}
+
 /* Register a Lua callback for event. Replaces any existing hook.
  * Events are fired from C via bonsaiwm_lua_hook(). */
 static int bonsaiwm_on(lua_State *luaL) {
@@ -112,6 +158,36 @@ static int bonsaiwm_on(lua_State *luaL) {
   lua_pop(luaL, 1);
 
   return 0;
+}
+
+/* Look up the keybind registry under the packed (mod, keysym) key.
+ * If a callback is registered, pcall it with 0 args. Returns 1 if
+ * a callback ran (and the keypress is considered handled), 0 otherwise.
+ * Mirrors the dispatch pattern of bonsaiwm_lua_hook. */
+int bonsaiwm_lua_keybind(uint32_t mod, xkb_keysym_t sym) {
+  /* L can be NULL if bonsaiwm_lua_init failed to allocate a state; treat as
+   * unhandled rather than crashing the compositor on an unbound keypress. */
+  if (!L)
+    return 0;
+
+  lua_Integer key = ((lua_Integer)mod << 32) | (lua_Integer)sym;
+
+  lua_getfield(L, LUA_REGISTRYINDEX, "_bonsaiwm_keybinds");
+  lua_rawgeti(L, -1, key); /* t[key] — pushes nil if absent */
+
+  if (lua_isnil(L, -1)) {
+    lua_pop(L, 2); /* pop nil + table */
+    return 0;
+  }
+
+  lua_remove(L, -2); /* drop the table, leave fn on top */
+
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+    fprintf(stderr, "bonsaiwm: keybind error: %s\n", lua_tostring(L, -1));
+    lua_pop(L, 1);
+    return 0; /* error counts as unhandled so the key isn't swallowed */
+  }
+  return 1;
 }
 
 void bonsaiwm_lua_hook(const char *event, int nargs) {
@@ -155,6 +231,9 @@ lua_State *bonsaiwm_lua_init(void) {
   lua_setfield(L, LUA_REGISTRYINDEX, "_bonsaiwm_hooks");
 
   lua_newtable(L);
+  lua_setfield(L, LUA_REGISTRYINDEX, "_bonsaiwm_keybinds");
+
+  lua_newtable(L);
   luaL_setfuncs(
       L,
       (const luaL_Reg[]){{"set_gaps", bonsaiwm_set_gaps},
@@ -163,12 +242,31 @@ lua_State *bonsaiwm_lua_init(void) {
                          {"set_focus_color", bonsaiwm_set_focus_color},
                          {"set_urgent_color", bonsaiwm_set_urgent_color},
                          {"set_root_color", bonsaiwm_set_root_color},
+                         {"bind_key", bonsaiwm_bind_key},
                          {"log", bonsaiwm_log},
                          {"exec", bonsaiwm_exec},
                          {"exec_once", bonsaiwm_exec_once},
+                         {"spawn", bonsaiwm_spawn},
                          {"on", bonsaiwm_on},
                          {NULL, NULL}},
       0);
+
+  /* Expose the mod constants as bonsaiwm.mod.{shift,caps,ctrl,alt,mod2,logo} */
+  lua_newtable(L);
+  lua_pushinteger(L, WLR_MODIFIER_SHIFT);
+  lua_setfield(L, -2, "shift");
+  lua_pushinteger(L, WLR_MODIFIER_CAPS);
+  lua_setfield(L, -2, "caps");
+  lua_pushinteger(L, WLR_MODIFIER_CTRL);
+  lua_setfield(L, -2, "ctrl");
+  lua_pushinteger(L, WLR_MODIFIER_ALT);
+  lua_setfield(L, -2, "alt");
+  lua_pushinteger(L, WLR_MODIFIER_MOD2);
+  lua_setfield(L, -2, "mod2");
+  lua_pushinteger(L, WLR_MODIFIER_LOGO);
+  lua_setfield(L, -2, "logo");
+  lua_setfield(L, -2, "mod");
+
   lua_setglobal(L, "bonsaiwm");
 
   return L;
@@ -189,6 +287,11 @@ void bonsaiwm_lua_load_config(const char *path) {
    * table and restore the old one untouched. */
   lua_newtable(L);
   lua_setfield(L, LUA_REGISTRYINDEX, "_bonsaiwm_hooks");
+
+  /* Clear the keybind registry too, so a reloaded config starts fresh.
+   * Same atomic-replace rationale as for hooks. */
+  lua_newtable(L);
+  lua_setfield(L, LUA_REGISTRYINDEX, "_bonsaiwm_keybinds");
 
   if (luaL_dofile(L, path) != LUA_OK) {
     fprintf(stderr, "bonsaiwm: lua error in %s: %s\n", path,

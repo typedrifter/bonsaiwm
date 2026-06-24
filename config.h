@@ -149,7 +149,7 @@ static const Key keys[] = {
     /* modifier                  key                  function          argument
      */
     {MODKEY, XKB_KEY_p, spawn, {.v = menucmd}},
-    {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_Return, spawn, {.v = termcmd}},
+    /* {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_Return, spawn, {.v = termcmd}}, */
     {MODKEY, XKB_KEY_j, focusstack, {.i = +1}},
     {MODKEY, XKB_KEY_k, focusstack, {.i = -1}},
     {MODKEY, XKB_KEY_i, incnmaster, {.i = +1}},
@@ -162,6 +162,7 @@ static const Key keys[] = {
     {MODKEY, XKB_KEY_t, setlayout, {.v = &layouts[0]}},
     {MODKEY, XKB_KEY_f, setlayout, {.v = &layouts[1]}},
     {MODKEY, XKB_KEY_m, setlayout, {.v = &layouts[2]}},
+    {MODKEY, XKB_KEY_z, setlayout, {.v = &layouts[3]}},
     {MODKEY, XKB_KEY_space, setlayout, {0}},
     {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_space, togglefloating, {0}},
     {MODKEY, XKB_KEY_e, togglefullscreen, {0}},
@@ -197,6 +198,7 @@ static const Key keys[] = {
     {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_g, defaultgaps, {0}},
     {MODKEY, XKB_KEY_Up, incgaps, {.i = +1}},
     {MODKEY, XKB_KEY_Down, incgaps, {.i = -1}},
+    {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_r, reloadconfig, {0}},
 #define CHVT(n)                                                                \
   {                                                                            \
     WLR_MODIFIER_CTRL | WLR_MODIFIER_ALT, XKB_KEY_XF86Switch_VT_##n, chvt, {   \
