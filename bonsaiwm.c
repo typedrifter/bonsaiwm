@@ -1578,7 +1578,7 @@ void setnmaster(int n) {
 void adjustnmaster(int delta) {
   if (!selmon)
     return;
-  selmon->nmaster = MAX((int)selmon->nmaster + delta, 0);
+  selmon->nmaster = MAX(selmon->nmaster + delta, 0);
   arrange(selmon);
 }
 
@@ -1589,6 +1589,8 @@ void togglegaps(const Arg *arg) {
 }
 
 void setgaps(int oh, int ov, int ih, int iv) {
+  if (!selmon)
+    return;
   selmon->gappoh = MAX(oh, 0); /* clamp to minimum 0 */
   selmon->gappov = MAX(ov, 0);
   selmon->gappih = MAX(ih, 0);
