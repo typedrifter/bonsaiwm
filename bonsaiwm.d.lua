@@ -10,6 +10,17 @@ bonsaiwm = {}
 ---@param iv integer Inner gap, vertical (between rows)
 function bonsaiwm.set_gaps(oh, ov, ih, iv) end
 
+---Set border width in pixels on all clients.
+---@param px integer Border width in pixels
+function bonsaiwm.set_border_width(px) end
+
+---Set border color.
+---@param r integer Red (0-255)
+---@param g integer Green (0-255)
+---@param b integer Blue (0-255)
+---@param a number Alpha (0-1)
+function bonsaiwm.set_border_color(r, g, b, a) end
+
 ---Print a message to stderr with a [bonsaiwm] prefix.
 ---Use this for debugging your config.lua.
 ---@param msg string Message to print

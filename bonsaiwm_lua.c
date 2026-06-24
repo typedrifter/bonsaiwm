@@ -25,6 +25,23 @@ static int bonsaiwm_set_gaps(lua_State *luaL) {
   return 0;
 }
 
+/* Set border width on all clients. Mirrors the setborderwidth() C keybinding. */
+static int bonsaiwm_set_border_width(lua_State *luaL) {
+  unsigned int px = luaL_checkinteger(luaL, 1);
+  setborderwidth(px);
+  return 0;
+}
+
+/* Set border color on all clients. Mirrors the setbordercolor() C keybinding. */
+static int bonsaiwm_set_border_color(lua_State *luaL) {
+  float a = luaL_checknumber(L, 4);
+  float r = luaL_checknumber(L, 1) / 255.0f * a;
+  float g = luaL_checknumber(L, 2) / 255.0f * a;
+  float b = luaL_checknumber(L, 3) / 255.0f * a;
+  setbordercolor(r, g, b, a);
+  return 0;
+}
+
 /* Log to stderr. */
 static int bonsaiwm_log(lua_State *luaL) {
   const char *msg = luaL_checkstring(luaL, 1);
@@ -108,14 +125,17 @@ lua_State *bonsaiwm_lua_init(void) {
   lua_setfield(L, LUA_REGISTRYINDEX, "_bonsaiwm_hooks");
 
   lua_newtable(L);
-  luaL_setfuncs(L,
-                 (const luaL_Reg[]){{"set_gaps", bonsaiwm_set_gaps},
-                                    {"log", bonsaiwm_log},
-                                    {"exec", bonsaiwm_exec},
-                                    {"exec_once", bonsaiwm_exec_once},
-                                    {"on", bonsaiwm_on},
-                                    {NULL, NULL}},
-                 0);
+  luaL_setfuncs(
+      L,
+      (const luaL_Reg[]){{"set_gaps", bonsaiwm_set_gaps},
+                         {"set_border_width", bonsaiwm_set_border_width},
+                         {"set_border_color", bonsaiwm_set_border_color},
+                         {"log", bonsaiwm_log},
+                         {"exec", bonsaiwm_exec},
+                         {"exec_once", bonsaiwm_exec_once},
+                         {"on", bonsaiwm_on},
+                         {NULL, NULL}},
+      0);
   lua_setglobal(L, "bonsaiwm");
 
   return L;

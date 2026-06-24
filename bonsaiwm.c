@@ -1583,6 +1583,32 @@ void incgaps(const Arg *arg) {
 /* Reset to config defaults (Super+Shift+) */
 void defaultgaps(const Arg *arg) { setgaps(gappoh, gappov, gappih, gappiv); }
 
+/* Set border width on all clients. */
+void setborderwidth(unsigned int px) {
+  borderpx = px;
+  Client *c;
+  wl_list_for_each(c, &clients, link) c->bw = c->isfullscreen ? 0 : borderpx;
+  arrange(selmon);
+}
+
+/* Set border color on all clients. */
+void setbordercolor(float r, float g, float b, float a) {
+  bordercolor[0] = r;
+  bordercolor[1] = g;
+  bordercolor[2] = b;
+  bordercolor[3] = a;
+  /* Re-color existing clients by re-focusing */
+  Client *c;
+  wl_list_for_each(c, &clients, link) {
+    if (c->isurgent)
+      client_set_border_color(c, urgentcolor);
+    else if (c == focustop(c->mon))
+      client_set_border_color(c, focuscolor);
+    else
+      client_set_border_color(c, bordercolor);
+  }
+}
+
 void inputdevice(struct wl_listener *listener, void *data) {
   /* This event is raised by the backend when a new input device becomes
    * available. */

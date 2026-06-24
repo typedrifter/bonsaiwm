@@ -20,6 +20,29 @@ Outer gaps pad the screen edges. Inner gaps go between windows.
 
 ---
 
+## `bonsaiwm.set_border_width`
+
+Set border width in pixels on all clients.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `px` | `integer` | Border width in pixels |
+
+---
+
+## `bonsaiwm.set_border_color`
+
+Set border color.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `r` | `integer` | Red (0-255) |
+| `g` | `integer` | Green (0-255) |
+| `b` | `integer` | Blue (0-255) |
+| `a` | `number` | Alpha (0-1) |
+
+---
+
 ## `bonsaiwm.log`
 
 Print a message to stderr with a [bonsaiwm] prefix.
