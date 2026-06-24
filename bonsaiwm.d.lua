@@ -10,6 +10,15 @@ bonsaiwm = {}
 ---@param iv integer Inner gap, vertical (between rows)
 function bonsaiwm.set_gaps(oh, ov, ih, iv) end
 
+---Adjust all four gaps by the same delta, in pixels.
+---
+---Positive values grow the gaps, negative values shrink them. Clamped to 0.
+---@param delta integer Pixels to add (or subtract) from every gap
+function bonsaiwm.adjust_gaps(delta) end
+
+---Reset all gaps to the config defaults.
+function bonsaiwm.default_gaps() end
+
 ---Set border width in pixels on all clients.
 ---@param px integer Border width in pixels
 function bonsaiwm.set_border_width(px) end

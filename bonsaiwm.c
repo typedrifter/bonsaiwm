@@ -1588,6 +1588,15 @@ void incgaps(const Arg *arg) {
 /* Reset to config defaults (Super+Shift+) */
 void defaultgaps(const Arg *arg) { setgaps(gappoh, gappov, gappih, gappiv); }
 
+/* Adjust all gaps by delta pixels. Mirrors the incgaps() keybinding. */
+void adjustgaps(int delta) {
+  setgaps(selmon->gappoh + delta, selmon->gappov + delta,
+          selmon->gappih + delta, selmon->gappiv + delta);
+}
+
+/* Reset gaps to config.h defaults. Mirrors the defaultgaps() keybinding. */
+void resetgaps(void) { setgaps(gappoh, gappov, gappih, gappiv); }
+
 /* Set border width on all clients. */
 void setborderwidth(unsigned int px) {
   borderpx = px;

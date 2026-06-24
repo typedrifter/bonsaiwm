@@ -29,6 +29,19 @@ static int bonsaiwm_set_gaps(lua_State *luaL) {
   return 0;
 }
 
+/* Adjust all gaps by delta pixels. Mirrors the adjustgaps() C function. */
+static int bonsaiwm_adjust_gaps(lua_State *luaL) {
+  int delta = luaL_checkinteger(luaL, 1);
+  adjustgaps(delta);
+  return 0;
+}
+
+/* Reset gaps to config defaults. Mirrors the resetgaps() C function. */
+static int bonsaiwm_default_gaps(lua_State *luaL) {
+  resetgaps();
+  return 0;
+}
+
 /* Set border width on all clients. Mirrors the setborderwidth() C keybinding. */
 static int bonsaiwm_set_border_width(lua_State *luaL) {
   unsigned int px = luaL_checkinteger(luaL, 1);
@@ -237,6 +250,8 @@ lua_State *bonsaiwm_lua_init(void) {
   luaL_setfuncs(
       L,
       (const luaL_Reg[]){{"set_gaps", bonsaiwm_set_gaps},
+                         {"adjust_gaps", bonsaiwm_adjust_gaps},
+                         {"default_gaps", bonsaiwm_default_gaps},
                          {"set_border_width", bonsaiwm_set_border_width},
                          {"set_border_color", bonsaiwm_set_border_color},
                          {"set_focus_color", bonsaiwm_set_focus_color},

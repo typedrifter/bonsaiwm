@@ -20,6 +20,23 @@ Outer gaps pad the screen edges. Inner gaps go between windows.
 
 ---
 
+## `bonsaiwm.adjust_gaps`
+
+Adjust all four gaps by the same delta, in pixels.
+Positive values grow the gaps, negative values shrink them. Clamped to 0.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `delta` | `integer` | Pixels to add (or subtract) from every gap |
+
+---
+
+## `bonsaiwm.default_gaps`
+
+Reset all gaps to the config defaults.
+
+---
+
 ## `bonsaiwm.set_border_width`
 
 Set border width in pixels on all clients.
