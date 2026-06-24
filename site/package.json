@@ -3,10 +3,9 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "generate-lua-docs": "tsx ../scripts/generate-docs.ts",
-    "predev": "mkdir -p src/content/docs/references && cp ../docs/* src/content/docs/references/",
+    "predev": "tsx ../scripts/generate-docs.ts && mkdir -p src/content/docs/references && cp ../docs/* src/content/docs/references/ -r",
     "dev": "astro dev",
-    "prebuild": "mkdir -p src/content/docs/references && cp ../docs/* src/content/docs/references/",
+    "prebuild": "tsx ../scripts/generate-docs.ts && mkdir -p src/content/docs/references && cp ../docs/* src/content/docs/references/ -r",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro"
