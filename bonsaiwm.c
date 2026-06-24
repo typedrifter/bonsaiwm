@@ -1566,6 +1566,22 @@ void incnmaster(const Arg *arg) {
   arrange(selmon);
 }
 
+/* Set nmaster absolutely. Mirrors incnmaster() keybinding. */
+void setnmaster(int n) {
+  if (!selmon)
+    return;
+  selmon->nmaster = MAX(n, 0);
+  arrange(selmon);
+}
+
+/* Adjust nmaster by delta. Mirrors incnmaster() keybinding. */
+void adjustnmaster(int delta) {
+  if (!selmon)
+    return;
+  selmon->nmaster = MAX((int)selmon->nmaster + delta, 0);
+  arrange(selmon);
+}
+
 /* toggle gaps on/off (Super+0) */
 void togglegaps(const Arg *arg) {
   enablegaps = !enablegaps;
@@ -2449,6 +2465,30 @@ void setmfact(const Arg *arg) {
     return;
   selmon->mfact = f;
   arrange(selmon);
+}
+
+/* Set mfact absolutely (0.1 to 0.9). Mirrors setmfact() keybinding. */
+int setmfact_val(float f) {
+  if (!selmon || !selmon->lt[selmon->sellt]->arrange)
+    return 0;
+  if (f < 0.1f || f > 0.9f)
+    return -1;
+  selmon->mfact = f;
+  arrange(selmon);
+  return 0;
+}
+
+/* Adjust mfact by delta. Mirrors setmfact() keybinding. Returns -1 if the
+ * result would fall outside the 0.1-0.9 range. */
+int adjustmfact(float delta) {
+  if (!selmon || !selmon->lt[selmon->sellt]->arrange)
+    return 0;
+  float f = selmon->mfact + delta;
+  if (f < 0.1f || f > 0.9f)
+    return -1;
+  selmon->mfact = f;
+  arrange(selmon);
+  return 0;
 }
 
 void setmon(Client *c, Monitor *m, uint32_t newtags) {

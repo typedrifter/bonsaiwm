@@ -9,6 +9,10 @@
 void setgaps(int oh, int ov, int ih, int iv);
 void adjustgaps(int delta);
 void resetgaps(void);
+void setnmaster(int n);
+void adjustnmaster(int delta);
+int setmfact_val(float f);
+int adjustmfact(float delta);
 void setborderwidth(unsigned int px);
 void setbordercolor(float r, float g, float b, float a);
 void setfocuscolor(float r, float g, float b, float a);

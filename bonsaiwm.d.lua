@@ -19,6 +19,32 @@ function bonsaiwm.adjust_gaps(delta) end
 ---Reset all gaps to the config defaults.
 function bonsaiwm.default_gaps() end
 
+---Set the master area ratio absolutely.
+---
+---Only meaningful on tiling layouts. Values outside 0.1-0.9 are rejected
+---and logged to stderr; the existing mfact is left unchanged.
+---@param f number Master area ratio (0.1 to 0.9)
+function bonsaiwm.set_mfact(f) end
+
+---Adjust the master area ratio by a delta.
+---
+---Only meaningful on tiling layouts. If the result would fall outside
+---0.1-0.9 the change is rejected and logged to stderr.
+---@param delta number Ratio delta (e.g. +0.05 or -0.05)
+function bonsaiwm.adjust_mfact(delta) end
+
+---Set the number of master windows absolutely on the selected monitor.
+---
+---Values are clamped to a minimum of 0.
+---@param n integer Number of master windows (>= 0)
+function bonsaiwm.set_nmaster(n) end
+
+---Adjust the number of master windows by a delta on the selected monitor.
+---
+---Values are clamped to a minimum of 0.
+---@param delta integer Number of master windows to add or remove (e.g. +1 or -1)
+function bonsaiwm.adjust_nmaster(delta) end
+
 ---Set border width in pixels on all clients.
 ---@param px integer Border width in pixels
 function bonsaiwm.set_border_width(px) end

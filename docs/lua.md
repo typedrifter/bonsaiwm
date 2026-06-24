@@ -37,6 +37,52 @@ Reset all gaps to the config defaults.
 
 ---
 
+## `bonsaiwm.set_mfact`
+
+Set the master area ratio absolutely.
+Only meaningful on tiling layouts. Values outside 0.1-0.9 are rejected
+and logged to stderr; the existing mfact is left unchanged.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `f` | `number` | Master area ratio (0.1 to 0.9) |
+
+---
+
+## `bonsaiwm.adjust_mfact`
+
+Adjust the master area ratio by a delta.
+Only meaningful on tiling layouts. If the result would fall outside
+0.1-0.9 the change is rejected and logged to stderr.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `delta` | `number` | Ratio delta (e.g. +0.05 or -0.05) |
+
+---
+
+## `bonsaiwm.set_nmaster`
+
+Set the number of master windows absolutely on the selected monitor.
+Values are clamped to a minimum of 0.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `n` | `integer` | Number of master windows (>= 0) |
+
+---
+
+## `bonsaiwm.adjust_nmaster`
+
+Adjust the number of master windows by a delta on the selected monitor.
+Values are clamped to a minimum of 0.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `delta` | `integer` | Number of master windows to add or remove (e.g. +1 or -1) |
+
+---
+
 ## `bonsaiwm.set_border_width`
 
 Set border width in pixels on all clients.

@@ -42,6 +42,39 @@ static int bonsaiwm_default_gaps(lua_State *luaL) {
   return 0;
 }
 
+/* Set mfact absolutely (0.1 to 0.9). Mirrors the setmfact_val() C function. */
+static int bonsaiwm_set_mfact(lua_State *luaL) {
+  float f = luaL_checknumber(luaL, 1);
+  if (setmfact_val(f) == -1) {
+    fprintf(stderr, "bonsaiwm: set_mfact(%g) out of range (0.1-0.9)\n", f);
+  }
+  return 0;
+}
+
+/* Adjust mfact by delta. Mirrors the adjustmfact() C function. */
+static int bonsaiwm_adjust_mfact(lua_State *luaL) {
+  float delta = luaL_checknumber(luaL, 1);
+  if (adjustmfact(delta) == -1) {
+    fprintf(stderr, "bonsaiwm: adjust_mfact(%g) would exceed 0.1-0.9\n",
+            delta);
+  }
+  return 0;
+}
+
+/* Set nmaster absolutely. Mirrors the setnmaster() C function. */
+static int bonsaiwm_set_nmaster(lua_State *luaL) {
+  int n = luaL_checkinteger(luaL, 1);
+  setnmaster(n);
+  return 0;
+}
+
+/* Adjust nmaster by delta. Mirrors the adjustnmaster() C function. */
+static int bonsaiwm_adjust_nmaster(lua_State *luaL) {
+  int delta = luaL_checkinteger(luaL, 1);
+  adjustnmaster(delta);
+  return 0;
+}
+
 /* Set border width on all clients. Mirrors the setborderwidth() C keybinding. */
 static int bonsaiwm_set_border_width(lua_State *luaL) {
   unsigned int px = luaL_checkinteger(luaL, 1);
@@ -252,6 +285,10 @@ lua_State *bonsaiwm_lua_init(void) {
       (const luaL_Reg[]){{"set_gaps", bonsaiwm_set_gaps},
                          {"adjust_gaps", bonsaiwm_adjust_gaps},
                          {"default_gaps", bonsaiwm_default_gaps},
+                         {"set_mfact", bonsaiwm_set_mfact},
+                         {"adjust_mfact", bonsaiwm_adjust_mfact},
+                         {"set_nmaster", bonsaiwm_set_nmaster},
+                         {"adjust_nmaster", bonsaiwm_adjust_nmaster},
                          {"set_border_width", bonsaiwm_set_border_width},
                          {"set_border_color", bonsaiwm_set_border_color},
                          {"set_focus_color", bonsaiwm_set_focus_color},
