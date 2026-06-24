@@ -69,12 +69,16 @@ function bonsaiwm.exec_once(cmd) end
 --- - `"client_unmapped"`: a client window was hidden/unmapped. Receives app_id and title.
 --- - `"client_destroyed"`: a client window was destroyed. Receives app_id and title.
 --- - `"focus_change"`: focused client changed. Receives new and old app_id/title (nil if none).
+--- - `"monitor_created"`: a new output was connected. Receives the monitor name.
+--- - `"monitor_destroyed"`: an output was disconnected. Receives the monitor name.
 ---@overload fun(event: "arrange", callback: fun(layout: string))
 ---@overload fun(event: "tag_switch", callback: fun())
 ---@overload fun(event: "client_mapped", callback: fun(app_id: string, title: string))
 ---@overload fun(event: "client_unmapped", callback: fun(app_id: string, title: string))
 ---@overload fun(event: "client_destroyed", callback: fun(app_id: string, title: string))
 ---@overload fun(event: "focus_change", callback: fun(new_app: string?, new_title: string?, old_app: string?, old_title: string?))
+---@overload fun(event: "monitor_created", callback: fun(name: string))
+---@overload fun(event: "monitor_destroyed", callback: fun(name: string))
 ---@param event string Event name
 ---@param callback function Called when the event fires
 function bonsaiwm.on(event, callback) end

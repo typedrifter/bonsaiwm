@@ -744,6 +744,7 @@ void cleanupmon(struct wl_listener *listener, void *data) {
   Monitor *m = wl_container_of(listener, m, destroy);
   LayerSurface *l, *tmp;
   size_t i;
+  const char *name = m->wlr_output->name;
 
   /* m->layers[i] are intentionally not unlinked */
   for (i = 0; i < LENGTH(m->layers); i++) {
@@ -762,6 +763,8 @@ void cleanupmon(struct wl_listener *listener, void *data) {
   wlr_scene_output_destroy(m->scene_output);
 
   closemon(m);
+  lua_pushstring(L, name);
+  bonsaiwm_lua_hook("monitor_destroyed", 1); /* 1 = name */
   wlr_scene_node_destroy(&m->fullscreen_bg->node);
   free(m);
 }
@@ -1130,6 +1133,9 @@ void createmon(struct wl_listener *listener, void *data) {
     wlr_output_layout_add_auto(output_layout, wlr_output);
   else
     wlr_output_layout_add(output_layout, wlr_output, m->m.x, m->m.y);
+
+  lua_pushstring(L, wlr_output->name);
+  bonsaiwm_lua_hook("monitor_created", 1); /* 1 = name */
 }
 
 void createnotify(struct wl_listener *listener, void *data) {

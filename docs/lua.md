@@ -127,6 +127,8 @@ Available events:
 - `"client_unmapped"`: a client window was hidden/unmapped. Receives app_id and title.
 - `"client_destroyed"`: a client window was destroyed. Receives app_id and title.
 - `"focus_change"`: focused client changed. Receives new and old app_id/title (nil if none).
+- `"monitor_created"`: a new output was connected. Receives the monitor name.
+- `"monitor_destroyed"`: an output was disconnected. Receives the monitor name.
 
 ```lua
 function bonsaiwm.on(event: "arrange", callback: fun(layout: string))
@@ -150,6 +152,14 @@ function bonsaiwm.on(event: "client_destroyed", callback: fun(app_id: string, ti
 
 ```lua
 function bonsaiwm.on(event: "focus_change", callback: fun(new_app: string?, new_title: string?, old_app: string?, old_title: string?))
+```
+
+```lua
+function bonsaiwm.on(event: "monitor_created", callback: fun(name: string))
+```
+
+```lua
+function bonsaiwm.on(event: "monitor_destroyed", callback: fun(name: string))
 ```
 
 | Parameter | Type | Description |
