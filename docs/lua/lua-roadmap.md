@@ -1,5 +1,5 @@
 ---
-title: lua integration roadmap
+title: Integration roadmap
 ---
 
 # Lua API Roadmap

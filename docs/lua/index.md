@@ -1,5 +1,5 @@
 ---
-title: Lua
+title: References
 
 ---
 # bonsaiwm Lua API Reference
@@ -59,6 +59,7 @@ Register a Lua callback for a compositor event.
 Only one hook per event is kept — registering again replaces the old one.
 If the callback errors, the message is logged to stderr and execution continues.
 Available events:
+
 - `"arrange"`: layout changed. Receives the layout symbol string.
 - `"tag_switch"`: viewed tags changed. Receives no arguments.
 - `"client_mapped"`: a new client window appeared. Receives app_id and title.
@@ -74,7 +75,7 @@ function bonsaiwm.on(event: "arrange", callback: fun(layout: string))
 function bonsaiwm.on(event: "tag_switch", callback: fun())
 ```
 
-```lua
+```lua wrap
 function bonsaiwm.on(event: "client_mapped", callback: fun(app_id: string, title: string))
 ```
 
