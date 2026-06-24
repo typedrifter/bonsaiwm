@@ -45,6 +45,18 @@ function bonsaiwm.set_nmaster(n) end
 ---@param delta integer Number of master windows to add or remove (e.g. +1 or -1)
 function bonsaiwm.adjust_nmaster(delta) end
 
+---Toggle focus-follows-mouse.
+---
+---When on, the window under the cursor receives focus as the pointer moves.
+---@param v integer 1 = enable, 0 = disable
+function bonsaiwm.set_sloppy_focus(v) end
+
+---Toggle smart gaps.
+---
+---When on, outer gaps are suppressed when only one tiled window is visible.
+---@param v integer 1 = enable, 0 = disable
+function bonsaiwm.set_smart_gaps(v) end
+
 ---Set border width in pixels on all clients.
 ---@param px integer Border width in pixels
 function bonsaiwm.set_border_width(px) end

@@ -1613,6 +1613,19 @@ void adjustgaps(int delta) {
 /* Reset gaps to config.h defaults. Mirrors the defaultgaps() keybinding. */
 void resetgaps(void) { setgaps(gappoh, gappov, gappih, gappiv); }
 
+/* Toggle focus-follows-mouse. 1 = on, 0 = off. */
+void setsloppyfocus(int v) {
+  sloppyfocus = v ? 1 : 0;
+  /* No arrange needed: read live by the motion handlers. */
+}
+
+/* Toggle smart gaps. 1 = no outer gap when only one window, 0 = always gap. */
+void setsmartgaps(int v) {
+  smartgaps = v ? 1 : 0;
+  if (selmon)
+    arrange(selmon); /* re-tile: smartgaps is read live in tile() */
+}
+
 /* Set border width on all clients. */
 void setborderwidth(unsigned int px) {
   borderpx = px;

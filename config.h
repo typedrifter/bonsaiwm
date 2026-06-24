@@ -3,7 +3,7 @@
   {((hex >> 24) & 0xFF) / 255.0f, ((hex >> 16) & 0xFF) / 255.0f,               \
    ((hex >> 8) & 0xFF) / 255.0f, (hex & 0xFF) / 255.0f}
 /* appearance */
-static const int sloppyfocus = 1; /* focus follows mouse */
+static int sloppyfocus = 1; /* focus follows mouse */
 static const int bypass_surface_visibility =
     0; /* 1 means idle inhibitors will disable idle tracking even if it's
           surface isn't visible  */
@@ -18,7 +18,7 @@ static const float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
                                       1.0f}; /* You can also use glsl colors */
 
 static int enablegaps = 1;       /* focus follows mouse */
-static const int smartgaps = 1;  /* 1 = no outer gap when only one window */
+static int smartgaps = 1;  /* 1 = no outer gap when only one window */
 static unsigned int gappih = 10; /* horiz inner gap between windows */
 static unsigned int gappiv = 10; /* vert inner gap between windows */
 static unsigned int gappoh =

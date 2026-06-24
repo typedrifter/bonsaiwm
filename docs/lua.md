@@ -83,6 +83,28 @@ Values are clamped to a minimum of 0.
 
 ---
 
+## `bonsaiwm.set_sloppy_focus`
+
+Toggle focus-follows-mouse.
+When on, the window under the cursor receives focus as the pointer moves.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `v` | `integer` | 1 = enable, 0 = disable |
+
+---
+
+## `bonsaiwm.set_smart_gaps`
+
+Toggle smart gaps.
+When on, outer gaps are suppressed when only one tiled window is visible.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `v` | `integer` | 1 = enable, 0 = disable |
+
+---
+
 ## `bonsaiwm.set_border_width`
 
 Set border width in pixels on all clients.

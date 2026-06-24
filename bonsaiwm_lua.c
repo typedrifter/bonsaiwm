@@ -75,6 +75,20 @@ static int bonsaiwm_adjust_nmaster(lua_State *luaL) {
   return 0;
 }
 
+/* Toggle focus-follows-mouse. Mirrors the setsloppyfocus() C function. */
+static int bonsaiwm_set_sloppy_focus(lua_State *luaL) {
+  int v = luaL_checkinteger(luaL, 1);
+  setsloppyfocus(v);
+  return 0;
+}
+
+/* Toggle smart gaps. Mirrors the setsmartgaps() C function. */
+static int bonsaiwm_set_smart_gaps(lua_State *luaL) {
+  int v = luaL_checkinteger(luaL, 1);
+  setsmartgaps(v);
+  return 0;
+}
+
 /* Set border width on all clients. Mirrors the setborderwidth() C keybinding. */
 static int bonsaiwm_set_border_width(lua_State *luaL) {
   unsigned int px = luaL_checkinteger(luaL, 1);
@@ -289,6 +303,8 @@ lua_State *bonsaiwm_lua_init(void) {
                          {"adjust_mfact", bonsaiwm_adjust_mfact},
                          {"set_nmaster", bonsaiwm_set_nmaster},
                          {"adjust_nmaster", bonsaiwm_adjust_nmaster},
+                         {"set_sloppy_focus", bonsaiwm_set_sloppy_focus},
+                         {"set_smart_gaps", bonsaiwm_set_smart_gaps},
                          {"set_border_width", bonsaiwm_set_border_width},
                          {"set_border_color", bonsaiwm_set_border_color},
                          {"set_focus_color", bonsaiwm_set_focus_color},
