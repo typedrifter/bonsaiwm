@@ -1609,6 +1609,43 @@ void setbordercolor(float r, float g, float b, float a) {
   }
 }
 
+/* Set focused border color on all clients. */
+void setfocuscolor(float r, float g, float b, float a) {
+  focuscolor[0] = r;
+  focuscolor[1] = g;
+  focuscolor[2] = b;
+  focuscolor[3] = a;
+  Client *c;
+  wl_list_for_each(c, &clients, link) {
+    if (c->isurgent)
+      continue;
+    if (c == focustop(c->mon))
+      client_set_border_color(c, focuscolor);
+  }
+}
+
+/* Set urgent border color on all clients. */
+void seturgentcolor(float r, float g, float b, float a) {
+  urgentcolor[0] = r;
+  urgentcolor[1] = g;
+  urgentcolor[2] = b;
+  urgentcolor[3] = a;
+  Client *c;
+  wl_list_for_each(c, &clients, link) {
+    if (c->isurgent)
+      client_set_border_color(c, urgentcolor);
+  }
+}
+
+/* Set desktop background color. */
+void setrootcolor(float r, float g, float b, float a) {
+  rootcolor[0] = r;
+  rootcolor[1] = g;
+  rootcolor[2] = b;
+  rootcolor[3] = a;
+  wlr_scene_rect_set_color(root_bg, rootcolor);
+}
+
 void inputdevice(struct wl_listener *listener, void *data) {
   /* This event is raised by the backend when a new input device becomes
    * available. */

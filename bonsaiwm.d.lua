@@ -21,6 +21,27 @@ function bonsaiwm.set_border_width(px) end
 ---@param a number Alpha (0-1)
 function bonsaiwm.set_border_color(r, g, b, a) end
 
+---Set focused border color.
+---@param r integer Red (0-255)
+---@param g integer Green (0-255)
+---@param b integer Blue (0-255)
+---@param a number Alpha (0-1)
+function bonsaiwm.set_focus_color(r, g, b, a) end
+
+---Set urgent border color.
+---@param r integer Red (0-255)
+---@param g integer Green (0-255)
+---@param b integer Blue (0-255)
+---@param a number Alpha (0-1)
+function bonsaiwm.set_urgent_color(r, g, b, a) end
+
+---Set desktop background color.
+---@param r integer Red (0-255)
+---@param g integer Green (0-255)
+---@param b integer Blue (0-255)
+---@param a number Alpha (0-1)
+function bonsaiwm.set_root_color(r, g, b, a) end
+
 ---Print a message to stderr with a [bonsaiwm] prefix.
 ---Use this for debugging your config.lua.
 ---@param msg string Message to print

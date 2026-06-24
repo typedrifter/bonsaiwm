@@ -43,6 +43,45 @@ Set border color.
 
 ---
 
+## `bonsaiwm.set_focus_color`
+
+Set focused border color.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `r` | `integer` | Red (0-255) |
+| `g` | `integer` | Green (0-255) |
+| `b` | `integer` | Blue (0-255) |
+| `a` | `number` | Alpha (0-1) |
+
+---
+
+## `bonsaiwm.set_urgent_color`
+
+Set urgent border color.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `r` | `integer` | Red (0-255) |
+| `g` | `integer` | Green (0-255) |
+| `b` | `integer` | Blue (0-255) |
+| `a` | `number` | Alpha (0-1) |
+
+---
+
+## `bonsaiwm.set_root_color`
+
+Set desktop background color.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `r` | `integer` | Red (0-255) |
+| `g` | `integer` | Green (0-255) |
+| `b` | `integer` | Blue (0-255) |
+| `a` | `number` | Alpha (0-1) |
+
+---
+
 ## `bonsaiwm.log`
 
 Print a message to stderr with a [bonsaiwm] prefix.
