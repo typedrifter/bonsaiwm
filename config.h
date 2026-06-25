@@ -3,7 +3,13 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <libinput.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <wayland-server-core.h>
+#include <wlr/types/wlr_keyboard.h>
+#include <wlr/types/wlr_output.h>
+#include <xkbcommon/xkbcommon.h>
 
 /* forward declaration of the compositor's Monitor type */
 typedef struct Monitor Monitor;

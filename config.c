@@ -1,13 +1,8 @@
 /* See LICENSE file for copyright and license details. */
 
-#include <libinput.h>
 #include <linux/input-event-codes.h>
-#include <wayland-server-core.h>
-#include <wlr/types/wlr_keyboard.h>
-#include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/util/log.h>
-#include <xkbcommon/xkbcommon.h>
 
 #include "config.h"
 
@@ -26,7 +21,7 @@ const float urgentcolor[] = COLOR(0xff0000ff);
 const float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
                                1.0f}; /* You can also use glsl colors */
 
-int enablegaps = 1;       /* focus follows mouse */
+int enablegaps = 1;       /* 1 = gaps enabled by default */
 const int smartgaps = 1;  /* 1 = no outer gap when only one window */
 unsigned int gappih = 10; /* horiz inner gap between windows */
 unsigned int gappiv = 10; /* vert inner gap between windows */
