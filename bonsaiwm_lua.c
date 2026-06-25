@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <libinput.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -13,6 +14,24 @@ lua_State *L = NULL;
 /* Whether the config has been loaded at least once, so exec_once
  * knows to skip on subsequent reloads. */
 static int config_loaded = 0;
+
+/* Runtime-state-dependent setters are loaded early now, before outputs
+ * exist. Calling them at the top level of config.lua is almost always a
+ * mistake (the user wants bonsaiwm.config.* instead). This macro raises a
+ * Lua error that includes the offending file:line and triggers the normal
+ * config-load rollback. */
+#define REQUIRE_BACKEND_OR_RAISE(luaL, name)                                   \
+  do {                                                                         \
+    if (!selmon) {                                                             \
+      luaL_where((luaL), 1);                                                   \
+      lua_pushfstring((luaL), "%s " name                                       \
+                             " called before backend_start; "                  \
+                             "use bonsaiwm.config.* fields instead",          \
+                      lua_tostring((luaL), -1));                               \
+      lua_concat((luaL), 2);                                                   \
+      return luaL_error((luaL), "%s", lua_tostring((luaL), -1));               \
+    }                                                                          \
+  } while (0)
 
 /* Lua callbacks receive their Lua state as the first argument by convention.
  * These are registered with luaL_setfuncs and called by the Lua VM, which
@@ -25,6 +44,7 @@ static int bonsaiwm_set_gaps(lua_State *luaL) {
   int ov = luaL_checkinteger(luaL, 2);
   int ih = luaL_checkinteger(luaL, 3);
   int iv = luaL_checkinteger(luaL, 4);
+  REQUIRE_BACKEND_OR_RAISE(luaL, "set_gaps");
   setgaps(oh, ov, ih, iv);
   return 0;
 }
@@ -32,12 +52,14 @@ static int bonsaiwm_set_gaps(lua_State *luaL) {
 /* Adjust all gaps by delta pixels. Mirrors the adjustgaps() C function. */
 static int bonsaiwm_adjust_gaps(lua_State *luaL) {
   int delta = luaL_checkinteger(luaL, 1);
+  REQUIRE_BACKEND_OR_RAISE(luaL, "adjust_gaps");
   adjustgaps(delta);
   return 0;
 }
 
 /* Reset gaps to config defaults. Mirrors the resetgaps() C function. */
 static int bonsaiwm_default_gaps(lua_State *luaL) {
+  REQUIRE_BACKEND_OR_RAISE(luaL, "default_gaps");
   resetgaps();
   return 0;
 }
@@ -45,6 +67,7 @@ static int bonsaiwm_default_gaps(lua_State *luaL) {
 /* Set mfact absolutely (0.1 to 0.9). Mirrors the setmfact_val() C function. */
 static int bonsaiwm_set_mfact(lua_State *luaL) {
   float f = luaL_checknumber(luaL, 1);
+  REQUIRE_BACKEND_OR_RAISE(luaL, "set_mfact");
   if (setmfact_val(f) == -1) {
     fprintf(stderr, "bonsaiwm: set_mfact(%g) out of range (0.1-0.9)\n", f);
   }
@@ -54,6 +77,7 @@ static int bonsaiwm_set_mfact(lua_State *luaL) {
 /* Adjust mfact by delta. Mirrors the adjustmfact() C function. */
 static int bonsaiwm_adjust_mfact(lua_State *luaL) {
   float delta = luaL_checknumber(luaL, 1);
+  REQUIRE_BACKEND_OR_RAISE(luaL, "adjust_mfact");
   if (adjustmfact(delta) == -1) {
     fprintf(stderr, "bonsaiwm: adjust_mfact(%g) would exceed 0.1-0.9\n",
             delta);
@@ -64,6 +88,7 @@ static int bonsaiwm_adjust_mfact(lua_State *luaL) {
 /* Set nmaster absolutely. Mirrors the setnmaster() C function. */
 static int bonsaiwm_set_nmaster(lua_State *luaL) {
   int n = luaL_checkinteger(luaL, 1);
+  REQUIRE_BACKEND_OR_RAISE(luaL, "set_nmaster");
   setnmaster(n);
   return 0;
 }
@@ -71,6 +96,7 @@ static int bonsaiwm_set_nmaster(lua_State *luaL) {
 /* Adjust nmaster by delta. Mirrors the adjustnmaster() C function. */
 static int bonsaiwm_adjust_nmaster(lua_State *luaL) {
   int delta = luaL_checkinteger(luaL, 1);
+  REQUIRE_BACKEND_OR_RAISE(luaL, "adjust_nmaster");
   adjustnmaster(delta);
   return 0;
 }
@@ -85,6 +111,7 @@ static int bonsaiwm_set_sloppy_focus(lua_State *luaL) {
 /* Toggle smart gaps. Mirrors the setsmartgaps() C function. */
 static int bonsaiwm_set_smart_gaps(lua_State *luaL) {
   int v = luaL_checkinteger(luaL, 1);
+  REQUIRE_BACKEND_OR_RAISE(luaL, "set_smart_gaps");
   setsmartgaps(v);
   return 0;
 }
@@ -92,46 +119,50 @@ static int bonsaiwm_set_smart_gaps(lua_State *luaL) {
 /* Set border width on all clients. Mirrors the setborderwidth() C keybinding. */
 static int bonsaiwm_set_border_width(lua_State *luaL) {
   unsigned int px = luaL_checkinteger(luaL, 1);
+  REQUIRE_BACKEND_OR_RAISE(luaL, "set_border_width");
   setborderwidth(px);
   return 0;
 }
 
 /* Set border color on all clients. Mirrors the setbordercolor() C keybinding. */
 static int bonsaiwm_set_border_color(lua_State *luaL) {
-  float a = luaL_checknumber(L, 4);
-  float r = luaL_checknumber(L, 1) / 255.0f * a;
-  float g = luaL_checknumber(L, 2) / 255.0f * a;
-  float b = luaL_checknumber(L, 3) / 255.0f * a;
+  float a = luaL_checknumber(luaL, 4);
+  float r = luaL_checknumber(luaL, 1) / 255.0f * a;
+  float g = luaL_checknumber(luaL, 2) / 255.0f * a;
+  float b = luaL_checknumber(luaL, 3) / 255.0f * a;
+  REQUIRE_BACKEND_OR_RAISE(luaL, "set_border_color");
   setbordercolor(r, g, b, a);
   return 0;
 }
 
 /* Set focused border color. Mirrors the setfocuscolor() C function. */
 static int bonsaiwm_set_focus_color(lua_State *luaL) {
-  float a = luaL_checknumber(L, 4);
-  float r = luaL_checknumber(L, 1) / 255.0f * a;
-  float g = luaL_checknumber(L, 2) / 255.0f * a;
-  float b = luaL_checknumber(L, 3) / 255.0f * a;
+  float a = luaL_checknumber(luaL, 4);
+  float r = luaL_checknumber(luaL, 1) / 255.0f * a;
+  float g = luaL_checknumber(luaL, 2) / 255.0f * a;
+  float b = luaL_checknumber(luaL, 3) / 255.0f * a;
+  REQUIRE_BACKEND_OR_RAISE(luaL, "set_focus_color");
   setfocuscolor(r, g, b, a);
   return 0;
 }
 
 /* Set urgent border color. Mirrors the seturgentcolor() C function. */
 static int bonsaiwm_set_urgent_color(lua_State *luaL) {
-  float a = luaL_checknumber(L, 4);
-  float r = luaL_checknumber(L, 1) / 255.0f * a;
-  float g = luaL_checknumber(L, 2) / 255.0f * a;
-  float b = luaL_checknumber(L, 3) / 255.0f * a;
+  float a = luaL_checknumber(luaL, 4);
+  float r = luaL_checknumber(luaL, 1) / 255.0f * a;
+  float g = luaL_checknumber(luaL, 2) / 255.0f * a;
+  float b = luaL_checknumber(luaL, 3) / 255.0f * a;
+  REQUIRE_BACKEND_OR_RAISE(luaL, "set_urgent_color");
   seturgentcolor(r, g, b, a);
   return 0;
 }
 
 /* Set desktop background color. Mirrors the setrootcolor() C function. */
 static int bonsaiwm_set_root_color(lua_State *luaL) {
-  float a = luaL_checknumber(L, 4);
-  float r = luaL_checknumber(L, 1) / 255.0f * a;
-  float g = luaL_checknumber(L, 2) / 255.0f * a;
-  float b = luaL_checknumber(L, 3) / 255.0f * a;
+  float a = luaL_checknumber(luaL, 4);
+  float r = luaL_checknumber(luaL, 1) / 255.0f * a;
+  float g = luaL_checknumber(luaL, 2) / 255.0f * a;
+  float b = luaL_checknumber(luaL, 3) / 255.0f * a;
   setrootcolor(r, g, b, a);
   return 0;
 }
@@ -217,6 +248,13 @@ static int bonsaiwm_on(lua_State *luaL) {
   /* Clean up: pop the hooks table */
   lua_pop(luaL, 1);
 
+  return 0;
+}
+
+/* Request a config reload from Lua. Mirrors the C reloadconfig keybinding. */
+static int bonsaiwm_reload(lua_State *luaL) {
+  (void)luaL;
+  bonsaiwm_request_reload();
   return 0;
 }
 
@@ -315,11 +353,16 @@ lua_State *bonsaiwm_lua_init(void) {
                          {"exec", bonsaiwm_exec},
                          {"exec_once", bonsaiwm_exec_once},
                          {"spawn", bonsaiwm_spawn},
-                         {"on", bonsaiwm_on},
-                         {NULL, NULL}},
+                          {"on", bonsaiwm_on},
+                          {"reload", bonsaiwm_reload},
+                          {NULL, NULL}},
       0);
 
-  /* Expose the mod constants as bonsaiwm.mod.{shift,caps,ctrl,alt,mod2,logo} */
+  /* Expose constants under bonsaiwm.const.* so the API namespace stays
+   * clean as more enum/flag vocabularies are added. */
+  lua_newtable(L);
+
+  /* bonsaiwm.const.mod.{shift,caps,ctrl,alt,mod2,logo} */
   lua_newtable(L);
   lua_pushinteger(L, WLR_MODIFIER_SHIFT);
   lua_setfield(L, -2, "shift");
@@ -335,9 +378,196 @@ lua_State *bonsaiwm_lua_init(void) {
   lua_setfield(L, -2, "logo");
   lua_setfield(L, -2, "mod");
 
+  /* bonsaiwm.const.accel_profile.{adaptive,flat} */
+  lua_newtable(L);
+  lua_pushinteger(L, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE);
+  lua_setfield(L, -2, "adaptive");
+  lua_pushinteger(L, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT);
+  lua_setfield(L, -2, "flat");
+  lua_setfield(L, -2, "accel_profile");
+
+  lua_setfield(L, -2, "const");
+
   lua_setglobal(L, "bonsaiwm");
 
   return L;
+}
+
+/* Read helpers for bonsaiwm.config.* fields. Each helper:
+ *  - pushes bonsaiwm.config.<group>.<field>
+ *  - if the value is present and has a compatible type, writes it to *target
+ *  - if the value is nil/missing, leaves *target unchanged (incremental override)
+ *  - cleans up the Lua stack
+ */
+static void get_int(lua_State *L, const char *group, const char *field,
+                    int *target) {
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "config");
+  lua_getfield(L, -1, group);
+  lua_getfield(L, -1, field);
+  if (lua_isnumber(L, -1))
+    *target = (int)lua_tointeger(L, -1);
+  lua_pop(L, 4);
+}
+
+static void get_uint(lua_State *L, const char *group, const char *field,
+                     unsigned int *target) {
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "config");
+  lua_getfield(L, -1, group);
+  lua_getfield(L, -1, field);
+  if (lua_isnumber(L, -1))
+    *target = (unsigned int)lua_tointeger(L, -1);
+  lua_pop(L, 4);
+}
+
+static void get_bool(lua_State *L, const char *group, const char *field,
+                     int *target) {
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "config");
+  lua_getfield(L, -1, group);
+  lua_getfield(L, -1, field);
+  if (lua_isboolean(L, -1))
+    *target = lua_toboolean(L, -1);
+  lua_pop(L, 4);
+}
+
+static void get_double(lua_State *L, const char *group, const char *field,
+                       double *target) {
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "config");
+  lua_getfield(L, -1, group);
+  lua_getfield(L, -1, field);
+  if (lua_isnumber(L, -1))
+    *target = lua_tonumber(L, -1);
+  lua_pop(L, 4);
+}
+
+/* Positional RGBA as used in bonsaiwm.config.appearance.colors.*.
+ * Components are r,g,b in 0-255 and a in 0-1. The stored values are
+ * premultiplied by alpha, matching the existing set_border_color-style
+ * setter behavior. */
+static void get_rgba(lua_State *L, const char *group, const char *table,
+                     const char *field, float target[4]) {
+  int i, ok;
+  float buf[4] = {0}, a;
+
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "config");
+  lua_getfield(L, -1, group);
+  lua_getfield(L, -1, table);
+  lua_getfield(L, -1, field);
+
+  if (lua_istable(L, -1)) {
+    ok = 1;
+    for (i = 0; i < 4 && ok; i++) {
+      lua_rawgeti(L, -1, i + 1);
+      if (lua_isnumber(L, -1))
+        buf[i] = (float)lua_tonumber(L, -1);
+      else
+        ok = 0;
+      lua_pop(L, 1);
+    }
+    if (ok) {
+      a = buf[3];
+      target[0] = buf[0] / 255.0f * a;
+      target[1] = buf[1] / 255.0f * a;
+      target[2] = buf[2] / 255.0f * a;
+      target[3] = a;
+    }
+  }
+
+  lua_pop(L, 5);
+}
+
+/* Assign one xkb_rule_names field, freeing a previous dynamically allocated
+ * value if any. target->* are const char *, but we own the memory we set. */
+static void set_xkb_field(struct xkb_rule_names *target, int idx,
+                          const char *value) {
+  switch (idx) {
+  case 0:
+    free((void *)target->rules);
+    target->rules = value;
+    break;
+  case 1:
+    free((void *)target->model);
+    target->model = value;
+    break;
+  case 2:
+    free((void *)target->layout);
+    target->layout = value;
+    break;
+  case 3:
+    free((void *)target->variant);
+    target->variant = value;
+    break;
+  case 4:
+    free((void *)target->options);
+    target->options = value;
+    break;
+  }
+}
+
+static void get_xkb_rules(lua_State *L, struct xkb_rule_names *target) {
+  static const char *fields[] = {"rules", "model", "layout", "variant",
+                                 "options"};
+  int i;
+  const char *s;
+
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "config");
+  lua_getfield(L, -1, "keyboard");
+  lua_getfield(L, -1, "xkb_rules");
+
+  if (lua_istable(L, -1)) {
+    for (i = 0; i < 5; i++) {
+      lua_getfield(L, -1, fields[i]);
+      if (lua_isstring(L, -1) && lua_rawlen(L, -1) > 0) {
+        s = lua_tostring(L, -1);
+        set_xkb_field(target, i, strdup(s));
+      } else if (lua_isnil(L, -1)) {
+        set_xkb_field(target, i, NULL);
+      }
+      lua_pop(L, 1);
+    }
+  }
+
+  lua_pop(L, 4);
+}
+
+/* Sink bonsaiwm.config.* fields into the C globals read by createmon,
+ * createkeyboardgroup, createpointer, and setup. Fields that are absent
+ * leave the current C value intact, so config.h remains the boot-safe
+ * fallback for anything not overridden in config.lua. */
+static void apply_config(lua_State *L) {
+  int tmp = accel_profile;
+
+  get_uint(L, "appearance", "border_width", &borderpx);
+  get_bool(L, "appearance", "sloppy_focus", &sloppyfocus);
+  get_rgba(L, "appearance", "colors", "root", rootcolor);
+  get_rgba(L, "appearance", "colors", "border", bordercolor);
+  get_rgba(L, "appearance", "colors", "focus", focuscolor);
+  get_rgba(L, "appearance", "colors", "urgent", urgentcolor);
+  get_rgba(L, "appearance", "colors", "fullscreen", fullscreen_bg);
+
+  get_bool(L, "gaps", "enabled", &enablegaps);
+  get_bool(L, "gaps", "smart", &smartgaps);
+  get_uint(L, "gaps", "outer_h", &gappoh);
+  get_uint(L, "gaps", "outer_v", &gappov);
+  get_uint(L, "gaps", "inner_h", &gappih);
+  get_uint(L, "gaps", "inner_v", &gappiv);
+
+  get_int(L, "keyboard", "repeat_rate", &repeat_rate);
+  get_int(L, "keyboard", "repeat_delay", &repeat_delay);
+  get_xkb_rules(L, &xkb_rules);
+
+  get_bool(L, "input", "tap_to_click", &tap_to_click);
+  get_bool(L, "input", "natural_scrolling", &natural_scrolling);
+  get_bool(L, "input", "disable_while_typing", &disable_while_typing);
+  get_int(L, "input", "accel_profile", &tmp);
+  accel_profile = (enum libinput_config_accel_profile)tmp;
+  get_double(L, "input", "accel_speed", &accel_speed);
+  get_bool(L, "input", "left_handed", &left_handed);
 }
 
 void bonsaiwm_lua_load_config(const char *path) {
@@ -367,15 +597,18 @@ void bonsaiwm_lua_load_config(const char *path) {
     lua_pop(L, 1);
 
     /* Config failed — restore the old hooks so we don't end up
-     * with missing or partial hook state. */
+     * with missing or partial hook state. C globals keep their
+     * previous config.h or last-successful-load values. */
     lua_rawgeti(L, LUA_REGISTRYINDEX, old_hooks_ref);
     lua_setfield(L, LUA_REGISTRYINDEX, "_bonsaiwm_hooks");
     luaL_unref(L, LUA_REGISTRYINDEX, old_hooks_ref);
-  } else {
-    /* Config loaded successfully — the old hooks table is no
-     * longer needed, let Lua garbage-collect it. */
-    luaL_unref(L, LUA_REGISTRYINDEX, old_hooks_ref);
+    return;
   }
+
+  /* Config loaded successfully: sink declarative fields into C globals,
+   * then drop the old hooks table so Lua can GC it. */
+  apply_config(L);
+  luaL_unref(L, LUA_REGISTRYINDEX, old_hooks_ref);
 
   config_loaded = 1;
 }
