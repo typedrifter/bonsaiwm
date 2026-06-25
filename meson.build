@@ -67,6 +67,7 @@ endif
 # ── Source files ──────────────────────────────────────────────────────────────
 sources = files(
   'bonsaiwm.c',
+  'config.c',
   'util.c',
 )
 
