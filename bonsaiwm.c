@@ -432,7 +432,7 @@ static int grabcx, grabcy; /* client-relative */
 static struct wlr_output_layout *output_layout;
 static struct wlr_box sgeom;
 static struct wl_list mons;
-static Monitor *selmon;
+Monitor *selmon;
 
 /* global event handlers */
 static struct wl_listener cursor_axis = {.notify = axisnotify};
@@ -2331,6 +2331,11 @@ void run(char *startup_cmd) {
   if (!L)
     die("failed to init lua");
 
+  /* Load the Lua config file before the backend starts so that input device
+   * settings and hooks are registered before createmon/createpointer fire
+   * for the first time. If the config fails, C defaults keep the WM usable. */
+  bonsaiwm_lua_load_config("./config.lua");
+
   /* Start the backend. This will enumerate outputs and inputs, become the
    * DRM master, etc */
   if (!wlr_backend_start(backend))
@@ -2364,8 +2369,6 @@ void run(char *startup_cmd) {
   if (fd_set_nonblock(STDOUT_FILENO) < 0)
     close(STDOUT_FILENO);
 
-  /* load the lua config file */
-  bonsaiwm_lua_load_config("./config.lua");
   printstatus();
 
   /* At this point the outputs are initialized, choose initial selmon based on
@@ -3188,14 +3191,20 @@ void zoom(const Arg *arg) {
 }
 
 static void deferred_reload(void *data) {
+  Monitor *m;
   bonsaiwm_lua_load_config("./config.lua");
-  arrange(selmon);
+  wl_list_for_each(m, &mons, link)
+    arrange(m);
   printstatus();
 }
 
 static void reloadconfig(const Arg *arg) {
   wl_event_loop_add_idle(event_loop, deferred_reload, NULL);
 }
+
+/* Public wrapper so the Lua bonsaiwm.reload() binding can trigger a reload
+ * without exposing the Arg type across translation units. */
+void bonsaiwm_request_reload(void) { reloadconfig(NULL); }
 
 #ifdef XWAYLAND
 void activatex11(struct wl_listener *listener, void *data) {
