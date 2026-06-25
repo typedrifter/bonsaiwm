@@ -3,28 +3,26 @@
   {((hex >> 24) & 0xFF) / 255.0f, ((hex >> 16) & 0xFF) / 255.0f,               \
    ((hex >> 8) & 0xFF) / 255.0f, (hex & 0xFF) / 255.0f}
 /* appearance */
-static int sloppyfocus = 1; /* focus follows mouse */
+int sloppyfocus = 1; /* focus follows mouse */
 static const int bypass_surface_visibility =
     0; /* 1 means idle inhibitors will disable idle tracking even if it's
           surface isn't visible  */
-static unsigned int borderpx = 1; /* border pixel of windows */
-static float rootcolor[] = COLOR(0x222222ff);
-static float bordercolor[] = COLOR(0x444444ff);
-static float focuscolor[] = COLOR(0x005577ff);
-static float urgentcolor[] = COLOR(0xff0000ff);
+unsigned int borderpx = 1; /* border pixel of windows */
+float rootcolor[] = COLOR(0x222222ff);
+float bordercolor[] = COLOR(0x444444ff);
+float focuscolor[] = COLOR(0x005577ff);
+float urgentcolor[] = COLOR(0xff0000ff);
 /* This conforms to the xdg-protocol. Set the alpha to zero to restore the old
  * behavior */
-static const float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
-                                      1.0f}; /* You can also use glsl colors */
+float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
+                         1.0f}; /* You can also use glsl colors */
 
-static int enablegaps = 1;       /* focus follows mouse */
-static int smartgaps = 1;  /* 1 = no outer gap when only one window */
-static unsigned int gappih = 10; /* horiz inner gap between windows */
-static unsigned int gappiv = 10; /* vert inner gap between windows */
-static unsigned int gappoh =
-    20; /* horiz outer gap between windows and screen edge */
-static unsigned int gappov =
-    20; /* vert outer gap between windows and screen edge */
+int enablegaps = 1;       /* enables gaps */
+int smartgaps = 1;        /* 1 = no outer gap when only one window */
+unsigned int gappih = 10; /* horiz inner gap between windows */
+unsigned int gappiv = 10; /* vert inner gap between windows */
+unsigned int gappoh = 20; /* horiz outer gap between windows and screen edge */
+unsigned int gappov = 20; /* vert outer gap between windows and screen edge */
 
 /* tagging - TAGCOUNT must be no greater than 31 */
 #define TAGCOUNT (9)
@@ -47,6 +45,7 @@ static const Layout layouts[] = {
     {"T", tile},
     {"F", NULL}, /* no layout function means floating behavior */
     {"M", monocle},
+    {"Z", tile},
 };
 
 /* monitors */
@@ -64,7 +63,7 @@ static const MonitorRule monrules[] = {
 };
 
 /* keyboard */
-static const struct xkb_rule_names xkb_rules = {
+struct xkb_rule_names xkb_rules = {
     /* can specify fields: rules, model, layout, variant, options */
     /* example:
     .options = "ctrl:nocaps",
@@ -72,16 +71,16 @@ static const struct xkb_rule_names xkb_rules = {
     .options = NULL,
 };
 
-static const int repeat_rate = 25;
-static const int repeat_delay = 600;
+int repeat_rate = 25;
+int repeat_delay = 600;
 
 /* Trackpad */
-static const int tap_to_click = 1;
+int tap_to_click = 1;
 static const int tap_and_drag = 1;
 static const int drag_lock = 1;
-static const int natural_scrolling = 0;
-static const int disable_while_typing = 1;
-static const int left_handed = 0;
+int natural_scrolling = 0;
+int disable_while_typing = 1;
+int left_handed = 0;
 static const int middle_button_emulation = 0;
 /* You can choose between:
 LIBINPUT_CONFIG_SCROLL_NO_SCROLL
@@ -111,9 +110,9 @@ static const uint32_t send_events_mode = LIBINPUT_CONFIG_SEND_EVENTS_ENABLED;
 LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT
 LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE
 */
-static const enum libinput_config_accel_profile accel_profile =
+enum libinput_config_accel_profile accel_profile =
     LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
-static const double accel_speed = 0.0;
+double accel_speed = 0.0;
 
 /* You can choose between:
 LIBINPUT_CONFIG_TAP_MAP_LRM -- 1/2/3 finger tap maps to left/right/middle
