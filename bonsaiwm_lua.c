@@ -40,19 +40,21 @@ static int config_loaded = 0;
 
 /* Set outer/inner gaps on selmon. Mirrors the setgaps() C keybinding. */
 static int bonsaiwm_set_gaps(lua_State *luaL) {
-  int oh = luaL_checkinteger(luaL, 1);
-  int ov = luaL_checkinteger(luaL, 2);
-  int ih = luaL_checkinteger(luaL, 3);
-  int iv = luaL_checkinteger(luaL, 4);
+  int oh, ov, ih, iv;
   REQUIRE_BACKEND_OR_RAISE(luaL, "set_gaps");
+  oh = luaL_checkinteger(luaL, 1);
+  ov = luaL_checkinteger(luaL, 2);
+  ih = luaL_checkinteger(luaL, 3);
+  iv = luaL_checkinteger(luaL, 4);
   setgaps(oh, ov, ih, iv);
   return 0;
 }
 
 /* Adjust all gaps by delta pixels. Mirrors the adjustgaps() C function. */
 static int bonsaiwm_adjust_gaps(lua_State *luaL) {
-  int delta = luaL_checkinteger(luaL, 1);
+  int delta;
   REQUIRE_BACKEND_OR_RAISE(luaL, "adjust_gaps");
+  delta = luaL_checkinteger(luaL, 1);
   adjustgaps(delta);
   return 0;
 }
@@ -66,8 +68,9 @@ static int bonsaiwm_default_gaps(lua_State *luaL) {
 
 /* Set mfact absolutely (0.1 to 0.9). Mirrors the setmfact_val() C function. */
 static int bonsaiwm_set_mfact(lua_State *luaL) {
-  float f = luaL_checknumber(luaL, 1);
+  float f;
   REQUIRE_BACKEND_OR_RAISE(luaL, "set_mfact");
+  f = luaL_checknumber(luaL, 1);
   if (setmfact_val(f) == -1) {
     fprintf(stderr, "bonsaiwm: set_mfact(%g) out of range (0.1-0.9)\n", f);
   }
@@ -76,8 +79,9 @@ static int bonsaiwm_set_mfact(lua_State *luaL) {
 
 /* Adjust mfact by delta. Mirrors the adjustmfact() C function. */
 static int bonsaiwm_adjust_mfact(lua_State *luaL) {
-  float delta = luaL_checknumber(luaL, 1);
+  float delta;
   REQUIRE_BACKEND_OR_RAISE(luaL, "adjust_mfact");
+  delta = luaL_checknumber(luaL, 1);
   if (adjustmfact(delta) == -1) {
     fprintf(stderr, "bonsaiwm: adjust_mfact(%g) would exceed 0.1-0.9\n",
             delta);
@@ -87,16 +91,18 @@ static int bonsaiwm_adjust_mfact(lua_State *luaL) {
 
 /* Set nmaster absolutely. Mirrors the setnmaster() C function. */
 static int bonsaiwm_set_nmaster(lua_State *luaL) {
-  int n = luaL_checkinteger(luaL, 1);
+  int n;
   REQUIRE_BACKEND_OR_RAISE(luaL, "set_nmaster");
+  n = luaL_checkinteger(luaL, 1);
   setnmaster(n);
   return 0;
 }
 
 /* Adjust nmaster by delta. Mirrors the adjustnmaster() C function. */
 static int bonsaiwm_adjust_nmaster(lua_State *luaL) {
-  int delta = luaL_checkinteger(luaL, 1);
+  int delta;
   REQUIRE_BACKEND_OR_RAISE(luaL, "adjust_nmaster");
+  delta = luaL_checkinteger(luaL, 1);
   adjustnmaster(delta);
   return 0;
 }
@@ -110,49 +116,54 @@ static int bonsaiwm_set_sloppy_focus(lua_State *luaL) {
 
 /* Toggle smart gaps. Mirrors the setsmartgaps() C function. */
 static int bonsaiwm_set_smart_gaps(lua_State *luaL) {
-  int v = luaL_checkinteger(luaL, 1);
+  int v;
   REQUIRE_BACKEND_OR_RAISE(luaL, "set_smart_gaps");
+  v = luaL_checkinteger(luaL, 1);
   setsmartgaps(v);
   return 0;
 }
 
 /* Set border width on all clients. Mirrors the setborderwidth() C keybinding. */
 static int bonsaiwm_set_border_width(lua_State *luaL) {
-  unsigned int px = luaL_checkinteger(luaL, 1);
+  unsigned int px;
   REQUIRE_BACKEND_OR_RAISE(luaL, "set_border_width");
+  px = luaL_checkinteger(luaL, 1);
   setborderwidth(px);
   return 0;
 }
 
 /* Set border color on all clients. Mirrors the setbordercolor() C keybinding. */
 static int bonsaiwm_set_border_color(lua_State *luaL) {
-  float a = luaL_checknumber(luaL, 4);
-  float r = luaL_checknumber(luaL, 1) / 255.0f * a;
-  float g = luaL_checknumber(luaL, 2) / 255.0f * a;
-  float b = luaL_checknumber(luaL, 3) / 255.0f * a;
+  float a, r, g, b;
   REQUIRE_BACKEND_OR_RAISE(luaL, "set_border_color");
+  a = luaL_checknumber(luaL, 4);
+  r = luaL_checknumber(luaL, 1) / 255.0f * a;
+  g = luaL_checknumber(luaL, 2) / 255.0f * a;
+  b = luaL_checknumber(luaL, 3) / 255.0f * a;
   setbordercolor(r, g, b, a);
   return 0;
 }
 
 /* Set focused border color. Mirrors the setfocuscolor() C function. */
 static int bonsaiwm_set_focus_color(lua_State *luaL) {
-  float a = luaL_checknumber(luaL, 4);
-  float r = luaL_checknumber(luaL, 1) / 255.0f * a;
-  float g = luaL_checknumber(luaL, 2) / 255.0f * a;
-  float b = luaL_checknumber(luaL, 3) / 255.0f * a;
+  float a, r, g, b;
   REQUIRE_BACKEND_OR_RAISE(luaL, "set_focus_color");
+  a = luaL_checknumber(luaL, 4);
+  r = luaL_checknumber(luaL, 1) / 255.0f * a;
+  g = luaL_checknumber(luaL, 2) / 255.0f * a;
+  b = luaL_checknumber(luaL, 3) / 255.0f * a;
   setfocuscolor(r, g, b, a);
   return 0;
 }
 
 /* Set urgent border color. Mirrors the seturgentcolor() C function. */
 static int bonsaiwm_set_urgent_color(lua_State *luaL) {
-  float a = luaL_checknumber(luaL, 4);
-  float r = luaL_checknumber(luaL, 1) / 255.0f * a;
-  float g = luaL_checknumber(luaL, 2) / 255.0f * a;
-  float b = luaL_checknumber(luaL, 3) / 255.0f * a;
+  float a, r, g, b;
   REQUIRE_BACKEND_OR_RAISE(luaL, "set_urgent_color");
+  a = luaL_checknumber(luaL, 4);
+  r = luaL_checknumber(luaL, 1) / 255.0f * a;
+  g = luaL_checknumber(luaL, 2) / 255.0f * a;
+  b = luaL_checknumber(luaL, 3) / 255.0f * a;
   seturgentcolor(r, g, b, a);
   return 0;
 }
