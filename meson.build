@@ -46,6 +46,7 @@ c_args = [
   '-DWLR_USE_UNSTABLE',
   '-D_POSIX_C_SOURCE=200809L',
   '-DVERSION="@0@(@1@)"'.format(meson.project_version(), commit_hash),
+  '-Wno-unused-parameter',
 ]
 
 # XWayland: the source uses #ifdef XWAYLAND guards for X11 client handling.
