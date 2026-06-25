@@ -1,5 +1,104 @@
+---@meta
 ---@class bonsaiwm
 bonsaiwm = {}
+
+-- ── Static config ────────────────────────────────────────────────────────────
+
+---@class bonsaiwm.config.appearance.colors
+---@field root integer[]?
+---@field border integer[]?
+---@field focus integer[]?
+---@field urgent integer[]?
+---@field fullscreen integer[]?
+
+---@class bonsaiwm.config.appearance
+---@field border_width integer?
+---@field sloppy_focus boolean?
+---@field colors bonsaiwm.config.appearance.colors?
+
+---@class bonsaiwm.config.gaps
+---@field enabled boolean?
+---@field smart boolean?
+---@field outer_h integer?
+---@field outer_v integer?
+---@field inner_h integer?
+---@field inner_v integer?
+
+---@class bonsaiwm.config.keyboard.xkb_rules
+---@field rules string?
+---@field model string?
+---@field layout string?
+---@field variant string?
+---@field options string?
+
+---@class bonsaiwm.config.keyboard
+---@field repeat_rate integer?
+---@field repeat_delay integer?
+---@field xkb_rules bonsaiwm.config.keyboard.xkb_rules?
+
+---@class bonsaiwm.config.input
+---@field tap_to_click boolean?
+---@field natural_scrolling boolean?
+---@field disable_while_typing boolean?
+---@field accel_profile integer?
+---@field accel_speed number?
+---@field left_handed boolean?
+
+---@class bonsaiwm.config
+---@field appearance bonsaiwm.config.appearance?
+---@field gaps bonsaiwm.config.gaps?
+---@field keyboard bonsaiwm.config.keyboard?
+---@field input bonsaiwm.config.input?
+bonsaiwm.config = {}
+
+-- ── Constants ────────────────────────────────────────────────────────────────
+
+---Constant tables. Combine mod values with bitwise OR
+---(e.g. `bonsaiwm.const.mod.ctrl | bonsaiwm.const.mod.alt`).
+---@class bonsaiwm.const
+bonsaiwm.const = {}
+
+-- Modifier bitmask constants.
+---@class bonsaiwm.const.mod
+bonsaiwm.const.mod = {}
+
+---Left or right Shift key.
+---@type integer
+bonsaiwm.const.mod.shift = nil
+
+---Caps Lock key.
+---@type integer
+bonsaiwm.const.mod.caps = nil
+
+---Left or right Control key.
+---@type integer
+bonsaiwm.const.mod.ctrl = nil
+
+---Left or right Alt key. The default MODKEY used by config.h.
+---@type integer
+bonsaiwm.const.mod.alt = nil
+
+---Mod2 — typically Num Lock.
+---@type integer
+bonsaiwm.const.mod.mod2 = nil
+
+---Super/Windows/Logo key.
+---@type integer
+bonsaiwm.const.mod.logo = nil
+
+---libinput acceleration profile constants.
+---@class bonsaiwm.const.accel_profile
+bonsaiwm.const.accel_profile = {}
+
+---Adaptive acceleration profile.
+---@type integer
+bonsaiwm.const.accel_profile.adaptive = nil
+
+---Flat acceleration profile.
+---@type integer
+bonsaiwm.const.accel_profile.flat = nil
+
+-- ── Runtime imperative API ───────────────────────────────────────────────────
 
 ---Set outer and inner gaps on the selected monitor. Values are in pixels.
 ---
@@ -111,7 +210,7 @@ function bonsaiwm.spawn(cmd) end
 
 ---Register a keybinding. Calls fn when (mod, key) is pressed.
 ---key is resolved via xkb_keysym_from_name at bind time (e.g. "Return", "a").
----@param mod integer Modifier bitmask; see the `bonsaiwm.mod` constants below
+---@param mod integer Modifier bitmask; see `bonsaiwm.const.mod`
 ---@param key string Key name, resolved via xkb_keysym_from_name
 ---@param fn function Called with no arguments when the key is pressed
 function bonsaiwm.bind_key(mod, key, fn) end
@@ -142,31 +241,5 @@ function bonsaiwm.bind_key(mod, key, fn) end
 ---@param callback function Called when the event fires
 function bonsaiwm.on(event, callback) end
 
----Modifier bitmask constants. Combine with bitwise OR (e.g. `bonsaiwm.mod.ctrl | bonsaiwm.mod.alt`).
----Referenced by `bonsaiwm.bind_key`.
----@class bonsaiwm.mod
-bonsaiwm.mod = {}
-
----Left or right Shift key.
----@type integer
-bonsaiwm.mod.shift = nil
-
----Caps Lock key.
----@type integer
-bonsaiwm.mod.caps = nil
-
----Left or right Control key.
----@type integer
-bonsaiwm.mod.ctrl = nil
-
----Left or right Alt key. The default MODKEY used by config.h.
----@type integer
-bonsaiwm.mod.alt = nil
-
----Mod2 — typically Num Lock.
----@type integer
-bonsaiwm.mod.mod2 = nil
-
----Super/Windows/Logo key.
----@type integer
-bonsaiwm.mod.logo = nil
+---Request a config reload. Equivalent to the C MODKEY+Shift+r binding.
+function bonsaiwm.reload() end

@@ -72,6 +72,7 @@ function generateMarkdown(result: ParseResult): string {
 
   const header = [
     '---',
+    '# FILE GENERATED FROM CODE DO NOT EDIT',
     'title: Lua',
     '',
     '---',
