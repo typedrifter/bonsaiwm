@@ -336,6 +336,7 @@ void zoom(const Arg *arg);
 
 /* variables */
 static pid_t child_pid = -1;
+static int log_level = WLR_ERROR;
 static int locked;
 static void *exclusive_focus;
 static struct wl_display *dpy;
@@ -2357,7 +2358,7 @@ void setup(void) {
   for (i = 0; i < (int)LENGTH(sig); i++)
     sigaction(sig[i], &sa, NULL);
 
-  wlr_log_init(config.log_level, NULL);
+  wlr_log_init(log_level, NULL);
 
   /* The Wayland display is managed by libwayland. It handles accepting
    * clients from the Unix socket, managing Wayland globals, and so on. */
@@ -3085,7 +3086,7 @@ int main(int argc, char *argv[]) {
     if (c == 's')
       startup_cmd = optarg;
     else if (c == 'd')
-      config.log_level = WLR_DEBUG;
+      log_level = WLR_DEBUG;
     else if (c == 'v')
       die("bonsaiwm " VERSION);
     else

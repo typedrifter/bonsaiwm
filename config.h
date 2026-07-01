@@ -135,7 +135,6 @@ typedef struct {
   unsigned int gappiv;
   unsigned int gappoh;
   unsigned int gappov;
-  int log_level;
   int sloppyfocus;
   unsigned int borderpx;
   int repeat_rate;

@@ -28,7 +28,6 @@ Config config = {
     .gappiv = 10,           /* vert inner gap between windows */
     .gappoh = 20,            /* horiz outer gap between windows and screen edge */
     .gappov = 20,            /* vert outer gap between windows and screen edge */
-    .log_level = WLR_ERROR,
     .sloppyfocus = 1,       /* focus follows mouse */
     .borderpx = 1,          /* border pixel of windows */
     .repeat_rate = 25,
