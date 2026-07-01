@@ -48,7 +48,6 @@ static const struct {
     {"gappov", NULL, &config.gappov},
     {"gappih", NULL, &config.gappih},
     {"gappiv", NULL, &config.gappiv},
-    {"log_level", &config.log_level, NULL},
     {"sloppyfocus", &config.sloppyfocus, NULL},
     {"borderpx", NULL, &config.borderpx},
     {"repeat_rate", &config.repeat_rate, NULL},

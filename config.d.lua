@@ -15,8 +15,6 @@ bonsaiwm.gappih = nil
 ---@type integer
 bonsaiwm.gappiv = nil
 ---@type integer
-bonsaiwm.log_level = nil
----@type integer
 bonsaiwm.sloppyfocus = nil
 ---@type integer
 bonsaiwm.borderpx = nil
