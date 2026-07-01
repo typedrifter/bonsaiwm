@@ -16,6 +16,7 @@ wayland_server = dependency('wayland-server', version: '>=1.25.0')
 xkbcommon = dependency('xkbcommon')
 libinput = dependency('libinput', version: '>=1.27.1')
 wlroots = dependency('wlroots-0.19', version: '>=0.19.0')
+lua = dependency('lua5.4', required: true)
 
 # libm is needed for math functions used in cursor/monitor calculations.
 cc = meson.get_compiler('c')
@@ -70,13 +71,14 @@ sources = files(
   'bonsaiwm.c',
   'config.c',
   'util.c',
+  'lua.c',
 )
 
 # ── Executable ────────────────────────────────────────────────────────────────
 bonsaiwm = executable('bonsaiwm',
   sources,
   wayland_sources,
-  dependencies: [wayland_server, xkbcommon, libinput, wlroots, libm, xcb, xcb_icccm],
+  dependencies: [wayland_server, xkbcommon, libinput, wlroots, libm, xcb, xcb_icccm, lua],
   c_args: c_args,
   link_args: link_args,
   install: true,

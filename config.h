@@ -128,6 +128,7 @@ extern void zoom(const Arg *arg);
 
 /* runtime-mutable configuration values */
 extern int enablegaps;
+extern int smartgaps;
 extern unsigned int gappih;
 extern unsigned int gappiv;
 extern unsigned int gappoh;
@@ -143,9 +144,6 @@ extern const float bordercolor[];
 extern const float focuscolor[];
 extern const float urgentcolor[];
 extern const float fullscreen_bg[];
-
-/* gaps */
-extern const int smartgaps;
 
 /* window rules */
 extern const Rule rules[];
@@ -188,5 +186,7 @@ extern const Key keys[];
 extern const size_t keys_count;
 extern const Button buttons[];
 extern const size_t buttons_count;
+
+void load_config();
 
 #endif /* CONFIG_H */

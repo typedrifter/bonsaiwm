@@ -5,11 +5,13 @@
 #include <wlr/util/log.h>
 
 #include "config.h"
+#include "lua.h"
+#include "util.h"
 
 #define LENGTH(X) (sizeof X / sizeof X[0])
 
 /* appearance */
-const int sloppyfocus = 1;        /* focus follows mouse */
+const int sloppyfocus = 1; /* focus follows mouse */
 const int bypass_surface_visibility =
     0; /* 1 means idle inhibitors will disable idle tracking even if its
           surface isn't visible  */
@@ -22,7 +24,7 @@ const float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
                                1.0f}; /* You can also use glsl colors */
 
 int enablegaps = 1;       /* 1 = gaps enabled by default */
-const int smartgaps = 1;  /* 1 = no outer gap when only one window */
+int smartgaps = 1;        /* 1 = no outer gap when only one window */
 unsigned int gappih = 10; /* horiz inner gap between windows */
 unsigned int gappiv = 10; /* vert inner gap between windows */
 unsigned int gappoh = 20; /* horiz outer gap between windows and screen edge */
@@ -131,6 +133,7 @@ const Key keys[] = {
      */
     {MODKEY, XKB_KEY_p, spawn, {.v = menucmd}},
     {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_Return, spawn, {.v = termcmd}},
+    {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_r, load_config, {0}},
     {MODKEY, XKB_KEY_j, focusstack, {.i = +1}},
     {MODKEY, XKB_KEY_k, focusstack, {.i = -1}},
     {MODKEY, XKB_KEY_i, incnmaster, {.i = +1}},
@@ -203,3 +206,27 @@ const size_t layouts_count = LENGTH(layouts);
 const size_t monrules_count = LENGTH(monrules);
 const size_t keys_count = LENGTH(keys);
 const size_t buttons_count = LENGTH(buttons);
+
+void load_config() {
+  // close previously running lua runtime to prevent memory leaks when reloading
+  // config
+  if (L) {
+    wlr_log(WLR_INFO, "restarting lua runtime");
+    lua_close(L);
+    L = NULL;
+  }
+  wlr_log(WLR_INFO, "loading lua config");
+  L = lua_init();
+  lua_load_config("./config.lua");
+  wlr_log(WLR_DEBUG, "lua config loaded, applying values");
+  get_config_int(L, "bonsaiwm", "enablegaps", &enablegaps);
+  get_config_uint(L, "bonsaiwm", "gappoh", &gappoh);
+  get_config_uint(L, "bonsaiwm", "gappov", &gappov);
+  get_config_uint(L, "bonsaiwm", "gappih", &gappih);
+  get_config_uint(L, "bonsaiwm", "gappiv", &gappiv);
+  get_config_int(L, "bonsaiwm", "smartgaps", &smartgaps);
+  wlr_log(WLR_DEBUG,
+          "config applied: enablegaps=%d gappoh=%u gappov=%u gappih=%u "
+          "gappiv=%u smartgaps=%d",
+          enablegaps, gappoh, gappov, gappih, gappiv, smartgaps);
+}

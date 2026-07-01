@@ -2158,6 +2158,8 @@ void run(char *startup_cmd) {
     die("startup: display_add_socket_auto");
   setenv("WAYLAND_DISPLAY", socket, 1);
 
+  load_config();
+
   /* Start the backend. This will enumerate outputs and inputs, become the DRM
    * master, etc */
   if (!wlr_backend_start(backend))
