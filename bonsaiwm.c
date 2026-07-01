@@ -923,8 +923,8 @@ KeyboardGroup *createkeyboardgroup(void) {
   xkb_keymap_unref(keymap);
   xkb_context_unref(context);
 
-  wlr_keyboard_set_repeat_info(&group->wlr_group->keyboard, repeat_rate,
-                               repeat_delay);
+  wlr_keyboard_set_repeat_info(&group->wlr_group->keyboard, config.repeat_rate,
+                               config.repeat_delay);
 
   /* Set up listeners for keyboard events */
   LISTEN(&group->wlr_group->keyboard.events.key, &group->key, keypress);
@@ -1090,7 +1090,7 @@ void createnotify(struct wl_listener *listener, void *data) {
   /* Allocate a Client for this surface */
   c = toplevel->base->data = ecalloc(1, sizeof(*c));
   c->surface.xdg = toplevel->base;
-  c->bw = borderpx;
+  c->bw = config.borderpx;
 
   LISTEN(&toplevel->base->surface->events.commit, &c->commit, commitnotify);
   LISTEN(&toplevel->base->surface->events.map, &c->map, mapnotify);
@@ -1841,7 +1841,7 @@ void motionnotify(uint32_t time, struct wlr_input_device *device, double dx,
     wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
 
     /* Update selmon (even while dragging a window) */
-    if (sloppyfocus)
+    if (config.sloppyfocus)
       selmon = xytomon(cursor->x, cursor->y);
   }
 
@@ -1993,7 +1993,7 @@ void pointerfocus(Client *c, struct wlr_surface *surface, double sx, double sy,
                   uint32_t time) {
   struct timespec now;
 
-  if (surface != seat->pointer_state.focused_surface && sloppyfocus && time &&
+  if (surface != seat->pointer_state.focused_surface && config.sloppyfocus && time &&
       c && !client_is_unmanaged(c))
     focusclient(c, 0);
 
@@ -2262,7 +2262,7 @@ void setfullscreen(Client *c, int fullscreen) {
   c->isfullscreen = fullscreen;
   if (!c->mon || !client_surface(c)->mapped)
     return;
-  c->bw = fullscreen ? 0 : borderpx;
+  c->bw = fullscreen ? 0 : config.borderpx;
   client_set_fullscreen(c, fullscreen);
   wlr_scene_node_reparent(&c->scene->node, layers[c->isfullscreen ? LyrFS
                                                   : c->isfloating ? LyrFloat
@@ -2357,7 +2357,7 @@ void setup(void) {
   for (i = 0; i < (int)LENGTH(sig); i++)
     sigaction(sig[i], &sa, NULL);
 
-  wlr_log_init(log_level, NULL);
+  wlr_log_init(config.log_level, NULL);
 
   /* The Wayland display is managed by libwayland. It handles accepting
    * clients from the Unix socket, managing Wayland globals, and so on. */
@@ -3029,7 +3029,7 @@ void createnotifyx11(struct wl_listener *listener, void *data) {
   c = xsurface->data = ecalloc(1, sizeof(*c));
   c->surface.xwayland = xsurface;
   c->type = X11;
-  c->bw = client_is_unmanaged(c) ? 0 : borderpx;
+  c->bw = client_is_unmanaged(c) ? 0 : config.borderpx;
 
   /* Listen to the various events it can emit */
   LISTEN(&xsurface->events.associate, &c->associate, associatex11);
@@ -3085,7 +3085,7 @@ int main(int argc, char *argv[]) {
     if (c == 's')
       startup_cmd = optarg;
     else if (c == 'd')
-      log_level = WLR_DEBUG;
+      config.log_level = WLR_DEBUG;
     else if (c == 'v')
       die("bonsaiwm " VERSION);
     else

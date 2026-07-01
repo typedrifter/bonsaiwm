@@ -136,16 +136,16 @@ typedef struct {
   unsigned int gappoh;
   unsigned int gappov;
   int log_level;
+  int sloppyfocus;
+  unsigned int borderpx;
+  int repeat_rate;
+  int repeat_delay;
 } Config;
 
 extern Config config;
 
-extern int log_level;
-
 /* appearance */
-extern const int sloppyfocus;
 extern const int bypass_surface_visibility;
-extern const unsigned int borderpx;
 extern const float rootcolor[];
 extern const float bordercolor[];
 extern const float focuscolor[];
@@ -166,8 +166,6 @@ extern const size_t monrules_count;
 
 /* keyboard */
 extern const struct xkb_rule_names xkb_rules;
-extern const int repeat_rate;
-extern const int repeat_delay;
 
 /* trackpad */
 extern const int tap_to_click;

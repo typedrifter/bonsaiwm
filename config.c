@@ -11,11 +11,9 @@
 #define LENGTH(X) (sizeof X / sizeof X[0])
 
 /* appearance */
-const int sloppyfocus = 1; /* focus follows mouse */
 const int bypass_surface_visibility =
     0; /* 1 means idle inhibitors will disable idle tracking even if its
           surface isn't visible  */
-const unsigned int borderpx = 1; /* border pixel of windows */
 const float rootcolor[] = COLOR(0x222222ff);
 const float bordercolor[] = COLOR(0x444444ff);
 const float focuscolor[] = COLOR(0x005577ff);
@@ -30,6 +28,11 @@ Config config = {
     .gappiv = 10,           /* vert inner gap between windows */
     .gappoh = 20,            /* horiz outer gap between windows and screen edge */
     .gappov = 20,            /* vert outer gap between windows and screen edge */
+    .log_level = WLR_ERROR,
+    .sloppyfocus = 1,       /* focus follows mouse */
+    .borderpx = 1,          /* border pixel of windows */
+    .repeat_rate = 25,
+    .repeat_delay = 600,
 };
 
 /* runtime-mutable config fields mirrored on the `bonsaiwm` Lua table.
@@ -45,10 +48,12 @@ static const struct {
     {"gappov", NULL, &config.gappov},
     {"gappih", NULL, &config.gappih},
     {"gappiv", NULL, &config.gappiv},
+    {"log_level", &config.log_level, NULL},
+    {"sloppyfocus", &config.sloppyfocus, NULL},
+    {"borderpx", NULL, &config.borderpx},
+    {"repeat_rate", &config.repeat_rate, NULL},
+    {"repeat_delay", &config.repeat_delay, NULL},
 };
-
-/* logging */
-int log_level = WLR_ERROR;
 
 const Rule rules[] = {
     /* app_id             title       tags mask     isfloating   monitor */
@@ -90,8 +95,6 @@ const struct xkb_rule_names xkb_rules = {
     .options = NULL,
 };
 
-const int repeat_rate = 25;
-const int repeat_delay = 600;
 
 /* Trackpad */
 const int tap_to_click = 1;
