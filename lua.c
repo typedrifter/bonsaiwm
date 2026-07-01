@@ -25,8 +25,6 @@ lua_State *lua_init(void) {
 
 void lua_load_config(const char *path) {
 
-  enablegaps = 0;
-
   if (luaL_dofile(L, path) != LUA_OK) {
     fprintf(stderr, "bonsaiwm: lua error in %s: %s\n", path,
             lua_tostring(L, -1));

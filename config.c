@@ -23,12 +23,14 @@ const float urgentcolor[] = COLOR(0xff0000ff);
 const float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
                                1.0f}; /* You can also use glsl colors */
 
-int enablegaps = 1;       /* 1 = gaps enabled by default */
-int smartgaps = 1;        /* 1 = no outer gap when only one window */
-unsigned int gappih = 10; /* horiz inner gap between windows */
-unsigned int gappiv = 10; /* vert inner gap between windows */
-unsigned int gappoh = 20; /* horiz outer gap between windows and screen edge */
-unsigned int gappov = 20; /* vert outer gap between windows and screen edge */
+Config config = {
+    .enablegaps = 1,        /* 1 = gaps enabled by default */
+    .smartgaps = 1,         /* 1 = no outer gap when only one window */
+    .gappih = 10,           /* horiz inner gap between windows */
+    .gappiv = 10,           /* vert inner gap between windows */
+    .gappoh = 20,            /* horiz outer gap between windows and screen edge */
+    .gappov = 20,            /* vert outer gap between windows and screen edge */
+};
 
 /* logging */
 int log_level = WLR_ERROR;
@@ -219,14 +221,15 @@ void load_config() {
   L = lua_init();
   lua_load_config("./config.lua");
   wlr_log(WLR_DEBUG, "lua config loaded, applying values");
-  get_config_int(L, "bonsaiwm", "enablegaps", &enablegaps);
-  get_config_uint(L, "bonsaiwm", "gappoh", &gappoh);
-  get_config_uint(L, "bonsaiwm", "gappov", &gappov);
-  get_config_uint(L, "bonsaiwm", "gappih", &gappih);
-  get_config_uint(L, "bonsaiwm", "gappiv", &gappiv);
-  get_config_int(L, "bonsaiwm", "smartgaps", &smartgaps);
+  get_config_int(L, "bonsaiwm", "enablegaps", &config.enablegaps);
+  get_config_uint(L, "bonsaiwm", "gappoh", &config.gappoh);
+  get_config_uint(L, "bonsaiwm", "gappov", &config.gappov);
+  get_config_uint(L, "bonsaiwm", "gappih", &config.gappih);
+  get_config_uint(L, "bonsaiwm", "gappiv", &config.gappiv);
+  get_config_int(L, "bonsaiwm", "smartgaps", &config.smartgaps);
   wlr_log(WLR_DEBUG,
           "config applied: enablegaps=%d gappoh=%u gappov=%u gappih=%u "
           "gappiv=%u smartgaps=%d",
-          enablegaps, gappoh, gappov, gappih, gappiv, smartgaps);
+          config.enablegaps, config.gappoh, config.gappov, config.gappih,
+          config.gappiv, config.smartgaps);
 }

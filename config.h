@@ -127,12 +127,19 @@ extern void view(const Arg *arg);
 extern void zoom(const Arg *arg);
 
 /* runtime-mutable configuration values */
-extern int enablegaps;
-extern int smartgaps;
-extern unsigned int gappih;
-extern unsigned int gappiv;
-extern unsigned int gappoh;
-extern unsigned int gappov;
+
+typedef struct {
+  int enablegaps;
+  int smartgaps;
+  unsigned int gappih;
+  unsigned int gappiv;
+  unsigned int gappoh;
+  unsigned int gappov;
+  int log_level;
+} Config;
+
+extern Config config;
+
 extern int log_level;
 
 /* appearance */

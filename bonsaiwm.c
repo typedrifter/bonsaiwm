@@ -1015,10 +1015,10 @@ void createmon(struct wl_listener *listener, void *data) {
     wl_list_init(&m->layers[i]);
 
   /* initialize gap values from config defaults */
-  m->gappih = gappih;
-  m->gappiv = gappiv;
-  m->gappoh = gappoh;
-  m->gappov = gappov;
+  m->gappih = config.gappih;
+  m->gappiv = config.gappiv;
+  m->gappoh = config.gappoh;
+  m->gappov = config.gappov;
 
   wlr_output_state_init(&state);
   /* Initialize monitor state using configured rules */
@@ -1502,7 +1502,7 @@ void incnmaster(const Arg *arg) {
 
 /* toggle gaps on/off (Super+0) */
 void togglegaps(const Arg *arg) {
-  enablegaps = !enablegaps;
+  config.enablegaps = !config.enablegaps;
   arrange(selmon);
 }
 
@@ -1520,7 +1520,7 @@ void incgaps(const Arg *arg) {
 }
 
 /* Reset to config defaults (Super+Shift+) */
-void defaultgaps(const Arg *arg) { setgaps(gappoh, gappov, gappih, gappiv); }
+void defaultgaps(const Arg *arg) { setgaps(config.gappoh, config.gappov, config.gappih, config.gappiv); }
 
 void inputdevice(struct wl_listener *listener, void *data) {
   /* This event is raised by the backend when a new input device becomes
@@ -2045,7 +2045,7 @@ void printstatus(void) {
 
     printf("%s gaps %u %u %u %u\n", m->wlr_output->name, m->gappoh, m->gappov,
            m->gappih, m->gappiv);
-    printf("%s smartgaps %u\n", m->wlr_output->name, smartgaps);
+    printf("%s smartgaps %u\n", m->wlr_output->name, config.smartgaps);
     printf("%s selmon %u\n", m->wlr_output->name, m == selmon);
     printf("%s tags %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 "\n",
            m->wlr_output->name, occ, m->tagset[m->seltags], sel, urg);
@@ -2613,7 +2613,7 @@ void tagmon(const Arg *arg) {
 }
 
 void tile(Monitor *m) {
-  unsigned int mw, my, ty, h, r, oe = enablegaps, ie = enablegaps;
+  unsigned int mw, my, ty, h, r, oe = config.enablegaps, ie = config.enablegaps;
   int i, n = 0;
   Client *c;
 
@@ -2623,7 +2623,7 @@ void tile(Monitor *m) {
     return;
 
   // no gaps smartgaps is enable and only one tiled window
-  if (smartgaps == n) {
+  if (config.smartgaps == n) {
     oe = 0;
     ie = 0; // TODO: check if correct
   }
