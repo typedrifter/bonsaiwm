@@ -15,10 +15,4 @@ lua_State *lua_init(void);
 /* load and run path as the config file */
 void lua_load_config(const char *path);
 
-void get_config_int(lua_State *L, const char *group, const char *field,
-                    int *target);
-
-void get_config_uint(lua_State *L, const char *group, const char *field,
-                     unsigned int *target);
-
 #endif /* LUA_H */

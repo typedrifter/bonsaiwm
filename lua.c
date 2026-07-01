@@ -33,27 +33,3 @@ void lua_load_config(const char *path) {
     return;
   }
 }
-
-void get_config_int(lua_State *L, const char *group, const char *field,
-                    int *target) {
-  lua_getglobal(L, group);
-  lua_getfield(L, -1, field);
-  if (lua_isnumber(L, -1)) {
-    int val = (int)lua_tonumber(L, -1);
-    fprintf(stderr, "%s.%s = %i\n", group, field, val);
-    *target = val;
-  }
-  lua_pop(L, 2);
-}
-
-void get_config_uint(lua_State *L, const char *group, const char *field,
-                     unsigned int *target) {
-  lua_getglobal(L, group);
-  lua_getfield(L, -1, field);
-  if (lua_isnumber(L, -1)) {
-    int val = (int)lua_tonumber(L, -1);
-    fprintf(stderr, "%s.%s = %i\n", group, field, val);
-    *target = val;
-  }
-  lua_pop(L, 2);
-}

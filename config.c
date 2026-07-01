@@ -32,6 +32,21 @@ Config config = {
     .gappov = 20,            /* vert outer gap between windows and screen edge */
 };
 
+/* runtime-mutable config fields mirrored on the `bonsaiwm` Lua table.
+   Adding a field = add a default above + one row here. */
+static const struct {
+  const char *lua_key;
+  int *as_int;
+  unsigned int *as_uint;
+} config_schema[] = {
+    {"enablegaps", &config.enablegaps, NULL},
+    {"smartgaps", &config.smartgaps, NULL},
+    {"gappoh", NULL, &config.gappoh},
+    {"gappov", NULL, &config.gappov},
+    {"gappih", NULL, &config.gappih},
+    {"gappiv", NULL, &config.gappiv},
+};
+
 /* logging */
 int log_level = WLR_ERROR;
 
@@ -221,15 +236,17 @@ void load_config() {
   L = lua_init();
   lua_load_config("./config.lua");
   wlr_log(WLR_DEBUG, "lua config loaded, applying values");
-  get_config_int(L, "bonsaiwm", "enablegaps", &config.enablegaps);
-  get_config_uint(L, "bonsaiwm", "gappoh", &config.gappoh);
-  get_config_uint(L, "bonsaiwm", "gappov", &config.gappov);
-  get_config_uint(L, "bonsaiwm", "gappih", &config.gappih);
-  get_config_uint(L, "bonsaiwm", "gappiv", &config.gappiv);
-  get_config_int(L, "bonsaiwm", "smartgaps", &config.smartgaps);
-  wlr_log(WLR_DEBUG,
-          "config applied: enablegaps=%d gappoh=%u gappov=%u gappih=%u "
-          "gappiv=%u smartgaps=%d",
-          config.enablegaps, config.gappoh, config.gappov, config.gappih,
-          config.gappiv, config.smartgaps);
+  lua_getglobal(L, "bonsaiwm");
+  for (size_t i = 0; i < LENGTH(config_schema); i++) {
+    lua_getfield(L, -1, config_schema[i].lua_key);
+    if (lua_isnumber(L, -1)) {
+      int v = (int)lua_tonumber(L, -1);
+      if (config_schema[i].as_int)
+        *config_schema[i].as_int = v;
+      if (config_schema[i].as_uint)
+        *config_schema[i].as_uint = (unsigned)v;
+    }
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 1);
 }
