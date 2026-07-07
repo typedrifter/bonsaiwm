@@ -6,8 +6,8 @@ bonsaiwm.gappiv = 40
 bonsaiwm.smartgaps = 0
 
 -- colors: "#RRGGBB" or "#RRGGBBAA"
--- bonsaiwm.rootcolor = "#222222ff"
--- bonsaiwm.bordercolor = "#444444ff"
--- bonsaiwm.focuscolor = "#005577ff"
--- bonsaiwm.urgentcolor = "#ff0000ff"
--- bonsaiwm.fullscreen_bg = "#000000ff"
+bonsaiwm.rootcolor = "#1a1b26ff"
+bonsaiwm.bordercolor = "#414868ff"
+bonsaiwm.focuscolor = "#7aa2f7ff"
+bonsaiwm.urgentcolor = "#f7768eff"
+bonsaiwm.fullscreen_bg = "#1a1b26ff"
