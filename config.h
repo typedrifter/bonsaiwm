@@ -145,11 +145,11 @@ extern Config config;
 
 /* appearance */
 extern const int bypass_surface_visibility;
-extern const float rootcolor[];
-extern const float bordercolor[];
-extern const float focuscolor[];
-extern const float urgentcolor[];
-extern const float fullscreen_bg[];
+extern float rootcolor[];
+extern float bordercolor[];
+extern float focuscolor[];
+extern float urgentcolor[];
+extern float fullscreen_bg[];
 
 /* window rules */
 extern const Rule rules[];

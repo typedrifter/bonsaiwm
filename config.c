@@ -14,12 +14,12 @@
 const int bypass_surface_visibility =
     0; /* 1 means idle inhibitors will disable idle tracking even if its
           surface isn't visible  */
-const float rootcolor[] = COLOR(0x222222ff);
-const float bordercolor[] = COLOR(0x444444ff);
-const float focuscolor[] = COLOR(0x005577ff);
-const float urgentcolor[] = COLOR(0xff0000ff);
-const float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
-                               1.0f}; /* You can also use glsl colors */
+float rootcolor[] = COLOR(0x222222ff);
+float bordercolor[] = COLOR(0x444444ff);
+float focuscolor[] = COLOR(0x005577ff);
+float urgentcolor[] = COLOR(0xff0000ff);
+float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
+                        1.0f}; /* You can also use glsl colors */
 
 Config config = {
     .enablegaps = 1,        /* 1 = gaps enabled by default */
@@ -40,17 +40,23 @@ static const struct {
   const char *lua_key;
   int *as_int;
   unsigned int *as_uint;
+  float *as_color;
 } config_schema[] = {
-    {"enablegaps", &config.enablegaps, NULL},
-    {"smartgaps", &config.smartgaps, NULL},
-    {"gappoh", NULL, &config.gappoh},
-    {"gappov", NULL, &config.gappov},
-    {"gappih", NULL, &config.gappih},
-    {"gappiv", NULL, &config.gappiv},
-    {"sloppyfocus", &config.sloppyfocus, NULL},
-    {"borderpx", NULL, &config.borderpx},
-    {"repeat_rate", &config.repeat_rate, NULL},
-    {"repeat_delay", &config.repeat_delay, NULL},
+    {"enablegaps", &config.enablegaps, NULL, NULL},
+    {"smartgaps", &config.smartgaps, NULL, NULL},
+    {"gappoh", NULL, &config.gappoh, NULL},
+    {"gappov", NULL, &config.gappov, NULL},
+    {"gappih", NULL, &config.gappih, NULL},
+    {"gappiv", NULL, &config.gappiv, NULL},
+    {"sloppyfocus", &config.sloppyfocus, NULL, NULL},
+    {"borderpx", NULL, &config.borderpx, NULL},
+    {"repeat_rate", &config.repeat_rate, NULL, NULL},
+    {"repeat_delay", &config.repeat_delay, NULL, NULL},
+    {"rootcolor", NULL, NULL, rootcolor},
+    {"bordercolor", NULL, NULL, bordercolor},
+    {"focuscolor", NULL, NULL, focuscolor},
+    {"urgentcolor", NULL, NULL, urgentcolor},
+    {"fullscreen_bg", NULL, NULL, fullscreen_bg},
 };
 
 const Rule rules[] = {
@@ -246,6 +252,10 @@ void load_config() {
         *config_schema[i].as_int = v;
       if (config_schema[i].as_uint)
         *config_schema[i].as_uint = (unsigned)v;
+    } else if (lua_isstring(L, -1) && config_schema[i].as_color) {
+      if (hex_to_rgba(lua_tostring(L, -1), config_schema[i].as_color) < 0)
+        wlr_log(WLR_ERROR, "invalid color for %s: %s",
+                config_schema[i].lua_key, lua_tostring(L, -1));
     }
     lua_pop(L, 1);
   }
