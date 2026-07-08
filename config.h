@@ -151,9 +151,9 @@ extern float focuscolor[];
 extern float urgentcolor[];
 extern float fullscreen_bg[];
 
-/* window rules */
-extern const Rule rules[];
-extern const size_t rules_count;
+/* window rules (heap-allocated, rebuilt from config.lua on every load) */
+extern Rule *rules;
+extern size_t rules_count;
 
 /* layouts */
 extern const Layout layouts[];

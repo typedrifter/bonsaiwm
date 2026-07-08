@@ -1,39 +1,61 @@
 ---@meta
----@class bonsaiwm
-bonsaiwm = {}
+--
+-- Type definitions for the `bonsaiwm` Lua config table.
+--
 
----@type integer
-bonsaiwm.enablegaps = nil
----@type integer
-bonsaiwm.smartgaps = nil
----@type integer
-bonsaiwm.gappoh = nil
----@type integer
-bonsaiwm.gappov = nil
----@type integer
-bonsaiwm.gappih = nil
----@type integer
-bonsaiwm.gappiv = nil
----@type integer
-bonsaiwm.sloppyfocus = nil
----@type integer
-bonsaiwm.borderpx = nil
----@type integer
-bonsaiwm.repeat_rate = nil
----@type integer
-bonsaiwm.repeat_delay = nil
----hex color string, e.g. "#005577" or "#005577ff"
----@type string
-bonsaiwm.rootcolor = nil
----hex color string, e.g. "#005577" or "#005577ff"
----@type string
-bonsaiwm.bordercolor = nil
----hex color string, e.g. "#005577" or "#005577ff"
----@type string
-bonsaiwm.focuscolor = nil
----hex color string, e.g. "#005577" or "#005577ff"
----@type string
-bonsaiwm.urgentcolor = nil
----hex color string, e.g. "#005577" or "#005577ff"
----@type string
-bonsaiwm.fullscreen_bg = nil
+---@class bonsaiwm.Rule
+---Application identifier: app_id (Wayland xdg-toplevel) or class (X11/XWayland).
+---Matched as a **substring** against the client's app_id/class.
+---Nil or omitted = match any application.
+---@field id? string
+---Window title. Matched as a **substring** against the client's title.
+---Nil or omitted = match any title.
+---@field title? string
+---Tag bitmask selecting which tags the client starts on.
+---Bit `n` (0-indexed) corresponds to tag `n+1`. `0` = keep currently visible
+---tags. Example: `1 << 8` starts the client on tag "9" only.
+---@field tags integer
+---Whether the client should float instead of being tiled.
+---`1` = floating, `0` = tiled. Default `0` when omitted.
+---@field isfloating integer
+---Monitor to place the client on, as a 0-based index into the monitor list.
+---`-1` = the currently selected monitor. Default `-1` when omitted.
+---@field monitor integer
+
+---@class bonsaiwm
+---Enables tiling gaps when nonzero.
+---@field enablegaps integer
+---When nonzero, outer gaps are hidden if a window is the only one on the tag.
+---@field smartgaps integer
+---Outer horizontal gap (pixels) between clients and the screen edge.
+---@field gappoh integer
+---Outer vertical gap (pixels) between clients and the screen edge.
+---@field gappov integer
+---Inner horizontal gap (pixels) between adjacent clients.
+---@field gappih integer
+---Inner vertical gap (pixels) between adjacent clients.
+---@field gappiv integer
+---When nonzero, focus follows the pointer (focus the window under the cursor).
+---@field sloppyfocus integer
+---Border thickness around clients (pixels).
+---@field borderpx integer
+---Keyboard repeat rate (keys per second).
+---@field repeat_rate integer
+---Keyboard repeat delay (ms) before a held key starts repeating.
+---@field repeat_delay integer
+---Root (background) color as a hex string, e.g. "#1a1b26" or "#1a1b26ff".
+---@field rootcolor string
+---Unfocused-client border color. Hex string.
+---@field bordercolor string
+---Focused-client border color. Hex string.
+---@field focuscolor string
+---Urgent-client border color. Hex string.
+---@field urgentcolor string
+---Backdrop color shown behind a fullscreen client. Hex string.
+---@field fullscreen_bg string
+---Window rules. Rebuilt from this table on every config reload (Mod-Shift-R).
+---May be empty or omitted; in that case no rules apply and clients keep their
+---default tags/monitor. At least one example is usually present.
+---@field rules bonsaiwm.Rule[]
+
+bonsaiwm = {}

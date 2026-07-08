@@ -1,6 +1,8 @@
 /* See LICENSE file for copyright and license details. */
 
 #include <linux/input-event-codes.h>
+#include <stdlib.h>
+#include <string.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/util/log.h>
 
@@ -59,14 +61,9 @@ static const struct {
     {"fullscreen_bg", NULL, NULL, fullscreen_bg},
 };
 
-const Rule rules[] = {
-    /* app_id             title       tags mask     isfloating   monitor */
-    {"Gimp_EXAMPLE", NULL, 0, 1,
-     -1}, /* Start on currently visible tags floating, not tiled */
-    {"firefox_EXAMPLE", NULL, 1 << 8, 0, -1}, /* Start on ONLY tag "9" */
-    /* default/example rule: can be changed but cannot be eliminated; at least
-       one rule must exist */
-};
+/* window rules: empty by default, populated from config.lua in load_config() */
+Rule *rules = NULL;
+size_t rules_count = 0;
 
 /* layout(s) */
 const Layout layouts[] = {
@@ -225,15 +222,62 @@ const Button buttons[] = {
     {MODKEY, BTN_RIGHT, moveresize, {.ui = CurResize}},
 };
 
-const size_t rules_count = LENGTH(rules);
 const size_t layouts_count = LENGTH(layouts);
 const size_t monrules_count = LENGTH(monrules);
 const size_t keys_count = LENGTH(keys);
 const size_t buttons_count = LENGTH(buttons);
 
+static void rules_free(void) {
+  for (size_t i = 0; i < rules_count; i++) {
+    free((char *)rules[i].id);
+    free((char *)rules[i].title);
+  }
+  free(rules);
+  rules = NULL;
+  rules_count = 0;
+}
+
+static void rules_load_from_lua(void) {
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "rules");
+  if (!lua_istable(L, -1)) {
+    wlr_log(WLR_INFO, "no rules table in config.lua, rules empty");
+    lua_pop(L, 2);
+    return;
+  }
+  rules_count = lua_rawlen(L, -1);
+  if (rules_count == 0) {
+    lua_pop(L, 2);
+    return;
+  }
+  rules = ecalloc(rules_count, sizeof(Rule));
+  for (size_t i = 0; i < rules_count; i++) {
+    Rule *r = &rules[i];
+    lua_rawgeti(L, -1, i + 1);
+    lua_getfield(L, -1, "id");
+    r->id = lua_isstring(L, -1) ? strdup(lua_tostring(L, -1)) : NULL;
+    lua_pop(L, 1);
+    lua_getfield(L, -1, "title");
+    r->title = lua_isstring(L, -1) ? strdup(lua_tostring(L, -1)) : NULL;
+    lua_pop(L, 1);
+    lua_getfield(L, -1, "tags");
+    r->tags = lua_isinteger(L, -1) ? (uint32_t)lua_tointeger(L, -1) : 0;
+    lua_pop(L, 1);
+    lua_getfield(L, -1, "isfloating");
+    r->isfloating = lua_isinteger(L, -1) ? (int)lua_tointeger(L, -1) : 0;
+    lua_pop(L, 1);
+    lua_getfield(L, -1, "monitor");
+    r->monitor = lua_isinteger(L, -1) ? (int)lua_tointeger(L, -1) : -1;
+    lua_pop(L, 1);
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 2);
+}
+
 void load_config() {
-  // close previously running lua runtime to prevent memory leaks when reloading
-  // config
+  // free heap rules and close previously running lua runtime to prevent memory
+  // leaks when reloading config
+  rules_free();
   if (L) {
     wlr_log(WLR_INFO, "restarting lua runtime");
     lua_close(L);
@@ -260,4 +304,5 @@ void load_config() {
     lua_pop(L, 1);
   }
   lua_pop(L, 1);
+  rules_load_from_lua();
 }
