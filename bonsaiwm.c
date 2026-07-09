@@ -186,7 +186,7 @@ struct Monitor {
   struct wlr_box m;         /* monitor area, layout-relative */
   struct wlr_box w;         /* window area, layout-relative */
   struct wl_list layers[4]; /* LayerSurface.link */
-  const Layout *lt[2];
+  int lt[2]; /* indices into layouts[] */
   int gappih; /* horizontal gap between windows */
   int gappiv; /* vertical gap between windows */
   int gappoh; /* horizontal outer gaps */
@@ -497,7 +497,9 @@ void arrange(Monitor *m) {
   wlr_scene_node_set_enabled(&m->fullscreen_bg->node,
                              (c = focustop(m)) && c->isfullscreen);
 
-  strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, LENGTH(m->ltsymbol));
+  strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol, LENGTH(m->ltsymbol));
+
+  void (*arr)(Monitor *) = arrangefn[layouts[m->lt[m->sellt]].arrange];
 
   /* We move all clients (except fullscreen and unmanaged) to LyrTile while
    * in floating layout to avoid "real" floating clients be always on top */
@@ -507,13 +509,13 @@ void arrange(Monitor *m) {
 
     wlr_scene_node_reparent(
         &c->scene->node,
-        (!m->lt[m->sellt]->arrange && c->isfloating)  ? layers[LyrTile]
-        : (m->lt[m->sellt]->arrange && c->isfloating) ? layers[LyrFloat]
-                                                      : c->scene->node.parent);
+        (!arr && c->isfloating)  ? layers[LyrTile]
+        : (arr && c->isfloating) ? layers[LyrFloat]
+                                 : c->scene->node.parent);
   }
 
-  if (m->lt[m->sellt]->arrange)
-    m->lt[m->sellt]->arrange(m);
+  if (arr)
+    arr(m);
   motionnotify(0, NULL, 0, 0, 0, 0);
   checkidleinhibitor(NULL);
 }
@@ -1031,8 +1033,8 @@ void createmon(struct wl_listener *listener, void *data) {
       m->mfact = r->mfact;
       m->nmaster = r->nmaster;
       m->lt[0] = r->lt;
-      m->lt[1] = &layouts[layouts_count > 1 && r->lt != &layouts[1]];
-      strncpy(m->ltsymbol, m->lt[m->sellt]->symbol, LENGTH(m->ltsymbol));
+      m->lt[1] = (layouts_count > 1 && r->lt != LtFloat) ? LtFloat : LtTile;
+      strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol, LENGTH(m->ltsymbol));
       wlr_output_state_set_scale(&state, r->scale);
       wlr_output_state_set_transform(&state, r->rr);
       break;
@@ -2249,7 +2251,7 @@ void setfloating(Client *c, int floating) {
   c->isfloating = floating;
   /* If in floating layout do not change the client's layer */
   if (!c->mon || !client_surface(c)->mapped ||
-      !c->mon->lt[c->mon->sellt]->arrange)
+      !arrangefn[layouts[c->mon->lt[c->mon->sellt]].arrange])
     return;
   wlr_scene_node_reparent(
       &c->scene->node, layers[c->isfullscreen || (p && p->isfullscreen) ? LyrFS
@@ -2284,11 +2286,12 @@ void setfullscreen(Client *c, int fullscreen) {
 void setlayout(const Arg *arg) {
   if (!selmon)
     return;
-  if (!arg || !arg->v || arg->v != selmon->lt[selmon->sellt])
+  /* arg->i < 0: just toggle between lt[0] and lt[1] */
+  if (!arg || arg->i < 0 || arg->i != selmon->lt[selmon->sellt])
     selmon->sellt ^= 1;
-  if (arg && arg->v)
-    selmon->lt[selmon->sellt] = (Layout *)arg->v;
-  strncpy(selmon->ltsymbol, selmon->lt[selmon->sellt]->symbol,
+  if (arg && arg->i >= 0)
+    selmon->lt[selmon->sellt] = arg->i;
+  strncpy(selmon->ltsymbol, layouts[selmon->lt[selmon->sellt]].symbol,
           LENGTH(selmon->ltsymbol));
   arrange(selmon);
   printstatus();
@@ -2298,7 +2301,7 @@ void setlayout(const Arg *arg) {
 void setmfact(const Arg *arg) {
   float f;
 
-  if (!arg || !selmon || !selmon->lt[selmon->sellt]->arrange)
+  if (!arg || !selmon || !arrangefn[layouts[selmon->lt[selmon->sellt]].arrange])
     return;
   f = arg->f < 1.0f ? arg->f + selmon->mfact : arg->f - 1.0f;
   if (f < 0.1 || f > 0.9)
@@ -2952,7 +2955,8 @@ void xytonode(double x, double y, struct wlr_surface **psurface, Client **pc,
 void zoom(const Arg *arg) {
   Client *c, *sel = focustop(selmon);
 
-  if (!sel || !selmon || !selmon->lt[selmon->sellt]->arrange || sel->isfloating)
+  if (!sel || !selmon || !arrangefn[layouts[selmon->lt[selmon->sellt]].arrange] ||
+      sel->isfloating)
     return;
 
   /* Search for the first tiled window that is not sel, marking sel as
@@ -3010,7 +3014,8 @@ void configurex11(struct wl_listener *listener, void *data) {
                                    event->width, event->height);
     return;
   }
-  if ((c->isfloating && c != grabc) || !c->mon->lt[c->mon->sellt]->arrange) {
+  if ((c->isfloating && c != grabc) ||
+      !arrangefn[layouts[c->mon->lt[c->mon->sellt]].arrange]) {
     resize(c,
            (struct wlr_box){.x = event->x - c->bw,
                             .y = event->y - c->bw,

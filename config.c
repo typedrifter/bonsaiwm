@@ -21,17 +21,17 @@ float bordercolor[] = COLOR(0x444444ff);
 float focuscolor[] = COLOR(0x005577ff);
 float urgentcolor[] = COLOR(0xff0000ff);
 float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
-                        1.0f}; /* You can also use glsl colors */
+                         1.0f}; /* You can also use glsl colors */
 
 Config config = {
-    .enablegaps = 1,        /* 1 = gaps enabled by default */
-    .smartgaps = 1,         /* 1 = no outer gap when only one window */
-    .gappih = 10,           /* horiz inner gap between windows */
-    .gappiv = 10,           /* vert inner gap between windows */
-    .gappoh = 20,            /* horiz outer gap between windows and screen edge */
-    .gappov = 20,            /* vert outer gap between windows and screen edge */
-    .sloppyfocus = 1,       /* focus follows mouse */
-    .borderpx = 1,          /* border pixel of windows */
+    .enablegaps = 1,  /* 1 = gaps enabled by default */
+    .smartgaps = 1,   /* 1 = no outer gap when only one window */
+    .gappih = 10,     /* horiz inner gap between windows */
+    .gappiv = 10,     /* vert inner gap between windows */
+    .gappoh = 20,     /* horiz outer gap between windows and screen edge */
+    .gappov = 20,     /* vert outer gap between windows and screen edge */
+    .sloppyfocus = 1, /* focus follows mouse */
+    .borderpx = 1,    /* border pixel of windows */
     .repeat_rate = 25,
     .repeat_delay = 600,
 };
@@ -65,12 +65,18 @@ static const struct {
 Rule *rules = NULL;
 size_t rules_count = 0;
 
+void (*const arrangefn[])(Monitor *) = {
+    [LtTile] = tile,
+    [LtFloat] = NULL,
+    [LtMonocle] = monocle,
+};
+
 /* layout(s) */
 const Layout layouts[] = {
-    /* symbol     arrange function */
-    {"[]=", tile},
-    {"><>", NULL}, /* no layout function means floating behavior */
-    {"[M]", monocle},
+    /* symbol     arrange index into arrangefn[] */
+    {"[]=", LtTile},
+    {"><>", LtFloat}, /* no layout function means floating behavior */
+    {"[M]", LtMonocle},
 };
 
 /* monitors */
@@ -80,9 +86,9 @@ const Layout layouts[] = {
 const MonitorRule monrules[] = {
     /* name        mfact  nmaster scale layout       rotate/reflect x    y
      * example of a HiDPI laptop monitor:
-     { "eDP-1",    0.5f,  1,      2,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL,
+     { "eDP-1",    0.5f,  1,      2,    LtTile, WL_OUTPUT_TRANSFORM_NORMAL,
      -1,  -1 }, */
-    {NULL, 0.55f, 1, 1, &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, -1, -1},
+    {NULL, 0.55f, 1, 1, LtTile, WL_OUTPUT_TRANSFORM_NORMAL, -1, -1},
     /* default monitor rule: can be changed but cannot be eliminated; at least
        one monitor rule must exist */
 };
@@ -95,7 +101,6 @@ const struct xkb_rule_names xkb_rules = {
     */
     .options = NULL,
 };
-
 
 /* Trackpad */
 const int tap_to_click = 1;
@@ -164,10 +169,10 @@ const Key keys[] = {
     {MODKEY, XKB_KEY_Return, zoom, {0}},
     {MODKEY, XKB_KEY_Tab, view, {0}},
     {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_c, killclient, {0}},
-    {MODKEY, XKB_KEY_t, setlayout, {.v = &layouts[0]}},
-    {MODKEY, XKB_KEY_f, setlayout, {.v = &layouts[1]}},
-    {MODKEY, XKB_KEY_m, setlayout, {.v = &layouts[2]}},
-    {MODKEY, XKB_KEY_space, setlayout, {0}},
+    {MODKEY, XKB_KEY_t, setlayout, {.i = LtTile}},
+    {MODKEY, XKB_KEY_f, setlayout, {.i = LtFloat}},
+    {MODKEY, XKB_KEY_m, setlayout, {.i = LtMonocle}},
+    {MODKEY, XKB_KEY_space, setlayout, {.i = -1}}, /* just toggle lt[0]/lt[1] */
     {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_space, togglefloating, {0}},
     {MODKEY, XKB_KEY_e, togglefullscreen, {0}},
     {MODKEY, XKB_KEY_0, view, {.ui = ~0}},
@@ -298,8 +303,8 @@ void load_config() {
         *config_schema[i].as_uint = (unsigned)v;
     } else if (lua_isstring(L, -1) && config_schema[i].as_color) {
       if (hex_to_rgba(lua_tostring(L, -1), config_schema[i].as_color) < 0)
-        wlr_log(WLR_ERROR, "invalid color for %s: %s",
-                config_schema[i].lua_key, lua_tostring(L, -1));
+        wlr_log(WLR_ERROR, "invalid color for %s: %s", config_schema[i].lua_key,
+                lua_tostring(L, -1));
     }
     lua_pop(L, 1);
   }

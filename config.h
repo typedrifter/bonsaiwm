@@ -32,8 +32,14 @@ typedef union {
 /* a monitor layout */
 typedef struct {
   const char *symbol;
-  void (*arrange)(Monitor *);
+  int arrange; /* index into arrangefn[] */
 } Layout;
+
+/* layout indices; each value must have a matching entry in arrangetn[] in
+ * config.c. forget one and you get a NULL function pointer at runtime. */
+enum { LtTile, LtFloat, LtMonocle, LtCount };
+
+extern void (*const arrangefn[])(Monitor *);
 
 /* a tag/rule for a client */
 typedef struct {
@@ -50,7 +56,7 @@ typedef struct {
   float mfact;
   int nmaster;
   float scale;
-  const Layout *lt;
+  int lt; /* index into layouts[] */
   enum wl_output_transform rr;
   int x, y;
 } MonitorRule;
