@@ -35,7 +35,7 @@ typedef struct {
   int arrange; /* index into arrangefn[] */
 } Layout;
 
-/* layout indices; each value must have a matching entry in arrangetn[] in
+/* layout indices; each value must have a matching entry in arrangefn[] in
  * config.c. forget one and you get a NULL function pointer at runtime. */
 enum { LtTile, LtFloat, LtMonocle, LtCount };
 

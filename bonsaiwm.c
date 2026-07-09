@@ -2289,7 +2289,7 @@ void setlayout(const Arg *arg) {
   /* arg->i < 0: just toggle between lt[0] and lt[1] */
   if (!arg || arg->i < 0 || arg->i != selmon->lt[selmon->sellt])
     selmon->sellt ^= 1;
-  if (arg && arg->i >= 0)
+  if (arg && arg->i >= 0 && (size_t)arg->i < layouts_count)
     selmon->lt[selmon->sellt] = arg->i;
   strncpy(selmon->ltsymbol, layouts[selmon->lt[selmon->sellt]].symbol,
           LENGTH(selmon->ltsymbol));
