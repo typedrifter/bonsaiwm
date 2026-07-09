@@ -35,9 +35,8 @@ typedef struct {
   int arrange; /* index into arrangefn[] */
 } Layout;
 
-/* layout indices; each value must have a matching entry in arrangefn[] in
- * config.c. forget one and you get a NULL function pointer at runtime. */
-enum { LtTile, LtFloat, LtMonocle, LtCount };
+/* layout indices; */
+enum { LtFloat, LtTile, LtMonocle };
 
 extern void (*const arrangefn[])(Monitor *);
 
@@ -162,8 +161,8 @@ extern Rule *rules;
 extern size_t rules_count;
 
 /* layouts */
-extern const Layout layouts[];
-extern const size_t layouts_count;
+extern Layout *layouts;
+extern size_t layouts_count;
 
 /* monitor rules */
 extern const MonitorRule monrules[];
@@ -196,6 +195,8 @@ extern const Key keys[];
 extern const size_t keys_count;
 extern const Button buttons[];
 extern const size_t buttons_count;
+
+extern void reload_monitor_layouts(void);
 
 void load_config();
 

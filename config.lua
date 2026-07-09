@@ -34,4 +34,12 @@ bonsaiwm = {
 		-- user rule:
 		{ id = "helium", title = nil, isfloating = 1, tags = 0, monitor = -1 },
 	},
+	layouts = {
+		{ symbol = "Fload", arrange = 0 },
+		{
+			symbol = "Tiling",
+			arrange = 1,
+		},
+		{ symbol = "Monocle", arrange = 2 },
+	},
 }

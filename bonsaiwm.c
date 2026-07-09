@@ -186,11 +186,11 @@ struct Monitor {
   struct wlr_box m;         /* monitor area, layout-relative */
   struct wlr_box w;         /* window area, layout-relative */
   struct wl_list layers[4]; /* LayerSurface.link */
-  int lt[2]; /* indices into layouts[] */
-  int gappih; /* horizontal gap between windows */
-  int gappiv; /* vertical gap between windows */
-  int gappoh; /* horizontal outer gaps */
-  int gappov; /* vertical outer gaps */
+  int lt[2];                /* indices into layouts[] */
+  int gappih;               /* horizontal gap between windows */
+  int gappiv;               /* vertical gap between windows */
+  int gappoh;               /* horizontal outer gaps */
+  int gappov;               /* vertical outer gaps */
   unsigned int seltags;
   unsigned int sellt;
   uint32_t tagset[2];
@@ -507,11 +507,10 @@ void arrange(Monitor *m) {
     if (c->mon != m || c->scene->node.parent == layers[LyrFS])
       continue;
 
-    wlr_scene_node_reparent(
-        &c->scene->node,
-        (!arr && c->isfloating)  ? layers[LyrTile]
-        : (arr && c->isfloating) ? layers[LyrFloat]
-                                 : c->scene->node.parent);
+    wlr_scene_node_reparent(&c->scene->node,
+                            (!arr && c->isfloating)  ? layers[LyrTile]
+                            : (arr && c->isfloating) ? layers[LyrFloat]
+                                                     : c->scene->node.parent);
   }
 
   if (arr)
@@ -1034,7 +1033,8 @@ void createmon(struct wl_listener *listener, void *data) {
       m->nmaster = r->nmaster;
       m->lt[0] = r->lt;
       m->lt[1] = (layouts_count > 1 && r->lt != LtFloat) ? LtFloat : LtTile;
-      strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol, LENGTH(m->ltsymbol));
+      strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol,
+              LENGTH(m->ltsymbol));
       wlr_output_state_set_scale(&state, r->scale);
       wlr_output_state_set_transform(&state, r->rr);
       break;
@@ -1523,7 +1523,9 @@ void incgaps(const Arg *arg) {
 }
 
 /* Reset to config defaults (Super+Shift+) */
-void defaultgaps(const Arg *arg) { setgaps(config.gappoh, config.gappov, config.gappih, config.gappiv); }
+void defaultgaps(const Arg *arg) {
+  setgaps(config.gappoh, config.gappov, config.gappih, config.gappiv);
+}
 
 void inputdevice(struct wl_listener *listener, void *data) {
   /* This event is raised by the backend when a new input device becomes
@@ -1996,8 +1998,8 @@ void pointerfocus(Client *c, struct wlr_surface *surface, double sx, double sy,
                   uint32_t time) {
   struct timespec now;
 
-  if (surface != seat->pointer_state.focused_surface && config.sloppyfocus && time &&
-      c && !client_is_unmanaged(c))
+  if (surface != seat->pointer_state.focused_surface && config.sloppyfocus &&
+      time && c && !client_is_unmanaged(c))
     focusclient(c, 0);
 
   /* If surface is NULL, clear pointer focus */
@@ -2295,6 +2297,51 @@ void setlayout(const Arg *arg) {
           LENGTH(selmon->ltsymbol));
   arrange(selmon);
   printstatus();
+}
+
+void reload_monitor_layouts(void) {
+  Monitor *m;
+
+  wlr_log(WLR_DEBUG, "reload_monitor_layouts: layouts_count=%zu",
+          layouts_count);
+  if (layouts_count == 0) {
+    wlr_log(WLR_DEBUG, "reload_monitor_layouts: no layouts, skipping monitors");
+    return;
+  }
+  wl_list_for_each(m, &mons, link) {
+    int old0 = m->lt[0], old1 = m->lt[1], oldsellt = m->lt[m->sellt];
+    wlr_log(WLR_DEBUG, "reload_monitor_layouts: monitor %s lt=[%d,%d] sellt=%u",
+            m->wlr_output->name, m->lt[0], m->lt[1], m->sellt);
+    if ((size_t)m->lt[0] >= layouts_count) {
+      wlr_log(WLR_DEBUG,
+              "reload_monitor_layouts: %s lt[0]=%d out of range, clamping to 0",
+              m->wlr_output->name, m->lt[0]);
+      m->lt[0] = 0;
+    }
+    if ((size_t)m->lt[1] >= layouts_count) {
+      wlr_log(WLR_DEBUG,
+              "reload_monitor_layouts: %s lt[1]=%d out of range, clamping to 0",
+              m->wlr_output->name, m->lt[1]);
+      m->lt[1] = 0;
+    }
+    if ((size_t)m->lt[m->sellt] >= layouts_count) {
+      wlr_log(WLR_DEBUG,
+              "reload_monitor_layouts: %s lt[sellt=%u]=%d out of range, "
+              "resetting sellt to 0",
+              m->wlr_output->name, m->sellt, oldsellt);
+      m->sellt = 0;
+    }
+    if (old0 == m->lt[0] && old1 == m->lt[1] && oldsellt == m->lt[m->sellt])
+      wlr_log(WLR_DEBUG,
+              "reload_monitor_layouts: %s layouts already valid, no change",
+              m->wlr_output->name);
+    else
+      wlr_log(WLR_DEBUG,
+              "reload_monitor_layouts: %s layouts fixed -> lt=[%d,%d] sellt=%u",
+              m->wlr_output->name, m->lt[0], m->lt[1], m->sellt);
+    strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol, LENGTH(m->ltsymbol));
+    arrange(m);
+  }
 }
 
 /* arg > 1.0 will set mfact absolutely */
@@ -2955,8 +3002,8 @@ void xytonode(double x, double y, struct wlr_surface **psurface, Client **pc,
 void zoom(const Arg *arg) {
   Client *c, *sel = focustop(selmon);
 
-  if (!sel || !selmon || !arrangefn[layouts[selmon->lt[selmon->sellt]].arrange] ||
-      sel->isfloating)
+  if (!sel || !selmon ||
+      !arrangefn[layouts[selmon->lt[selmon->sellt]].arrange] || sel->isfloating)
     return;
 
   /* Search for the first tiled window that is not sel, marking sel as

@@ -72,12 +72,8 @@ void (*const arrangefn[])(Monitor *) = {
 };
 
 /* layout(s) */
-const Layout layouts[] = {
-    /* symbol     arrange index into arrangefn[] */
-    {"[]=", LtTile},
-    {"><>", LtFloat}, /* no layout function means floating behavior */
-    {"[M]", LtMonocle},
-};
+Layout *layouts = NULL;
+size_t layouts_count = 0;
 
 /* monitors */
 /* (x=-1, y=-1) is reserved as an "autoconfigure" monitor position indicator
@@ -169,9 +165,9 @@ const Key keys[] = {
     {MODKEY, XKB_KEY_Return, zoom, {0}},
     {MODKEY, XKB_KEY_Tab, view, {0}},
     {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_c, killclient, {0}},
-    {MODKEY, XKB_KEY_t, setlayout, {.i = LtTile}},
-    {MODKEY, XKB_KEY_f, setlayout, {.i = LtFloat}},
-    {MODKEY, XKB_KEY_m, setlayout, {.i = LtMonocle}},
+    {MODKEY, XKB_KEY_t, setlayout, {.i = 1}},
+    {MODKEY, XKB_KEY_f, setlayout, {.i = 0}},
+    {MODKEY, XKB_KEY_m, setlayout, {.i = 2}},
     {MODKEY, XKB_KEY_space, setlayout, {.i = -1}}, /* just toggle lt[0]/lt[1] */
     {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_space, togglefloating, {0}},
     {MODKEY, XKB_KEY_e, togglefullscreen, {0}},
@@ -227,7 +223,6 @@ const Button buttons[] = {
     {MODKEY, BTN_RIGHT, moveresize, {.ui = CurResize}},
 };
 
-const size_t layouts_count = LENGTH(layouts);
 const size_t monrules_count = LENGTH(monrules);
 const size_t keys_count = LENGTH(keys);
 const size_t buttons_count = LENGTH(buttons);
@@ -240,6 +235,15 @@ static void rules_free(void) {
   free(rules);
   rules = NULL;
   rules_count = 0;
+}
+
+static void layouts_free(void) {
+  for (size_t i = 0; i < layouts_count; i++) {
+    free((char *)layouts[i].symbol);
+  }
+  free(layouts);
+  layouts = NULL;
+  layouts_count = 0;
 }
 
 static void rules_load_from_lua(void) {
@@ -279,9 +283,38 @@ static void rules_load_from_lua(void) {
   lua_pop(L, 2);
 }
 
+static void layouts_load_from_lua(void) {
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "layouts");
+  if (!lua_istable(L, -1)) {
+    wlr_log(WLR_INFO, "no layouts table in config.lua, layouts empty");
+    lua_pop(L, 2);
+    return;
+  }
+  layouts_count = lua_rawlen(L, -1);
+  if (layouts_count == 0) {
+    lua_pop(L, 2);
+    return;
+  }
+  layouts = ecalloc(layouts_count, sizeof(Layout));
+  for (size_t i = 0; i < layouts_count; i++) {
+    Layout *lyt = &layouts[i];
+    lua_rawgeti(L, -1, i + 1);
+    lua_getfield(L, -1, "symbol");
+    lyt->symbol = lua_isstring(L, -1) ? strdup(lua_tostring(L, -1)) : NULL;
+    lua_pop(L, 1);
+    lua_getfield(L, -1, "arrange");
+    lyt->arrange = lua_isinteger(L, -1) ? (int)lua_tointeger(L, -1) : 1;
+    lua_pop(L, 1);
+    lua_pop(L, 1);
+  }
+  lua_pop(L, 2);
+}
+
 void load_config() {
   // free heap rules and close previously running lua runtime to prevent memory
   // leaks when reloading config
+  layouts_free();
   rules_free();
   if (L) {
     wlr_log(WLR_INFO, "restarting lua runtime");
@@ -310,4 +343,6 @@ void load_config() {
   }
   lua_pop(L, 1);
   rules_load_from_lua();
+  layouts_load_from_lua();
+  reload_monitor_layouts();
 }
