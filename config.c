@@ -285,9 +285,9 @@ static void rules_load_from_lua(void) {
 
 static void layouts_load_defaults(void) {
   layouts = ecalloc(2, sizeof(Layout));
-  layouts[0].symbol = strdup("[]=");
+  layouts[0].symbol = strdup("Defloat");
   layouts[0].arrange = LtFloat;
-  layouts[1].symbol = strdup("###");
+  layouts[1].symbol = strdup("Deftile");
   layouts[1].arrange = LtTile;
   layouts_count = 2;
 }
@@ -295,15 +295,8 @@ static void layouts_load_defaults(void) {
 static void layouts_load_from_lua(void) {
   lua_getglobal(L, "bonsaiwm");
   lua_getfield(L, -1, "layouts");
-  if (!lua_istable(L, -1)) {
-    wlr_log(WLR_INFO, "no layouts table in config.lua, using defaults");
-    lua_pop(L, 2);
-    layouts_load_defaults();
-    return;
-  }
-  layouts_count = lua_rawlen(L, -1);
-  if (layouts_count == 0) {
-    wlr_log(WLR_INFO, "empty layouts table in config.lua, using defaults");
+  if (!lua_istable(L, -1) || lua_rawlen(L, -1) == 0) {
+    wlr_log(WLR_INFO, "no layouts configured in config.lua, using defaults");
     lua_pop(L, 2);
     layouts_load_defaults();
     return;
