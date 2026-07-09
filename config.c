@@ -283,17 +283,29 @@ static void rules_load_from_lua(void) {
   lua_pop(L, 2);
 }
 
+static void layouts_load_defaults(void) {
+  layouts = ecalloc(2, sizeof(Layout));
+  layouts[0].symbol = strdup("[]=");
+  layouts[0].arrange = LtFloat;
+  layouts[1].symbol = strdup("###");
+  layouts[1].arrange = LtTile;
+  layouts_count = 2;
+}
+
 static void layouts_load_from_lua(void) {
   lua_getglobal(L, "bonsaiwm");
   lua_getfield(L, -1, "layouts");
   if (!lua_istable(L, -1)) {
-    wlr_log(WLR_INFO, "no layouts table in config.lua, layouts empty");
+    wlr_log(WLR_INFO, "no layouts table in config.lua, using defaults");
     lua_pop(L, 2);
+    layouts_load_defaults();
     return;
   }
   layouts_count = lua_rawlen(L, -1);
   if (layouts_count == 0) {
+    wlr_log(WLR_INFO, "empty layouts table in config.lua, using defaults");
     lua_pop(L, 2);
+    layouts_load_defaults();
     return;
   }
   layouts = ecalloc(layouts_count, sizeof(Layout));
@@ -304,8 +316,16 @@ static void layouts_load_from_lua(void) {
     lyt->symbol = lua_isstring(L, -1) ? strdup(lua_tostring(L, -1)) : NULL;
     lua_pop(L, 1);
     lua_getfield(L, -1, "arrange");
-    lyt->arrange = lua_isinteger(L, -1) ? (int)lua_tointeger(L, -1) : 1;
+    int arrange = lua_isinteger(L, -1) ? (int)lua_tointeger(L, -1) : LtTile;
     lua_pop(L, 1);
+    if (arrange < 0 || (size_t)arrange >= LENGTH(arrangefn)) {
+      wlr_log(WLR_ERROR,
+              "layouts[%zu].arrange=%d out of range [0,%zu), falling back to "
+              "LtTile",
+              i, arrange, LENGTH(arrangefn));
+      arrange = LtTile;
+    }
+    lyt->arrange = arrange;
     lua_pop(L, 1);
   }
   lua_pop(L, 2);
