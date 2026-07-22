@@ -2353,6 +2353,45 @@ void reload_monitor_layouts(void) {
   }
 }
 
+/* rebuild the xkb keymap from the (possibly reloaded) xkb_rules and re-push
+ * it onto the keyboard group, along with the repeat settings. Called from
+ * load_config() on every Mod-Shift-R reload. On first startup it's a no-op
+ * because kb_group doesn't exist yet — createkeyboardgroup() picks up the
+ * already-populated xkb_rules when it runs. wlr_keyboard_set_keymap is safe
+ * to call on an already-keymapped keyboard; it replaces the keymap and every
+ * attached keyboard inherits the new group keymap. A keymap compile failure
+ * (e.g. a typo in options = "ctrl:nocapsss") is logged but non-fatal: the
+ * previous keymap is kept so the user can fix their config and retry. */
+void reload_keyboard(void) {
+  if (!kb_group)
+    return;
+
+  struct xkb_context *ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  if (!ctx) {
+    wlr_log(WLR_ERROR, "reload_keyboard: xkb_context_new failed");
+    return;
+  }
+
+  struct xkb_keymap *keymap = xkb_keymap_new_from_names(
+      ctx, &xkb_rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  if (!keymap) {
+    wlr_log(WLR_ERROR,
+            "reload_keyboard: failed to compile keymap, keeping previous");
+    xkb_context_unref(ctx);
+    return;
+  }
+
+  wlr_keyboard_set_keymap(&kb_group->wlr_group->keyboard, keymap);
+  xkb_keymap_unref(keymap);
+  xkb_context_unref(ctx);
+
+  /* re-push repeat settings from the (possibly reloaded) config struct.
+   * without this, changing repeat_rate/repeat_delay in lua and reloading
+   * would have no effect on the live keyboard. */
+  wlr_keyboard_set_repeat_info(&kb_group->wlr_group->keyboard,
+                               config.repeat_rate, config.repeat_delay);
+}
+
 /* arg > 1.0 will set mfact absolutely */
 void setmfact(const Arg *arg) {
   float f;

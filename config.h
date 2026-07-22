@@ -172,7 +172,7 @@ extern const MonitorRule monrules[];
 extern const size_t monrules_count;
 
 /* keyboard */
-extern const struct xkb_rule_names xkb_rules;
+extern struct xkb_rule_names xkb_rules;
 
 /* trackpad */
 extern const int tap_to_click;
@@ -196,6 +196,7 @@ extern const Button buttons[];
 extern const size_t buttons_count;
 
 extern void reload_monitor_layouts(void);
+extern void reload_keyboard(void);
 
 void load_config();
 

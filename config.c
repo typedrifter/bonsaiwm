@@ -118,14 +118,10 @@ const MonitorRule monrules[] = {
        one monitor rule must exist */
 };
 
-/* keyboard */
-const struct xkb_rule_names xkb_rules = {
-    /* can specify fields: rules, model, layout, variant, options */
-    /* example:
-    .options = "ctrl:nocaps",
-    */
-    .options = NULL,
-};
+/* keyboard: xkb RMLVO. Populated from config.lua (bonsaiwm.xkb_rules) in
+ * load_config(). All five fields are heap-allocated (strdup'd) strings that
+ * are freed and re-built on every config reload. NULL = xkbcommon default. */
+struct xkb_rule_names xkb_rules = {0};
 
 /* Trackpad */
 const int tap_to_click = 1;
@@ -228,6 +224,61 @@ static void layouts_free(void) {
   free(layouts);
   layouts = NULL;
   layouts_count = 0;
+}
+
+/* free the five strdup'd RMLVO strings in xkb_rules. the fields are
+ * const char * (as declared by xkb_rule_names) but we own the heap
+ * copies and must free them on reload. */
+static void xkb_rules_free(void) {
+  free((void *)xkb_rules.rules);
+  free((void *)xkb_rules.model);
+  free((void *)xkb_rules.layout);
+  free((void *)xkb_rules.variant);
+  free((void *)xkb_rules.options);
+  xkb_rules.rules = NULL;
+  xkb_rules.model = NULL;
+  xkb_rules.layout = NULL;
+  xkb_rules.variant = NULL;
+  xkb_rules.options = NULL;
+}
+
+/* read bonsaiwm.xkb_rules from lua. each of the five fields is optional;
+ * omitted or non-string fields become NULL (xkbcommon applies its built-in
+ * defaults, typically "evdev"/"pc104"/"us"/""/""). */
+static void xkb_rules_load_from_lua(void) {
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "xkb_rules");
+  if (!lua_istable(L, -1)) {
+    lua_pop(L, 2);
+    return;
+  }
+
+  lua_getfield(L, -1, "rules");
+  if (lua_isstring(L, -1))
+    xkb_rules.rules = strdup(lua_tostring(L, -1));
+  lua_pop(L, 1);
+
+  lua_getfield(L, -1, "model");
+  if (lua_isstring(L, -1))
+    xkb_rules.model = strdup(lua_tostring(L, -1));
+  lua_pop(L, 1);
+
+  lua_getfield(L, -1, "layout");
+  if (lua_isstring(L, -1))
+    xkb_rules.layout = strdup(lua_tostring(L, -1));
+  lua_pop(L, 1);
+
+  lua_getfield(L, -1, "variant");
+  if (lua_isstring(L, -1))
+    xkb_rules.variant = strdup(lua_tostring(L, -1));
+  lua_pop(L, 1);
+
+  lua_getfield(L, -1, "options");
+  if (lua_isstring(L, -1))
+    xkb_rules.options = strdup(lua_tostring(L, -1));
+  lua_pop(L, 1);
+
+  lua_pop(L, 2);
 }
 
 static void rules_load_from_lua(void) {
@@ -568,6 +619,7 @@ void load_config() {
   layouts_free();
   rules_free();
   keys_free();
+  xkb_rules_free();
   if (L) {
     wlr_log(WLR_INFO, "restarting lua runtime");
     lua_close(L);
@@ -615,8 +667,10 @@ void load_config() {
     lua_pop(L, 1);
   }
   lua_pop(L, 1);
+  xkb_rules_load_from_lua();
   rules_load_from_lua();
   layouts_load_from_lua();
   keys_load();
   reload_monitor_layouts();
+  reload_keyboard();
 }
