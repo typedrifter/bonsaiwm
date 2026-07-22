@@ -585,8 +585,19 @@ void load_config() {
       int v = (int)lua_tonumber(L, -1);
       if (config_schema[i].as_int)
         *config_schema[i].as_int = v;
-      if (config_schema[i].as_uint)
+      if (config_schema[i].as_uint) {
+        /* unsigned fields (borderpx, gaps) cannot be negative; a
+         * negative lua value would silently wrap to a huge unsigned
+         * via the cast below, producing broken layout geometry. Clamp
+         * to zero instead. */
+        if (v < 0) {
+          wlr_log(WLR_ERROR,
+                  "config: %s = %d is negative, clamping to 0",
+                  config_schema[i].lua_key, v);
+          v = 0;
+        }
         *config_schema[i].as_uint = (unsigned)v;
+      }
     } else if (lua_isstring(L, -1) && config_schema[i].as_color) {
       if (hex_to_rgba(lua_tostring(L, -1), config_schema[i].as_color) < 0)
         wlr_log(WLR_ERROR, "invalid color for %s: %s", config_schema[i].lua_key,
