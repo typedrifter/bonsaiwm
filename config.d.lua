@@ -72,6 +72,24 @@
 --- 	{ symbol = "Monocle", arrange = 2 },
 --- }
 
+---@class bonsaiwm.XkbRules
+---XKB rules path, usually `"evdev"` (the default). Nil = xkbcommon default.
+---@field rules? string
+---Keyboard model, usually `"pc104"` (the default). Nil = xkbcommon default.
+---@field model? string
+---Keyboard layout(s), e.g. `"us"`, `"fr"`, `"de"`. Multiple layouts can be
+---comma-separated, e.g. `"us,fr"`. Nil = `"us"` (xkbcommon default).
+---@field layout? string
+---Layout variant, e.g. `"dvorak"`, `"colemak"`. Nil = no variant.
+---@field variant? string
+---XKB options, e.g. `"ctrl:nocaps"` (CapsLock as Ctrl), `"compose:menu"`.
+---Multiple options comma-separated. Nil = no options.
+---@field options? string
+---@example
+--- bonsaiwm.xkb_rules = {
+--- 	options = "ctrl:nocaps",
+--- }
+
 ---@class bonsaiwm
 ---Enables tiling gaps when nonzero.
 ---@field enablegaps integer
@@ -93,6 +111,11 @@
 ---@field repeat_rate integer
 ---Keyboard repeat delay (ms) before a held key starts repeating.
 ---@field repeat_delay integer
+---Keyboard layout and XKB options (RMLVO). Applied live on config reload:
+---changing these and pressing Mod-Shift-R rebuilds the XKB keymap and pushes
+---it to the live keyboard group. All fields optional; omitted or nil fields
+---use xkbcommon defaults (typically "evdev"/"pc104"/"us"/""/"").
+---@field xkb_rules bonsaiwm.XkbRules
 ---Root (background) color as a hex string, e.g. "#1a1b26" or "#1a1b26ff".
 ---@field rootcolor string
 ---Unfocused-client border color. Hex string.

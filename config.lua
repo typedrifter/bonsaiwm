@@ -10,6 +10,17 @@ bonsaiwm = {
 	repeat_rate = 25,
 	repeat_delay = 600,
 
+	-- keyboard layout (XKB RMLVO); all fields optional, nil = xkbcommon default.
+	-- applied live on Mod-Shift-R reload.
+	--   rules:   usually "evdev" (default)
+	--   model:   usually "pc104" (default)
+	--   layout:  e.g. "us", "fr", "de" (comma-separated for multiple)
+	--   variant: e.g. "dvorak", "colemak"
+	--   options: e.g. "ctrl:nocaps" (CapsLock as Ctrl), "compose:menu"
+	xkb_rules = {
+		-- options = "ctrl:nocaps",
+	},
+
 	-- colors: "#RRGGBB" or "#RRGGBBAA"
 	rootcolor = "#1a1b26ff",
 	bordercolor = "#414868ff",
