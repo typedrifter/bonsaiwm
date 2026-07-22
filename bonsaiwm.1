@@ -41,63 +41,29 @@ to the child process group and waits for it to exit.
 .Pp
 Users are encouraged to customize
 .Nm
-by editing the sources, in particular
-.Pa config.h .
-The default key bindings are as follows:
+by editing the Lua configuration file; see
+.Lk https://bonsaiwm.dev/docs/references/lua "the Lua API reference"
+for the full
+.Li bonsaiwm
+global.
+The configuration is searched for at
+.Pa $XDG_CONFIG_HOME/bonsaiwm/config.lua
+(or
+.Pa $HOME/.config/bonsaiwm/config.lua
+if
+.Ev XDG_CONFIG_HOME
+is unset), and falls back to built-in defaults if neither file is found.
+The configuration can be re-read at runtime with
+.Sy Mod-Shift-R .
+.Pp
+All key bindings, window rules, layouts, colors, and gaps are defined in the
+Lua configuration. The only C-built-in bindings that are always present,
+even with a broken or missing configuration file, are the escape hatches:
 .Bl -tag -width 20n -offset indent -compact
-.It Mod-[1-9]
-Show only all windows with a tag.
-.It Mod-Ctrl-[1-9]
-Show all windows with a tag.
-.It Mod-Shift-[1-9]
-Move window to a single tag.
-.It Mod-Ctrl-Shift-[1-9]
-Toggle tag for window.
-.It Mod-p
-Spawn
-.Xr wmenu-run 1 .
-.It Mod-Shift-Return
-Spawn
-.Xr foot 1 .
-.It Mod-[jk]
-Move focus down/up the stack.
-.It Mod-[id]
-Increase/decrease number of windows in master area.
-.It Mod-[hl]
-Decrease/increase master area.
-.It Mod-Return
-Move window on top of stack or switch top of stack with second window.
-.It Mod-Tab
-Show only all windows with previous tag.
-.It Mod-Shift-c
-Close window.
-.It Mod-t
-Switch to tabbed layout.
-.It Mod-f
-Switch to floating layout.
-.It Mod-m
-Switch to monocle layout.
-.It Mod-Space
-Switch to previous layout.
-.It Mod-Shift-Space
-Toggle floating state of window.
-.It Mod-e
-Toggle fullscreen state of window.
-.It Mod-0
-Show all windows.
-.It Mod-Shift-0
-Set all tags for window.
-.It Mod-,
-Move focus to previous monitor.
-.It Mod-.
-Move focus to next monitor.
-.It Mod-Shift-,
-Move window to previous monitor.
-.It Mod-Shift-.
-Move window to next monitor.
-.It Mod-Shift-q
-Quit
-.Nm .
+.It Mod-Shift-r
+Reload the Lua configuration.
+.It Ctrl-Alt-F1 .. Ctrl-Alt-F12
+Switch to virtual terminal 1 through 12.
 .El
 These might differ depending on your keyboard layout.
 .Ss Mouse commands
