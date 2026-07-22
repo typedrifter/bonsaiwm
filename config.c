@@ -301,6 +301,7 @@ static void layouts_load_from_lua(void) {
     layouts_load_defaults();
     return;
   }
+  layouts_count = lua_rawlen(L, -1);
   layouts = ecalloc(layouts_count, sizeof(Layout));
   for (size_t i = 0; i < layouts_count; i++) {
     Layout *lyt = &layouts[i];
