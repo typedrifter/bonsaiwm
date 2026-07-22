@@ -79,54 +79,19 @@ void (*const arrangefn[])(Monitor *) = {
     [LtMonocle] = monocle,
 };
 
+/* dispatch + arg-type tables. Both are generated from actions.def so they
+ * cannot drift from the enum or from each other. _Static_assert below still
+ * guards against anyone editing actions.def without recompiling. */
 void (*const actionfn[ActCount])(const Arg *) = {
-    [ActNone] = noop,
-    [ActChvt] = chvt,
-    [ActDefaultGaps] = defaultgaps,
-    [ActFocusMon] = focusmon,
-    [ActFocusStack] = focusstack,
-    [ActIncGaps] = incgaps,
-    [ActIncNmaster] = incnmaster,
-    [ActKillClient] = killclient,
-    [ActLoadConfig] = load_config,
-    [ActQuit] = quit,
-    [ActSetLayout] = setlayout,
-    [ActSetMfact] = setmfact,
-    [ActSpawn] = spawn,
-    [ActTag] = tag,
-    [ActTagMon] = tagmon,
-    [ActToggleFloating] = togglefloating,
-    [ActToggleFullscreen] = togglefullscreen,
-    [ActToggleGaps] = togglegaps,
-    [ActToggleTag] = toggletag,
-    [ActToggleView] = toggleview,
-    [ActView] = view,
-    [ActZoom] = zoom,
+#define X(ACT, NAME, FUNC, ARGT) [ACT] = FUNC,
+#include "actions.def"
+#undef X
 };
 
 const int action_arg_type[ActCount] = {
-    [ActNone] = ArgNone,
-    [ActChvt] = ArgUI,
-    [ActDefaultGaps] = ArgNone,
-    [ActFocusMon] = ArgI,
-    [ActFocusStack] = ArgI,
-    [ActIncGaps] = ArgI,
-    [ActIncNmaster] = ArgI,
-    [ActKillClient] = ArgNone,
-    [ActLoadConfig] = ArgNone,
-    [ActQuit] = ArgNone,
-    [ActSetLayout] = ArgI,
-    [ActSetMfact] = ArgF,
-    [ActSpawn] = ArgV,
-    [ActTag] = ArgUI,
-    [ActTagMon] = ArgI,
-    [ActToggleFloating] = ArgNone,
-    [ActToggleFullscreen] = ArgNone,
-    [ActToggleGaps] = ArgNone,
-    [ActToggleTag] = ArgUI,
-    [ActToggleView] = ArgUI,
-    [ActView] = ArgUI,
-    [ActZoom] = ArgNone,
+#define X(ACT, NAME, FUNC, ARGT) [ACT] = ARGT,
+#include "actions.def"
+#undef X
 };
 
 _Static_assert(LENGTH(actionfn) == ActCount, "actionfn table out of sync");

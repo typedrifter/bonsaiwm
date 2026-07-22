@@ -11,34 +11,16 @@
 
 lua_State *L = NULL;
 
-/* name -> enum value pairs for the bonsaiwm.action sub-table. Must stay in
- * sync with the enum in config.h. */
+/* name -> enum value pairs for the bonsaiwm.action sub-table. Generated from
+ * actions.def alongside the enum and dispatch tables, so all four sites
+ * share one source of truth and cannot drift. */
 static const struct {
   const char *name;
   int value;
 } action_names[] = {
-    {"none", ActNone},
-    {"chvt", ActChvt},
-    {"defaultgaps", ActDefaultGaps},
-    {"focusmon", ActFocusMon},
-    {"focusstack", ActFocusStack},
-    {"incgaps", ActIncGaps},
-    {"incnmaster", ActIncNmaster},
-    {"killclient", ActKillClient},
-    {"load_config", ActLoadConfig},
-    {"quit", ActQuit},
-    {"setlayout", ActSetLayout},
-    {"setmfact", ActSetMfact},
-    {"spawn", ActSpawn},
-    {"tag", ActTag},
-    {"tagmon", ActTagMon},
-    {"togglefloating", ActToggleFloating},
-    {"togglefullscreen", ActToggleFullscreen},
-    {"togglegaps", ActToggleGaps},
-    {"toggletag", ActToggleTag},
-    {"toggleview", ActToggleView},
-    {"view", ActView},
-    {"zoom", ActZoom},
+#define X(ACT, NAME, FUNC, ARGT) {NAME, ACT},
+#include "actions.def"
+#undef X
 };
 
 lua_State *lua_init(void) {

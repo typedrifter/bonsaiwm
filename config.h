@@ -40,30 +40,13 @@ enum { LtFloat, LtTile, LtMonocle };
 
 extern void (*const arrangefn[])(Monitor *);
 
-/* action indices for key bindings */
+/* action indices for key bindings. Generated from actions.def so the enum,
+ * dispatch table, arg-type table, and lua name table all share one source.
+ * See actions.def for how to add or remove an action. */
 enum {
-  ActNone,
-  ActChvt,
-  ActDefaultGaps,
-  ActFocusMon,
-  ActFocusStack,
-  ActIncGaps,
-  ActIncNmaster,
-  ActKillClient,
-  ActLoadConfig,
-  ActQuit,
-  ActSetLayout,
-  ActSetMfact,
-  ActSpawn,
-  ActTag,
-  ActTagMon,
-  ActToggleFloating,
-  ActToggleFullscreen,
-  ActToggleGaps,
-  ActToggleTag,
-  ActToggleView,
-  ActView,
-  ActZoom,
+#define X(ACT, NAME, FUNC, ARGT) ACT,
+#include "actions.def"
+#undef X
   ActCount
 };
 
