@@ -41,11 +41,39 @@ to the child process group and waits for it to exit.
 .Pp
 Users are encouraged to customize
 .Nm
-by editing the Lua configuration file; see
-.Lk https://bonsaiwm.dev/docs/references/lua "the Lua API reference"
-for the full
+by editing the Lua configuration file. The configuration script populates the
 .Li bonsaiwm
-global.
+global table, which has the following sub-tables and fields:
+.Bl -tag -width xkb_rules -offset indent -compact
+.It Li action
+Action constants exposed to keymaps (e.g.
+.Li bonsaiwm.action.spawn ,
+.Li bonsaiwm.action.view ) .
+.It Li xkb_rules
+Keyboard RMLVO rules
+.Pq rules , model , layout , variant , options .
+.It Li rules
+Window rules
+.Pq id , title , tags , isfloating , monitor .
+.It Li layouts
+Layout list cycled with
+.Li setlayout
+.Pq symbol , arrange .
+.It Li keymaps
+Key bindings
+.Pq mod , key , action , arg .
+.It Li enablegaps , smartgaps , gappoh , gappov , gappih , gappiv
+Gap and smart-gap settings.
+.It Li sloppyfocus , borderpx , repeat_rate , repeat_delay
+Input and border settings.
+.It Li rootcolor , bordercolor , focuscolor , urgentcolor , fullscreen_bg
+Colors as hex strings.
+.El
+For the authoritative type definitions see the
+.Pa config.d.lua
+file in the source tree, and the shipped default
+.Pa config.lua
+for a commented example.
 The configuration is searched for at
 .Pa $XDG_CONFIG_HOME/bonsaiwm/config.lua
 (or

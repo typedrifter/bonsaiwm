@@ -15,7 +15,7 @@ BonsaiWM loads `config.lua` from the first existing location:
 
 If neither file is found, builtin defaults are used. The config is re-read on every reload (`Mod-Shift-R`), so environment variable changes are honored.
 
-See the [Lua API reference](https://bonsaiwm.dev/docs/references/lua) for the full `bonsaiwm` global.
+See [`config.d.lua`](./config.d.lua) for the full `bonsaiwm` global type definitions, and [`config.lua`](./config.lua) for a commented example.
 
 ## Roadmap
 
