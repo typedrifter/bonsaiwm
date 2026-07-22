@@ -254,7 +254,16 @@ static void rules_load_from_lua(void) {
     r->title = lua_isstring(L, -1) ? strdup(lua_tostring(L, -1)) : NULL;
     lua_pop(L, 1);
     lua_getfield(L, -1, "tags");
-    r->tags = lua_isinteger(L, -1) ? (uint32_t)lua_tointeger(L, -1) : 0;
+    {
+      lua_Integer v = lua_isinteger(L, -1) ? lua_tointeger(L, -1) : 0;
+      if (v < 0 || v > TAGCOUNT) {
+        wlr_log(WLR_ERROR,
+                "rules: tags = %lld out of range 0..%d, treating as 0",
+                (long long)v, TAGCOUNT);
+        v = 0;
+      }
+      r->tags = v >= 1 ? 1u << (v - 1) : 0;
+    }
     lua_pop(L, 1);
     lua_getfield(L, -1, "isfloating");
     r->isfloating = lua_isinteger(L, -1) ? (int)lua_tointeger(L, -1) : 0;

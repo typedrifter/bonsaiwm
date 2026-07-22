@@ -11,9 +11,8 @@
 ---Window title. Matched as a **substring** against the client's title.
 ---Nil or omitted = match any title.
 ---@field title? string
----Tag bitmask selecting which tags the client starts on.
----Bit `n` (0-indexed) corresponds to tag `n+1`. `0` = keep currently visible
----tags. Example: `1 << 8` starts the client on tag "9" only.
+---Tag NUMBER 1-9 to start the client on (1 = tag 1, 9 = tag 9).
+---`0` = keep currently visible tags.
 ---@field tags integer
 ---Whether the client should float instead of being tiled.
 ---`1` = floating, `0` = tiled. Default `0` when omitted.
@@ -24,7 +23,7 @@
 ---@example
 --- bonsaiwm.rules = {
 --- 	{ id = "gimp", isfloating = 1, tags = 0, monitor = -1 },
---- 	{ id = "firefox", tags = 1 << 8, monitor = -1 },
+--- 	{ id = "firefox", tags = 9, monitor = -1 },
 --- }
 
 ---@class bonsaiwm.Keymap
@@ -109,7 +108,7 @@
 ---default tags/monitor. At least one example is usually present.
 ---@field rules bonsaiwm.Rule[]
 ---Layouts cycled through with `setlayout`. Rebuilt on every config reload.
----May be empty or omitted; in that case C defaults (tile + monocle) are used.
+---May be empty or omitted; in that case C defaults (float + tile) are used.
 ---Each entry has a `symbol` (bar text) and an `arrange` index
 ---(0=float, 1=tile, 2=monocle).
 ---@field layouts bonsaiwm.Layout[]

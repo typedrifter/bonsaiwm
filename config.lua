@@ -20,7 +20,8 @@ bonsaiwm = {
 	-- window rules: id and title are substring matches (nil = match any).
 	--   id:         app_id (Wayland) or class (X11)
 	--   title:      window title
-	--   tags:       bitmask, 0 = keep currently visible tags
+	--   tags:       tag NUMBER 1-9 (1 = tag 1, 9 = tag 9), 0 = keep currently
+	--               visible tags
 	--   isfloating: 1 = floating, 0 = tiled
 	--   monitor:    0-based index, -1 = current
 	--
@@ -30,7 +31,7 @@ bonsaiwm = {
 		-- start on currently visible tags, floating (not tiled):
 		{ id = "Gimp_EXAMPLE", title = nil, isfloating = 1, tags = 0, monitor = -1 },
 		-- start on ONLY tag "9":
-		{ id = "firefox_EXAMPLE", title = nil, isfloating = 0, tags = 1 << 8, monitor = -1 },
+		{ id = "firefox_EXAMPLE", title = nil, isfloating = 0, tags = 9, monitor = -1 },
 		-- user rule:
 		{ id = "helium", title = nil, isfloating = 1, tags = 0, monitor = -1 },
 	},
@@ -68,7 +69,7 @@ bonsaiwm = {
 		{ mod = "Alt", key = "f", action = bonsaiwm.action.setlayout, arg = 0 },
 		{ mod = "Alt", key = "t", action = bonsaiwm.action.setlayout, arg = 1 },
 		{ mod = "Alt", key = "m", action = bonsaiwm.action.setlayout, arg = 2 },
-		-- toggle between the two most recent layouts
+		-- toggle between the two layout slots (lt[0] and lt[1])
 		{ mod = "Alt", key = "space", action = bonsaiwm.action.setlayout, arg = -1 },
 
 		-- workspace (tag) switching: Alt+N views tag N, Alt+Shift+N moves the
