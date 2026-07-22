@@ -1,9 +1,11 @@
 /* See LICENSE file for copyright and license details. */
 
+#include <limits.h>
 #include <linux/input-event-codes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/util/log.h>
 
@@ -526,6 +528,31 @@ static void keys_load(void) {
   lua_pop(L, 2);
 }
 
+/* search order for config.lua, per XDG base directory spec:
+ * 1. $XDG_CONFIG_HOME/bonsaiwm/config.lua   (if set and absolute)
+ * 2. $HOME/.config/bonsaiwm/config.lua       (if HOME set)
+ * first candidate that exists wins. a broken lua in that file still wins —
+ * broken user config must not silently fall through to another file. */
+static const char *resolve_config_path(void) {
+  static char path[PATH_MAX];
+
+  const char *xdg = getenv("XDG_CONFIG_HOME");
+  if (xdg && xdg[0] == '/') {
+    snprintf(path, sizeof path, "%s/bonsaiwm/config.lua", xdg);
+    if (access(path, R_OK) == 0)
+      return path;
+  }
+
+  const char *home = getenv("HOME");
+  if (home && home[0]) {
+    snprintf(path, sizeof path, "%s/.config/bonsaiwm/config.lua", home);
+    if (access(path, R_OK) == 0)
+      return path;
+  }
+
+  return NULL;
+}
+
 void load_config() {
   /* free heap state and close previously running lua runtime to prevent
    * memory leaks when reloading config */
@@ -539,7 +566,17 @@ void load_config() {
   }
   wlr_log(WLR_INFO, "loading lua config");
   L = lua_init();
-  lua_load_config("./config.lua");
+
+  const char *path = resolve_config_path();
+  if (path) {
+    wlr_log(WLR_INFO, "loading lua config from %s", path);
+    lua_load_config(path);
+  } else {
+    wlr_log(WLR_INFO,
+             "no config.lua found in $XDG_CONFIG_HOME/bonsaiwm or "
+             "~/.config/bonsaiwm; using builtin defaults");
+  }
+
   wlr_log(WLR_DEBUG, "lua config loaded, applying values");
   lua_getglobal(L, "bonsaiwm");
   for (size_t i = 0; i < LENGTH(config_schema); i++) {
