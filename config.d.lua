@@ -21,6 +21,11 @@
 ---Monitor to place the client on, as a 0-based index into the monitor list.
 ---`-1` = the currently selected monitor. Default `-1` when omitted.
 ---@field monitor integer
+---@example
+--- bonsaiwm.rules = {
+--- 	{ id = "gimp", isfloating = 1, tags = 0, monitor = -1 },
+--- 	{ id = "firefox", tags = 1 << 8, monitor = -1 },
+--- }
 
 ---@class bonsaiwm.Keymap
 ---Modifiers, case-insensitive, joined with `+`: `"Alt"`, `"Alt+Shift"`,
@@ -44,9 +49,29 @@
 ---  - `view`/`toggleview`/`tag`/`toggletag` → tag NUMBER 1-9
 ---    (internally converted to the `1<<(n-1)` bitmask the action expects)
 ---  - `focusstack`/`incnmaster`/`focusmon`/`tagmon`/`incgaps`/`chvt` → integer
----  - `setmfact`/`setlayout` → number (float or integer)
+---  - `setmfact`        → number (float or integer)
+---  - `setlayout`       → integer (0=float, 1=tile, 2=monocle; -1 to toggle)
 ---  - most others       → omit / nil
 ---@field arg? integer|number|string
+---@example
+--- bonsaiwm.keymaps = {
+--- 	{ mod = "Alt+Shift", key = "Return", action = bonsaiwm.action.spawn, arg = "foot" },
+--- 	{ mod = "Alt", key = "t", action = bonsaiwm.action.setlayout, arg = 1 },
+--- 	{ mod = "Alt", key = "1", action = bonsaiwm.action.view, arg = 1 },
+--- }
+
+---@class bonsaiwm.Layout
+---Symbol shown for this layout in the bar/status line, e.g. `"[]"`, `"[M]"`, `"><>"`.
+---@field symbol string
+---Which arrange function to use. Indices into the C `arrangefn[]` table:
+---`0` = float, `1` = tile, `2` = monocle. Out-of-range values fall back to tile.
+---@field arrange integer
+---@example
+--- bonsaiwm.layouts = {
+--- 	{ symbol = "Float", arrange = 0 },
+--- 	{ symbol = "Tiling", arrange = 1 },
+--- 	{ symbol = "Monocle", arrange = 2 },
+--- }
 
 ---@class bonsaiwm
 ---Enables tiling gaps when nonzero.
@@ -83,6 +108,11 @@
 ---May be empty or omitted; in that case no rules apply and clients keep their
 ---default tags/monitor. At least one example is usually present.
 ---@field rules bonsaiwm.Rule[]
+---Layouts cycled through with `setlayout`. Rebuilt on every config reload.
+---May be empty or omitted; in that case C defaults (tile + monocle) are used.
+---Each entry has a `symbol` (bar text) and an `arrange` index
+---(0=float, 1=tile, 2=monocle).
+---@field layouts bonsaiwm.Layout[]
 ---Key bindings. This is where *all* user-facing bindings live; the C
 ---defaults (`keys_defaults[]` in `config.c`) are deliberately minimal —
 ---just escape hatches (Mod-Shift-R reload, Ctrl-Alt-Fn VT switch) that are
