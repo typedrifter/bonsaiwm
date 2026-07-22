@@ -3,6 +3,7 @@
 #include <linux/input-event-codes.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/util/log.h>
 
@@ -65,11 +66,72 @@ static const struct {
 Rule *rules = NULL;
 size_t rules_count = 0;
 
+/* an intentionally do-nothing action, so users can write
+ * action = bonsaiwm.action.none in config.lua to shadow (i.e. disable) a
+ * default binding. The dispatch loop keybinding() already checks for a NULL
+ * k->func to skip dead entries, so a noop must be a real function for the
+ * entry to be considered "matched and consumed". */
+static void noop(const Arg *arg) { (void)arg; }
+
 void (*const arrangefn[])(Monitor *) = {
     [LtTile] = tile,
     [LtFloat] = NULL,
     [LtMonocle] = monocle,
 };
+
+void (*const actionfn[ActCount])(const Arg *) = {
+    [ActNone] = noop,
+    [ActChvt] = chvt,
+    [ActDefaultGaps] = defaultgaps,
+    [ActFocusMon] = focusmon,
+    [ActFocusStack] = focusstack,
+    [ActIncGaps] = incgaps,
+    [ActIncNmaster] = incnmaster,
+    [ActKillClient] = killclient,
+    [ActLoadConfig] = load_config,
+    [ActQuit] = quit,
+    [ActSetLayout] = setlayout,
+    [ActSetMfact] = setmfact,
+    [ActSpawn] = spawn,
+    [ActTag] = tag,
+    [ActTagMon] = tagmon,
+    [ActToggleFloating] = togglefloating,
+    [ActToggleFullscreen] = togglefullscreen,
+    [ActToggleGaps] = togglegaps,
+    [ActToggleTag] = toggletag,
+    [ActToggleView] = toggleview,
+    [ActView] = view,
+    [ActZoom] = zoom,
+};
+
+const int action_arg_type[ActCount] = {
+    [ActNone] = ArgNone,
+    [ActChvt] = ArgUI,
+    [ActDefaultGaps] = ArgNone,
+    [ActFocusMon] = ArgI,
+    [ActFocusStack] = ArgI,
+    [ActIncGaps] = ArgI,
+    [ActIncNmaster] = ArgI,
+    [ActKillClient] = ArgNone,
+    [ActLoadConfig] = ArgNone,
+    [ActQuit] = ArgNone,
+    [ActSetLayout] = ArgI,
+    [ActSetMfact] = ArgF,
+    [ActSpawn] = ArgV,
+    [ActTag] = ArgUI,
+    [ActTagMon] = ArgI,
+    [ActToggleFloating] = ArgNone,
+    [ActToggleFullscreen] = ArgNone,
+    [ActToggleGaps] = ArgNone,
+    [ActToggleTag] = ArgUI,
+    [ActToggleView] = ArgUI,
+    [ActView] = ArgUI,
+    [ActZoom] = ArgNone,
+};
+
+_Static_assert(LENGTH(actionfn) == ActCount, "actionfn table out of sync");
+_Static_assert(LENGTH(action_arg_type) == ActCount,
+               "action_arg_type table out of sync");
 
 /* layout(s) */
 Layout *layouts = NULL;
@@ -145,64 +207,14 @@ LIBINPUT_CONFIG_TAP_MAP_LMR -- 1/2/3 finger tap maps to left/middle/right
 const enum libinput_config_tap_button_map button_map =
     LIBINPUT_CONFIG_TAP_MAP_LRM;
 
-/* commands */
-const char *termcmd[] = {"foot", NULL};
-const char *menucmd[] = {"wmenu-run", NULL};
-
-const Key keys[] = {
-    /* Note that Shift changes certain key codes: 2 -> at, etc. */
-    /* modifier                  key                  function          argument
-     */
-    {MODKEY, XKB_KEY_p, spawn, {.v = menucmd}},
-    {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_Return, spawn, {.v = termcmd}},
+/* escape-hatch bindings, always present regardless of config.lua. These are
+ * the *only* defaults; all other bindings (focus, tags, spawn, layouts, etc.)
+ * must come from bonsaiwm.keymaps. Deliberately minimal so that a broken
+ * config.lua still leaves the user with a way to reload or switch to a TTY
+ * and recover, without needing to maintain a parallel list of "user facing"
+ * defaults in C. */
+static const Key keys_defaults[] = {
     {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_r, load_config, {0}},
-    {MODKEY, XKB_KEY_j, focusstack, {.i = +1}},
-    {MODKEY, XKB_KEY_k, focusstack, {.i = -1}},
-    {MODKEY, XKB_KEY_i, incnmaster, {.i = +1}},
-    {MODKEY, XKB_KEY_d, incnmaster, {.i = -1}},
-    {MODKEY, XKB_KEY_h, setmfact, {.f = -0.05f}},
-    {MODKEY, XKB_KEY_l, setmfact, {.f = +0.05f}},
-    {MODKEY, XKB_KEY_Return, zoom, {0}},
-    {MODKEY, XKB_KEY_Tab, view, {0}},
-    {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_c, killclient, {0}},
-    {MODKEY, XKB_KEY_t, setlayout, {.i = 1}},
-    {MODKEY, XKB_KEY_f, setlayout, {.i = 0}},
-    {MODKEY, XKB_KEY_m, setlayout, {.i = 2}},
-    {MODKEY, XKB_KEY_space, setlayout, {.i = -1}}, /* just toggle lt[0]/lt[1] */
-    {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_space, togglefloating, {0}},
-    {MODKEY, XKB_KEY_e, togglefullscreen, {0}},
-    {MODKEY, XKB_KEY_0, view, {.ui = ~0}},
-    {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_parenright, tag, {.ui = ~0}},
-    {MODKEY, XKB_KEY_comma, focusmon, {.i = WLR_DIRECTION_LEFT}},
-    {MODKEY, XKB_KEY_period, focusmon, {.i = WLR_DIRECTION_RIGHT}},
-    {MODKEY | WLR_MODIFIER_SHIFT,
-     XKB_KEY_less,
-     tagmon,
-     {.i = WLR_DIRECTION_LEFT}},
-    {MODKEY | WLR_MODIFIER_SHIFT,
-     XKB_KEY_greater,
-     tagmon,
-     {.i = WLR_DIRECTION_RIGHT}},
-    TAGKEYS(XKB_KEY_1, XKB_KEY_exclam, 0),
-    TAGKEYS(XKB_KEY_2, XKB_KEY_at, 1),
-    TAGKEYS(XKB_KEY_3, XKB_KEY_numbersign, 2),
-    TAGKEYS(XKB_KEY_4, XKB_KEY_dollar, 3),
-    TAGKEYS(XKB_KEY_5, XKB_KEY_percent, 4),
-    TAGKEYS(XKB_KEY_6, XKB_KEY_asciicircum, 5),
-    TAGKEYS(XKB_KEY_7, XKB_KEY_ampersand, 6),
-    TAGKEYS(XKB_KEY_8, XKB_KEY_asterisk, 7),
-    TAGKEYS(XKB_KEY_9, XKB_KEY_parenleft, 8),
-    {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_q, quit, {0}},
-
-    /* Ctrl-Alt-Backspace and Ctrl-Alt-Fx used to be handled by X server */
-    {WLR_MODIFIER_CTRL | WLR_MODIFIER_ALT, XKB_KEY_Terminate_Server, quit, {0}},
-    /* Ctrl-Alt-Fx is used to switch to another VT, if you don't know what a VT
-     * is do not remove them.
-     */
-    {MODKEY, XKB_KEY_g, togglegaps, {0}},
-    {MODKEY | WLR_MODIFIER_SHIFT, XKB_KEY_g, defaultgaps, {0}},
-    {MODKEY, XKB_KEY_Up, incgaps, {.i = +1}},
-    {MODKEY, XKB_KEY_Down, incgaps, {.i = -1}},
     CHVT(1),
     CHVT(2),
     CHVT(3),
@@ -224,7 +236,12 @@ const Button buttons[] = {
 };
 
 const size_t monrules_count = LENGTH(monrules);
-const size_t keys_count = LENGTH(keys);
+
+/* merged key bindings: lua entries first, then keys_defaults. Rebuilt by
+ * keys_load() on every config load (Mod-Shift-R). */
+Key *keys = NULL;
+size_t keys_count = 0;
+
 const size_t buttons_count = LENGTH(buttons);
 
 static void rules_free(void) {
@@ -325,11 +342,231 @@ static void layouts_load_from_lua(void) {
   lua_pop(L, 2);
 }
 
+static void keys_free(void) {
+  /* free the heap argv arrays attached to spawn entries. Only spawn uses
+   * ArgV; for any other action, arg.v reads as garbage from the union
+   * overlapping arg.i/arg.ui (e.g. a view entry with arg.ui = 1 would look
+   * like arg.v = (void *)1 and free() would crash). Keying on func == spawn
+   * is the only reliable signal. */
+  for (size_t i = 0; i < keys_count; i++) {
+    if (keys[i].func == spawn) {
+      /* arg.v is a heap-allocated NULL-terminated argv array of strdup'd
+       * strings; free the strings first, then the array itself. */
+      char **argv = (char **)keys[i].arg.v;
+      if (argv) {
+        for (size_t j = 0; argv[j]; j++) {
+          free(argv[j]);
+        }
+        free(argv);
+      }
+    }
+  }
+  free(keys);
+  keys = NULL;
+  keys_count = 0;
+}
+
+/* parse a "Alt+Shift" / "Ctrl" / "none" style modifier string into a
+ * WLR_MODIFIER_* bitmask. Case-insensitive. On an unrecognized token,
+ * returns false (the caller treats this as a malformed entry and skips it,
+ * rather than binding to a useless keycombo). On success writes the bitmask
+ * to *out and returns true. */
+static bool parse_mod(const char *s, uint32_t *out) {
+  if (!s || !*s || strcasecmp(s, "none") == 0) {
+    *out = 0;
+    return true;
+  }
+  uint32_t mods = 0;
+  /* strtok modifies the string, so work on a copy */
+  char buf[256];
+  strncpy(buf, s, sizeof(buf) - 1);
+  buf[sizeof(buf) - 1] = '\0';
+  for (char *tok = strtok(buf, "+"); tok; tok = strtok(NULL, "+")) {
+    if (strcasecmp(tok, "alt") == 0)
+      mods |= WLR_MODIFIER_ALT;
+    else if (strcasecmp(tok, "ctrl") == 0)
+      mods |= WLR_MODIFIER_CTRL;
+    else if (strcasecmp(tok, "shift") == 0)
+      mods |= WLR_MODIFIER_SHIFT;
+    else if (strcasecmp(tok, "super") == 0 || strcasecmp(tok, "logo") == 0)
+      mods |= WLR_MODIFIER_LOGO;
+    else {
+      wlr_log(WLR_ERROR, "keymap: unknown modifier token \"%s\"", tok);
+      return false;
+    }
+  }
+  *out = mods;
+  return true;
+}
+
+/* translate a lua integer arg for ArgUI actions. Tag actions (view, tag,
+ * toggleview, toggletag) take a 1..TAGCOUNT tag number and convert it to the
+ * 1<<(n-1) bitmask those C actions expect — asking users to write 1<<8 in
+ * lua would be hostile. Other ArgUI actions (currently just chvt) pass
+ * their value through unchanged. */
+static bool coerce_arg_ui(int action, lua_Integer v, uint32_t *out) {
+  switch (action) {
+  case ActView:
+  case ActToggleView:
+  case ActTag:
+  case ActToggleTag:
+    if (v < 1 || v > TAGCOUNT) {
+      wlr_log(WLR_ERROR, "keymap: tag action arg %lld out of range [1,%d]",
+              (long long)v, TAGCOUNT);
+      return false;
+    }
+    *out = 1u << (v - 1);
+    return true;
+  default:
+    *out = (uint32_t)v;
+    return true;
+  }
+}
+
+/* build one Key from a lua table at the top of the stack. Returns false and
+ * leaves the lua stack untouched on any malformed field (caller skips the
+ * entry); on success, fills *out and returns true. The caller is responsible
+ * for freeing out->arg.v (it's heap-allocated for ArgV actions). */
+static bool keys_parse_entry(Key *out) {
+  memset(out, 0, sizeof(*out));
+
+  lua_getfield(L, -1, "mod");
+  const char *mod_str = lua_isstring(L, -1) ? lua_tostring(L, -1) : NULL;
+  uint32_t mod;
+  bool ok = parse_mod(mod_str, &mod);
+  lua_pop(L, 1);
+  if (!ok)
+    return false;
+
+  lua_getfield(L, -1, "key");
+  const char *key_str = lua_isstring(L, -1) ? lua_tostring(L, -1) : NULL;
+  lua_pop(L, 1);
+  if (!key_str) {
+    wlr_log(WLR_ERROR, "keymap: missing or non-string \"key\" field");
+    return false;
+  }
+  xkb_keysym_t keysym = xkb_keysym_from_name(key_str, XKB_KEYSYM_NO_FLAGS);
+  if (keysym == XKB_KEY_NoSymbol) {
+    wlr_log(WLR_ERROR, "keymap: unknown keysym \"%s\"", key_str);
+    return false;
+  }
+
+  lua_getfield(L, -1, "action");
+  if (!lua_isinteger(L, -1)) {
+    wlr_log(WLR_ERROR, "keymap: missing or non-integer \"action\" field");
+    lua_pop(L, 1);
+    return false;
+  }
+  int action = (int)lua_tointeger(L, -1);
+  lua_pop(L, 1);
+  if (action < 0 || action >= ActCount) {
+    wlr_log(WLR_ERROR, "keymap: action %d out of range [0,%d)", action,
+            ActCount);
+    return false;
+  }
+
+  /* coerce the lua-provided arg according to the action's declared arg type */
+  Arg arg = {0};
+  lua_getfield(L, -1, "arg");
+  switch (action_arg_type[action]) {
+  case ArgNone:
+    break;
+  case ArgI:
+    arg.i = lua_isnumber(L, -1) ? (int)lua_tointeger(L, -1) : 0;
+    break;
+  case ArgUI: {
+    lua_Integer v = lua_isnumber(L, -1) ? lua_tointeger(L, -1) : 0;
+    if (!coerce_arg_ui(action, v, &arg.ui)) {
+      lua_pop(L, 1);
+      return false;
+    }
+    break;
+  }
+  case ArgF:
+    arg.f = lua_isnumber(L, -1) ? (float)lua_tonumber(L, -1) : 0.0f;
+    break;
+  case ArgV: {
+    const char *s = lua_isstring(L, -1) ? lua_tostring(L, -1) : NULL;
+    if (!s) {
+      wlr_log(WLR_ERROR, "keymap: action %d requires a string arg", action);
+      lua_pop(L, 1);
+      return false;
+    }
+    /* spawn() expects an argv array; build {"cmd", NULL} on the heap */
+    char **argv = ecalloc(2, sizeof(char *));
+    argv[0] = strdup(s);
+    arg.v = argv;
+    break;
+  }
+  }
+  lua_pop(L, 1);
+
+  out->mod = mod;
+  out->keysym = keysym;
+  out->func = actionfn[action];
+  out->arg = arg;
+  return true;
+}
+
+/* rebuild keys[] as: [lua-defined entries][defaults]. Lua entries come
+ * first so they shadow defaults with the same (mod, keysym) — the dispatch
+ * loop returns on first match. Defaults serve as the always-available
+ * fallback (Mod-Shift-R reload, Ctrl-Alt-Fn VT switch) when config.lua is
+ * broken or empty. Defaults never use ArgV, so keys_free() can identify
+ * heap-allocated spawn argv arrays just by checking func == spawn. */
+static void keys_load(void) {
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "keymaps");
+
+  size_t lua_count = 0;
+  bool has_lua_keymaps = lua_istable(L, -1);
+  if (has_lua_keymaps)
+    lua_count = lua_rawlen(L, -1);
+
+  /* count valid lua entries by parsing each one. Invalid entries are logged
+   * and skipped — partial loads are better than a total loss of bindings. */
+  Key *lua_keys = NULL;
+  size_t valid = 0;
+  if (lua_count > 0) {
+    lua_keys = ecalloc(lua_count, sizeof(Key));
+    for (size_t i = 0; i < lua_count; i++) {
+      lua_rawgeti(L, -1, (lua_Integer)(i + 1));
+      if (!lua_istable(L, -1)) {
+        wlr_log(WLR_ERROR, "keymap: entry %zu is not a table", i + 1);
+        lua_pop(L, 1);
+        continue;
+      }
+      if (keys_parse_entry(&lua_keys[valid]))
+        valid++;
+      lua_pop(L, 1);
+    }
+  }
+
+  /* allocate the merged array: lua entries first, then defaults */
+  keys_count = valid + LENGTH(keys_defaults);
+  keys = ecalloc(keys_count, sizeof(Key));
+
+  /* copy lua entries; their ArgV pointers transfer ownership to keys[] */
+  for (size_t i = 0; i < valid; i++) {
+    keys[i] = lua_keys[i];
+  }
+  free(lua_keys);
+
+  /* copy defaults verbatim. Defaults use no ArgV (no spawn bindings), so
+   * their arg is a pure value copy and there's nothing to heap-duplicate. */
+  for (size_t i = 0; i < LENGTH(keys_defaults); i++) {
+    keys[valid + i] = keys_defaults[i];
+  }
+
+  lua_pop(L, 2);
+}
+
 void load_config() {
-  // free heap rules and close previously running lua runtime to prevent memory
-  // leaks when reloading config
+  /* free heap state and close previously running lua runtime to prevent
+   * memory leaks when reloading config */
   layouts_free();
   rules_free();
+  keys_free();
   if (L) {
     wlr_log(WLR_INFO, "restarting lua runtime");
     lua_close(L);
@@ -358,5 +595,6 @@ void load_config() {
   lua_pop(L, 1);
   rules_load_from_lua();
   layouts_load_from_lua();
+  keys_load();
   reload_monitor_layouts();
 }

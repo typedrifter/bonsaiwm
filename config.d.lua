@@ -22,6 +22,32 @@
 ---`-1` = the currently selected monitor. Default `-1` when omitted.
 ---@field monitor integer
 
+---@class bonsaiwm.Keymap
+---Modifiers, case-insensitive, joined with `+`: `"Alt"`, `"Alt+Shift"`,
+---`"Ctrl+Alt"`, `"Super"`. `"none"` = no modifier required.
+---@field mod string
+---XKB keysym name (case-insensitive on xkbcommon ≥ 0.5.0): `"Return"`,
+---`"p"`, `"1"`, `"XF86MonBrightnessUp"`, etc.
+---**Note:** Shift changes the keysym sent by the keyboard (e.g. `"1"` →
+---`"exclam"` when Shift is held), so a binding for `Alt+Shift+1` needs its
+---own entry with `key = "exclam"`.
+---@field key string
+---Which compositor action to invoke, one of `bonsaiwm.action.*`:
+---`spawn`, `focusstack`, `incnmaster`, `setmfact`, `zoom`, `view`,
+---`toggleview`, `tag`, `toggletag`, `setlayout`, `togglefloating`,
+---`togglefullscreen`, `focusmon`, `tagmon`, `killclient`, `quit`,
+---`load_config`, `togglegaps`, `defaultgaps`, `incgaps`, `chvt`, `none`.
+---Use `none` to shadow a default binding with a noop (effectively disabling it).
+---@field action integer
+---Argument passed to the action. Type depends on the action:
+---  - `spawn`           → string (command line, e.g. `"foot"`)
+---  - `view`/`toggleview`/`tag`/`toggletag` → tag NUMBER 1-9
+---    (internally converted to the `1<<(n-1)` bitmask the action expects)
+---  - `focusstack`/`incnmaster`/`focusmon`/`tagmon`/`incgaps`/`chvt` → integer
+---  - `setmfact`/`setlayout` → number (float or integer)
+---  - most others       → omit / nil
+---@field arg? integer|number|string
+
 ---@class bonsaiwm
 ---Enables tiling gaps when nonzero.
 ---@field enablegaps integer
@@ -57,5 +83,13 @@
 ---May be empty or omitted; in that case no rules apply and clients keep their
 ---default tags/monitor. At least one example is usually present.
 ---@field rules bonsaiwm.Rule[]
+---Key bindings. This is where *all* user-facing bindings live; the C
+---defaults (`keys_defaults[]` in `config.c`) are deliberately minimal —
+---just escape hatches (Mod-Shift-R reload, Ctrl-Alt-Fn VT switch) that are
+---always present so you can recover from a broken config. Everything else
+---(spawn, focus, tags, layouts, kill, quit, gaps, etc.) must be defined here.
+---If an entry has the same (mod, key) as a C default, the lua entry wins.
+---Use `action = bonsaiwm.action.none` as an explicit noop placeholder.
+---@field keymaps bonsaiwm.Keymap[]
 
 bonsaiwm = {}

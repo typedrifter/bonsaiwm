@@ -40,6 +40,40 @@ enum { LtFloat, LtTile, LtMonocle };
 
 extern void (*const arrangefn[])(Monitor *);
 
+/* action indices for key bindings */
+enum {
+  ActNone,
+  ActChvt,
+  ActDefaultGaps,
+  ActFocusMon,
+  ActFocusStack,
+  ActIncGaps,
+  ActIncNmaster,
+  ActKillClient,
+  ActLoadConfig,
+  ActQuit,
+  ActSetLayout,
+  ActSetMfact,
+  ActSpawn,
+  ActTag,
+  ActTagMon,
+  ActToggleFloating,
+  ActToggleFullscreen,
+  ActToggleGaps,
+  ActToggleTag,
+  ActToggleView,
+  ActView,
+  ActZoom,
+  ActCount
+};
+
+/* argument type for each action: which member of Arg a lua config should
+ * provide */
+enum { ArgNone, ArgI, ArgUI, ArgF, ArgV };
+
+extern void (*const actionfn[ActCount])(const Arg *);
+extern const int action_arg_type[ActCount];
+
 /* a tag/rule for a client */
 typedef struct {
   const char *id;
@@ -65,7 +99,9 @@ typedef struct {
   uint32_t mod;
   xkb_keysym_t keysym;
   void (*func)(const Arg *);
-  const Arg arg;
+  /* arg is no longer const: keys[] is heap-rebuilt from config.lua on every
+   * reload, and the loader must be able to assign into arg after parsing. */
+  Arg arg;
 } Key;
 
 /* a mouse button binding */
@@ -81,22 +117,6 @@ typedef struct {
 
 /* modifier key used in bindings */
 #define MODKEY WLR_MODIFIER_ALT
-
-/* generate tag key bindings */
-#define TAGKEYS(KEY, SKEY, TAG)                                                \
-  {MODKEY, KEY, view, {.ui = 1 << TAG}},                                       \
-      {MODKEY | WLR_MODIFIER_CTRL, KEY, toggleview, {.ui = 1 << TAG}},         \
-      {MODKEY | WLR_MODIFIER_SHIFT, SKEY, tag, {.ui = 1 << TAG}}, {            \
-    MODKEY | WLR_MODIFIER_CTRL | WLR_MODIFIER_SHIFT, SKEY, toggletag, {        \
-      .ui = 1 << TAG                                                           \
-    }                                                                          \
-  }
-
-/* helper for spawning shell commands in the pre dwm-5.0 fashion */
-#define SHCMD(cmd)                                                             \
-  {                                                                            \
-    .v = (const char *[]) { "/bin/sh", "-c", cmd, NULL }                       \
-  }
 
 /* generate Ctrl-Alt-Fn virtual terminal switch bindings */
 #define CHVT(n)                                                                \
@@ -186,13 +206,9 @@ extern const enum libinput_config_accel_profile accel_profile;
 extern const double accel_speed;
 extern const enum libinput_config_tap_button_map button_map;
 
-/* commands */
-extern const char *termcmd[];
-extern const char *menucmd[];
-
 /* bindings */
-extern const Key keys[];
-extern const size_t keys_count;
+extern Key *keys;
+extern size_t keys_count;
 extern const Button buttons[];
 extern const size_t buttons_count;
 
