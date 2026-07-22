@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added Meson build system as an alternative to the Makefile-based build.
 - Added configurable window gaps between tiled clients.
 - Added Astro-based documentation site under `site/`.
+- Added XDG Base Directory lookup for `config.lua`: searches `$XDG_CONFIG_HOME/bonsaiwm/` then `$HOME/.config/bonsaiwm/`, falling back to builtin defaults if neither is found.
 
 ### Changed
 

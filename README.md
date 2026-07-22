@@ -6,6 +6,17 @@ BonsaiWM is a compact, opinionated [Wayland] compositor based on [dwl].
 - Minimal external dependencies
 - Extensible via Lua
 
+## Configuration
+
+BonsaiWM loads `config.lua` from the first existing location:
+
+1. `$XDG_CONFIG_HOME/bonsaiwm/config.lua`
+2. `$HOME/.config/bonsaiwm/config.lua`
+
+If neither file is found, builtin defaults are used. The config is re-read on every reload (`Mod-Shift-R`), so environment variable changes are honored.
+
+See the [Lua API reference](https://bonsaiwm.dev/docs/references/lua) for the full `bonsaiwm` global.
+
 ## Roadmap
 
 See [the roadmap](./ROADMAP.md) for what's planned.
