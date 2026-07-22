@@ -2339,6 +2339,15 @@ void reload_monitor_layouts(void) {
       wlr_log(WLR_DEBUG,
               "reload_monitor_layouts: %s layouts fixed -> lt=[%d,%d] sellt=%u",
               m->wlr_output->name, m->lt[0], m->lt[1], m->sellt);
+    /* re-push gap values from the (possibly reloaded) config struct into
+     * per-monitor state. gappoh/gappov/gappih/gappiv are copied into
+     * m->gapp* only in createmon() otherwise, so without this a live
+     * Mod-Shift-R reload of the gap values would have no effect on
+     * existing monitors. arrange(m) below picks up the new values. */
+    m->gappoh = config.gappoh;
+    m->gappov = config.gappov;
+    m->gappih = config.gappih;
+    m->gappiv = config.gappiv;
     strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol, LENGTH(m->ltsymbol));
     arrange(m);
   }
