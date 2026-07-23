@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added configurable window gaps between tiled clients.
 - Added Astro-based documentation site under `site/`.
 - Added XDG Base Directory lookup for `config.lua`: searches `$XDG_CONFIG_HOME/bonsaiwm/` then `$HOME/.config/bonsaiwm/`, falling back to builtin defaults if neither is found.
+- Added Lua-driven configuration via `config.lua` and a new `lua.c` module: runtime-reloadable keymaps (including Lua functions as actions), window rules, layouts, colors, and `xkb_rules` with live keymap reload.
 
 ### Changed
 
@@ -25,3 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed legacy upstream changelog entries (starting fresh for BonsaiWM).
 - Removed `config.ref.h` example file (superseded by inline documentation and `config.h`).
+
+### Notes
+
+- On the `feat/lua` branch, AI-assisted tooling was used for repetitive refactors, bug hunting, and prototyping. All changes were reviewed and accepted by the maintainer.
