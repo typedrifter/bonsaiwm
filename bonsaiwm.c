@@ -309,6 +309,12 @@ static void focusstack(const Arg *arg);
 static Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
 static void gpureset(struct wl_listener *listener, void *data);
+static int destroyoldrenderer(void *data);
+
+struct oldrenderer {
+  struct wlr_renderer *drw;
+  struct wlr_allocator *alloc;
+};
 static void handlesig(int signo);
 static void incnmaster(const Arg *arg);
 static void togglegaps(const Arg *arg);
@@ -1529,8 +1535,25 @@ void gpureset(struct wl_listener *listener, void *data) {
     wlr_output_init_render(m->wlr_output, alloc, drw);
   }
 
-  wlr_allocator_destroy(old_alloc);
-  wlr_renderer_destroy(old_drw);
+  wlr_log(WLR_INFO, "GPU reset recovered, switched to new renderer");
+
+  /* The old renderer and allocator must not be destroyed while the
+   * renderer-lost signal still has emit_mutable() cursor markers on its
+   * listener list. Defer to an idle handler so that by the time we destroy
+   * them the emission has returned and the list is empty. */
+  struct oldrenderer *old = malloc(sizeof(*old));
+  if (!old)
+    die("couldn't allocate old renderer cleanup data");
+  *old = (struct oldrenderer){ .drw = old_drw, .alloc = old_alloc };
+  wl_event_loop_add_idle(event_loop, (void *)destroyoldrenderer, old);
+}
+
+static int destroyoldrenderer(void *data) {
+  struct oldrenderer *old = data;
+  wlr_allocator_destroy(old->alloc);
+  wlr_renderer_destroy(old->drw);
+  free(old);
+  return 0;
 }
 
 void handlesig(int signo) {
