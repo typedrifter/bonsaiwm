@@ -61,8 +61,7 @@ lua_State *lua_init(void) {
 void lua_load_config(const char *path) {
 
   if (luaL_dofile(L, path) != LUA_OK) {
-    fprintf(stderr, "bonsaiwm: lua error in %s: %s\n", path,
-            lua_tostring(L, -1));
+    wlr_log(WLR_ERROR, "lua error in %s: %s", path, lua_tostring(L, -1));
     lua_pop(L, 1);
 
     return;
