@@ -17,6 +17,10 @@ If neither file is found, builtin defaults are used. The config is re-read on ev
 
 See [`config.d.lua`](./config.d.lua) for the full `bonsaiwm` global type definitions, and [`config.lua`](./config.lua) for a commented example.
 
+### Lua scope
+
+Lua is for configuration only: setting options, declaring window rules, picking layouts, and binding keys. You can bind a key to a lua function, but the callback runs in a bare stdlib VM and cannot touch compositor state (clients, tags, monitors) for the moment. Shell out with `os.execute` if you need to.
+
 ## Roadmap
 
 See [the roadmap](./ROADMAP.md) for what's planned.
