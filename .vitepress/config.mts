@@ -6,6 +6,7 @@ export default defineConfig({
   srcDir: 'docs',
   title: 'BonsaiWM',
   description: 'BonsaiWM is a compact, opinionated Wayland compositor based on dwl.',
+  base: "/bonsaiwm",
   additionalConfig: versionedConfig,
   themeConfig: {
     socialLinks: [
