@@ -29,9 +29,3 @@ BonsaiWM is a compact, opinionated [Wayland] compositor based on [dwl]. It works
 
 [dwl]: https://codeberg.org/dwl/dwl
 [Wayland]: https://wayland.freedesktop.org/
-
-## Where to next?
-
-- [Installation](/master/installation) to get it running
-- [Configuration](/master/configuration) to make it yours
-- [Roadmap](/master/roadmap) to see where it's going
