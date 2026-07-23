@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "text": "get started",
+      "items": [
+        { "text": "Installation", "link": "installation" },
+        { "text": "Configuration", "link": "configuration" }
+      ]
+    }
+  ]
+}
