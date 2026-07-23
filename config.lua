@@ -3,8 +3,8 @@ bonsaiwm = {
 	smartgaps = 0,
 	gappoh = 40,
 	gappov = 40,
-	gappih = 40,
-	gappiv = 40,
+	gappih = 80,
+	gappiv = 80,
 	sloppyfocus = 1,
 	borderpx = 1,
 	repeat_rate = 25,
@@ -74,7 +74,13 @@ bonsaiwm = {
 	keymaps = {
 		-- terminal
 		{ mod = "Alt+Shift", key = "Return", action = bonsaiwm.action.spawn, arg = "foot" },
-		{ mod = "Alt+Shift", key = "w", action = bonsaiwm.action.spawn, arg = "helium-browser" },
+		{ mod = "Alt", key = "w", action = bonsaiwm.action.killclient },
+		{
+			mod = "Alt",
+			key = "d",
+			action = bonsaiwm.action.spawn,
+			arg = 'footclient -o font="monospace:size=10" -o cursor.unfocused-style=none -o pad=8x8 -a launcher-fzf ~/.local/bin/fzf-apps',
+		},
 
 		-- layout switching (matches the layouts table above: 0=Float, 1=Tiling, 2=Monocle)
 		{ mod = "Alt", key = "f", action = bonsaiwm.action.setlayout, arg = 0 },
@@ -104,5 +110,15 @@ bonsaiwm = {
 		{ mod = "Alt+Shift", key = "ampersand", action = bonsaiwm.action.tag, arg = 7 },
 		{ mod = "Alt+Shift", key = "asterisk", action = bonsaiwm.action.tag, arg = 8 },
 		{ mod = "Alt+Shift", key = "parenleft", action = bonsaiwm.action.tag, arg = 9 },
+
+		-- lua-defined callback: `action` can also be a plain function.
+		-- runs in the compositor's lua VM with stdlib access, no compositor api.
+		{
+			mod = "Alt+Shift",
+			key = "p",
+			action = function()
+				os.execute("playerctl play-pause")
+			end,
+		},
 	},
 }

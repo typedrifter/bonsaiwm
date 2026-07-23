@@ -7,9 +7,22 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <wlr/types/wlr_keyboard.h>
+#include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
 
 lua_State *L = NULL;
+
+/* trampoline for lua-defined keymap actions. Dispatches the registry ref in
+ * arg->i. No reentrancy guard needed: callbacks run synchronously inside
+ * keybinding() on the single wayland thread, and the lua VM exposes no C
+ * bindings, so a callback cannot reenter keybinding() or load_config(). */
+void lua_action(const Arg *arg) {
+  lua_rawgeti(L, LUA_REGISTRYINDEX, arg->i);
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+    wlr_log(WLR_ERROR, "lua_action callback error: %s", lua_tostring(L, -1));
+    lua_pop(L, 1);
+  }
+}
 
 /* name -> enum value pairs for the bonsaiwm.action sub-table. Generated from
  * actions.def alongside the enum and dispatch tables, so all four sites

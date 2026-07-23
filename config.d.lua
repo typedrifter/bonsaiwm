@@ -36,13 +36,17 @@
 ---`"exclam"` when Shift is held), so a binding for `Alt+Shift+1` needs its
 ---own entry with `key = "exclam"`.
 ---@field key string
----Which compositor action to invoke, one of `bonsaiwm.action.*`:
----`spawn`, `focusstack`, `incnmaster`, `setmfact`, `zoom`, `view`,
----`toggleview`, `tag`, `toggletag`, `setlayout`, `togglefloating`,
----`togglefullscreen`, `focusmon`, `tagmon`, `killclient`, `quit`,
----`load_config`, `togglegaps`, `defaultgaps`, `incgaps`, `chvt`, `none`.
----Use `none` to shadow a default binding with a noop (effectively disabling it).
----@field action integer
+---Which compositor action to invoke. Either:
+---  * one of `bonsaiwm.action.*`:
+---    `spawn`, `focusstack`, `incnmaster`, `setmfact`, `zoom`, `view`,
+---    `toggleview`, `tag`, `toggletag`, `setlayout`, `togglefloating`,
+---    `togglefullscreen`, `focusmon`, `tagmon`, `killclient`, `quit`,
+---    `load_config`, `togglegaps`, `defaultgaps`, `incgaps`, `chvt`, `none`.
+---    Use `none` to shadow a default binding with a noop.
+---  * or a Lua function, called with no arguments when the key fires.
+---    The function runs in the compositor's Lua VM with full stdlib access
+---    (e.g. `os.execute`) but no compositor-state API.
+---@field action integer|fun()
 ---Argument passed to the action. Type depends on the action:
 ---  - `spawn`           → string (command line, e.g. `"foot"`)
 ---  - `view`/`toggleview`/`tag`/`toggletag` → tag NUMBER 1-9
@@ -51,12 +55,14 @@
 ---  - `setmfact`        → number (float or integer)
 ---  - `setlayout`       → integer (0=float, 1=tile, 2=monocle; -1 to toggle)
 ---  - most others       → omit / nil
+---Ignored when `action` is a Lua function.
 ---@field arg? integer|number|string
 ---@example
 --- bonsaiwm.keymaps = {
 --- 	{ mod = "Alt+Shift", key = "Return", action = bonsaiwm.action.spawn, arg = "foot" },
 --- 	{ mod = "Alt", key = "t", action = bonsaiwm.action.setlayout, arg = 1 },
 --- 	{ mod = "Alt", key = "1", action = bonsaiwm.action.view, arg = 1 },
+--- 	{ mod = "Alt", key = "p", action = function() os.execute("playerctl play-pause") end },
 --- }
 
 ---@class bonsaiwm.Layout

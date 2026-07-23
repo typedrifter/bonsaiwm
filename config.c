@@ -386,6 +386,13 @@ static void keys_free(void) {
         }
         free(argv);
       }
+    } else if (keys[i].func == lua_action) {
+      /* arg.i is a LUA_REGISTRYINDEX ref to the callback function. Release
+       * it so the VM's GC can reclaim the closure. On a full reload the VM
+       * is closed right after keys_free() anyway, but unref-ing keeps the
+       * bookkeeping honest if keys[] is ever rebuilt on a live VM. */
+      if (L)
+        luaL_unref(L, LUA_REGISTRYINDEX, keys[i].arg.i);
     }
   }
   free(keys);
@@ -479,8 +486,21 @@ static bool keys_parse_entry(Key *out) {
   }
 
   lua_getfield(L, -1, "action");
+  if (lua_isfunction(L, -1)) {
+    /* lua-defined callback: take a registry ref and dispatch via the
+     * lua_action trampoline. Refs are released in keys_free() on the next
+     * reload, before the VM is closed. */
+    int ref = luaL_ref(L, LUA_REGISTRYINDEX); /* pops the function */
+    out->mod = mod;
+    out->keysym = keysym;
+    out->func = lua_action;
+    out->arg.i = ref;
+    return true;
+  }
   if (!lua_isinteger(L, -1)) {
-    wlr_log(WLR_ERROR, "keymap: missing or non-integer \"action\" field");
+    wlr_log(WLR_ERROR,
+            "keymap: \"action\" must be an integer (bonsaiwm.action.*) or a "
+            "function");
     lua_pop(L, 1);
     return false;
   }
