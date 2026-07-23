@@ -1,0 +1,39 @@
+name: Publish master docs
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v7
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Copy docs to docs/master
+        run: |
+          rm -rf gh-pages/docs/master
+          mkdir -p gh-pages/docs/master
+          cp -r docs/* gh-pages/docs/master
+
+      - name: Commit and push
+        working-directory: gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "docs(master): update from master@${{ github.sha }}"
+            git push
+          fi
