@@ -1,0 +1,47 @@
+/* X-macro list of all keymap actions. Each row declares one action across
+ * every site that needs it, so they cannot drift apart:
+ *   - the Act* enum                          (config.h,    #define X ACT)
+ *   - the dispatch table actionfn[]          (config.c,    #define X FN)
+ *   - the arg-type table action_arg_type[]   (config.c,    #define X ARGT)
+ *   - the lua name -> value table            (lua.c,       #define X NAME)
+ *
+ * To add an action: append one row here. To remove one: delete its row.
+ * No other file needs touching. The _Static_assert(LENGTH(...) == ActCount)
+ * guards in config.c will fail the build if this file and the enum disagree.
+ *
+ * Columns:
+ *   ACT      - enum identifier (e.g. ActSpawn)
+ *   NAME     - lua-facing name (e.g. "spawn")
+ *   FUNC     - C function pointer (e.g. spawn), or noop for ActNone
+ *   ARGT     - Arg union member this action reads (ArgNone/ArgI/ArgUI/ArgF/ArgV)
+ *
+ * Row order sets the enum numbering. Reordering is safe — all four sites
+ * are generated together, and lua resolves bonsaiwm.action.* symbols on every
+ * load — but it will renumber the enum values, so don't do it if any
+ * persisted config or external code stores the raw integer.
+ *
+ * ActCount is added separately after the list ends; it has no row here
+ * because it has no name/func/argtype.
+ */
+X(ActNone,             "none",            noop,             ArgNone)
+X(ActChvt,             "chvt",            chvt,             ArgUI)
+X(ActDefaultGaps,      "defaultgaps",     defaultgaps,      ArgNone)
+X(ActFocusMon,         "focusmon",        focusmon,         ArgI)
+X(ActFocusStack,       "focusstack",      focusstack,       ArgI)
+X(ActIncGaps,          "incgaps",         incgaps,          ArgI)
+X(ActIncNmaster,       "incnmaster",      incnmaster,       ArgI)
+X(ActKillClient,       "killclient",      killclient,       ArgNone)
+X(ActLoadConfig,       "load_config",     load_config,      ArgNone)
+X(ActQuit,             "quit",            quit,             ArgNone)
+X(ActSetLayout,        "setlayout",       setlayout,        ArgI)
+X(ActSetMfact,         "setmfact",        setmfact,         ArgF)
+X(ActSpawn,            "spawn",           spawn,            ArgV)
+X(ActTag,              "tag",             tag,              ArgUI)
+X(ActTagMon,           "tagmon",          tagmon,           ArgI)
+X(ActToggleFloating,   "togglefloating",  togglefloating,   ArgNone)
+X(ActToggleFullscreen, "togglefullscreen",togglefullscreen, ArgNone)
+X(ActToggleGaps,       "togglegaps",      togglegaps,       ArgNone)
+X(ActToggleTag,        "toggletag",       toggletag,        ArgUI)
+X(ActToggleView,       "toggleview",      toggleview,       ArgUI)
+X(ActView,             "view",            view,             ArgUI)
+X(ActZoom,             "zoom",            zoom,             ArgNone)

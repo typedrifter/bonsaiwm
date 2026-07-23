@@ -41,63 +41,57 @@ to the child process group and waits for it to exit.
 .Pp
 Users are encouraged to customize
 .Nm
-by editing the sources, in particular
-.Pa config.h .
-The default key bindings are as follows:
+by editing the Lua configuration file. The configuration script populates the
+.Li bonsaiwm
+global table, which has the following sub-tables and fields:
+.Bl -tag -width xkb_rules -offset indent -compact
+.It Li action
+Action constants exposed to keymaps (e.g.
+.Li bonsaiwm.action.spawn ,
+.Li bonsaiwm.action.view ) .
+.It Li xkb_rules
+Keyboard RMLVO rules
+.Pq rules , model , layout , variant , options .
+.It Li rules
+Window rules
+.Pq id , title , tags , isfloating , monitor .
+.It Li layouts
+Layout list cycled with
+.Li setlayout
+.Pq symbol , arrange .
+.It Li keymaps
+Key bindings
+.Pq mod , key , action , arg .
+.It Li enablegaps , smartgaps , gappoh , gappov , gappih , gappiv
+Gap and smart-gap settings.
+.It Li sloppyfocus , borderpx , repeat_rate , repeat_delay
+Input and border settings.
+.It Li rootcolor , bordercolor , focuscolor , urgentcolor , fullscreen_bg
+Colors as hex strings.
+.El
+For the authoritative type definitions see the
+.Pa config.d.lua
+file in the source tree, and the shipped default
+.Pa config.lua
+for a commented example.
+The configuration is searched for at
+.Pa $XDG_CONFIG_HOME/bonsaiwm/config.lua
+(or
+.Pa $HOME/.config/bonsaiwm/config.lua
+if
+.Ev XDG_CONFIG_HOME
+is unset), and falls back to built-in defaults if neither file is found.
+The configuration can be re-read at runtime with
+.Sy Mod-Shift-R .
+.Pp
+All key bindings, window rules, layouts, colors, and gaps are defined in the
+Lua configuration. The only C-built-in bindings that are always present,
+even with a broken or missing configuration file, are the escape hatches:
 .Bl -tag -width 20n -offset indent -compact
-.It Mod-[1-9]
-Show only all windows with a tag.
-.It Mod-Ctrl-[1-9]
-Show all windows with a tag.
-.It Mod-Shift-[1-9]
-Move window to a single tag.
-.It Mod-Ctrl-Shift-[1-9]
-Toggle tag for window.
-.It Mod-p
-Spawn
-.Xr wmenu-run 1 .
-.It Mod-Shift-Return
-Spawn
-.Xr foot 1 .
-.It Mod-[jk]
-Move focus down/up the stack.
-.It Mod-[id]
-Increase/decrease number of windows in master area.
-.It Mod-[hl]
-Decrease/increase master area.
-.It Mod-Return
-Move window on top of stack or switch top of stack with second window.
-.It Mod-Tab
-Show only all windows with previous tag.
-.It Mod-Shift-c
-Close window.
-.It Mod-t
-Switch to tabbed layout.
-.It Mod-f
-Switch to floating layout.
-.It Mod-m
-Switch to monocle layout.
-.It Mod-Space
-Switch to previous layout.
-.It Mod-Shift-Space
-Toggle floating state of window.
-.It Mod-e
-Toggle fullscreen state of window.
-.It Mod-0
-Show all windows.
-.It Mod-Shift-0
-Set all tags for window.
-.It Mod-,
-Move focus to previous monitor.
-.It Mod-.
-Move focus to next monitor.
-.It Mod-Shift-,
-Move window to previous monitor.
-.It Mod-Shift-.
-Move window to next monitor.
-.It Mod-Shift-q
-Quit
-.Nm .
+.It Mod-Shift-r
+Reload the Lua configuration.
+.It Ctrl-Alt-F1 .. Ctrl-Alt-F12
+Switch to virtual terminal 1 through 12.
 .El
 These might differ depending on your keyboard layout.
 .Ss Mouse commands
@@ -215,9 +209,20 @@ These environment variables are used by
 .It Ev XDG_RUNTIME_DIR
 A directory where temporary user files, such as the Wayland socket,
 are stored.
-.It Ev XDG_CONFIG_DIR
-A directory containing configuration of various programs and
-libraries, including libxkbcommon.
+.It Ev XDG_CONFIG_HOME
+Base directory for
+.Nm Ns 's
+configuration file. If set and absolute,
+.Nm
+loads
+.Pa $XDG_CONFIG_HOME/bonsaiwm/config.lua
+on startup and on every reload
+.Pq Mod-Shift-R .
+If unset or relative,
+.Nm
+falls back to
+.Pa $HOME/.config/bonsaiwm/config.lua .
+If neither file is found, builtin defaults are used.
 .It Ev DISPLAY , WAYLAND_DISPLAY , WAYLAND_SOCKET
 Tell how to connect to an underlying X11 or Wayland server.
 .It Ev WLR_*

@@ -1,0 +1,153 @@
+---@meta
+--
+-- Type definitions for the `bonsaiwm` Lua config table.
+--
+
+---@class bonsaiwm.Rule
+---Application identifier: app_id (Wayland xdg-toplevel) or class (X11/XWayland).
+---Matched as a **substring** against the client's app_id/class.
+---Nil or omitted = match any application.
+---@field id? string
+---Window title. Matched as a **substring** against the client's title.
+---Nil or omitted = match any title.
+---@field title? string
+---Tag NUMBER 1-9 to start the client on (1 = tag 1, 9 = tag 9).
+---`0` = keep currently visible tags.
+---@field tags integer
+---Whether the client should float instead of being tiled.
+---`1` = floating, `0` = tiled. Default `0` when omitted.
+---@field isfloating integer
+---Monitor to place the client on, as a 0-based index into the monitor list.
+---`-1` = the currently selected monitor. Default `-1` when omitted.
+---@field monitor integer
+---@example
+--- bonsaiwm.rules = {
+--- 	{ id = "gimp", isfloating = 1, tags = 0, monitor = -1 },
+--- 	{ id = "firefox", tags = 9, monitor = -1 },
+--- }
+
+---@class bonsaiwm.Keymap
+---Modifiers, case-insensitive, joined with `+`: `"Alt"`, `"Alt+Shift"`,
+---`"Ctrl+Alt"`, `"Super"`. `"none"` = no modifier required.
+---@field mod string
+---XKB keysym name (case-insensitive on xkbcommon ≥ 0.5.0): `"Return"`,
+---`"p"`, `"1"`, `"XF86MonBrightnessUp"`, etc.
+---**Note:** Shift changes the keysym sent by the keyboard (e.g. `"1"` →
+---`"exclam"` when Shift is held), so a binding for `Alt+Shift+1` needs its
+---own entry with `key = "exclam"`.
+---@field key string
+---Which compositor action to invoke. Either:
+---  * one of `bonsaiwm.action.*`:
+---    `spawn`, `focusstack`, `incnmaster`, `setmfact`, `zoom`, `view`,
+---    `toggleview`, `tag`, `toggletag`, `setlayout`, `togglefloating`,
+---    `togglefullscreen`, `focusmon`, `tagmon`, `killclient`, `quit`,
+---    `load_config`, `togglegaps`, `defaultgaps`, `incgaps`, `chvt`, `none`.
+---    Use `none` to shadow a default binding with a noop.
+---  * or a Lua function, called with no arguments when the key fires.
+---    The function runs in the compositor's Lua VM with full stdlib access
+---    (e.g. `os.execute`) but no compositor-state API.
+---@field action integer|fun()
+---Argument passed to the action. Type depends on the action:
+---  - `spawn`           → string (command line, e.g. `"foot"`)
+---  - `view`/`toggleview`/`tag`/`toggletag` → tag NUMBER 1-9
+---    (internally converted to the `1<<(n-1)` bitmask the action expects)
+---  - `focusstack`/`incnmaster`/`focusmon`/`tagmon`/`incgaps`/`chvt` → integer
+---  - `setmfact`        → number (float or integer)
+---  - `setlayout`       → integer (0=float, 1=tile, 2=monocle; -1 to toggle)
+---  - most others       → omit / nil
+---Ignored when `action` is a Lua function.
+---@field arg? integer|number|string
+---@example
+--- bonsaiwm.keymaps = {
+--- 	{ mod = "Alt+Shift", key = "Return", action = bonsaiwm.action.spawn, arg = "foot" },
+--- 	{ mod = "Alt", key = "t", action = bonsaiwm.action.setlayout, arg = 1 },
+--- 	{ mod = "Alt", key = "1", action = bonsaiwm.action.view, arg = 1 },
+--- 	{ mod = "Alt", key = "p", action = function() os.execute("playerctl play-pause") end },
+--- }
+
+---@class bonsaiwm.Layout
+---Symbol shown for this layout in the bar/status line, e.g. `"[]"`, `"[M]"`, `"><>"`.
+---@field symbol string
+---Which arrange function to use. Indices into the C `arrangefn[]` table:
+---`0` = float, `1` = tile, `2` = monocle. Out-of-range values fall back to tile.
+---@field arrange integer
+---@example
+--- bonsaiwm.layouts = {
+--- 	{ symbol = "Float", arrange = 0 },
+--- 	{ symbol = "Tiling", arrange = 1 },
+--- 	{ symbol = "Monocle", arrange = 2 },
+--- }
+
+---@class bonsaiwm.XkbRules
+---XKB rules path, usually `"evdev"` (the default). Nil = xkbcommon default.
+---@field rules? string
+---Keyboard model, usually `"pc104"` (the default). Nil = xkbcommon default.
+---@field model? string
+---Keyboard layout(s), e.g. `"us"`, `"fr"`, `"de"`. Multiple layouts can be
+---comma-separated, e.g. `"us,fr"`. Nil = `"us"` (xkbcommon default).
+---@field layout? string
+---Layout variant, e.g. `"dvorak"`, `"colemak"`. Nil = no variant.
+---@field variant? string
+---XKB options, e.g. `"ctrl:nocaps"` (CapsLock as Ctrl), `"compose:menu"`.
+---Multiple options comma-separated. Nil = no options.
+---@field options? string
+---@example
+--- bonsaiwm.xkb_rules = {
+--- 	options = "ctrl:nocaps",
+--- }
+
+---@class bonsaiwm
+---Enables tiling gaps when nonzero.
+---@field enablegaps integer
+---When nonzero, outer gaps are hidden if a window is the only one on the tag.
+---@field smartgaps integer
+---Outer horizontal gap (pixels) between clients and the screen edge.
+---@field gappoh integer
+---Outer vertical gap (pixels) between clients and the screen edge.
+---@field gappov integer
+---Inner horizontal gap (pixels) between adjacent clients.
+---@field gappih integer
+---Inner vertical gap (pixels) between adjacent clients.
+---@field gappiv integer
+---When nonzero, focus follows the pointer (focus the window under the cursor).
+---@field sloppyfocus integer
+---Border thickness around clients (pixels).
+---@field borderpx integer
+---Keyboard repeat rate (keys per second).
+---@field repeat_rate integer
+---Keyboard repeat delay (ms) before a held key starts repeating.
+---@field repeat_delay integer
+---Keyboard layout and XKB options (RMLVO). Applied live on config reload:
+---changing these and pressing Mod-Shift-R rebuilds the XKB keymap and pushes
+---it to the live keyboard group. All fields optional; omitted or nil fields
+---use xkbcommon defaults (typically "evdev"/"pc104"/"us"/""/"").
+---@field xkb_rules bonsaiwm.XkbRules
+---Root (background) color as a hex string, e.g. "#1a1b26" or "#1a1b26ff".
+---@field rootcolor string
+---Unfocused-client border color. Hex string.
+---@field bordercolor string
+---Focused-client border color. Hex string.
+---@field focuscolor string
+---Urgent-client border color. Hex string.
+---@field urgentcolor string
+---Backdrop color shown behind a fullscreen client. Hex string.
+---@field fullscreen_bg string
+---Window rules. Rebuilt from this table on every config reload (Mod-Shift-R).
+---May be empty or omitted; in that case no rules apply and clients keep their
+---default tags/monitor. At least one example is usually present.
+---@field rules bonsaiwm.Rule[]
+---Layouts cycled through with `setlayout`. Rebuilt on every config reload.
+---May be empty or omitted; in that case C defaults (float + tile) are used.
+---Each entry has a `symbol` (bar text) and an `arrange` index
+---(0=float, 1=tile, 2=monocle).
+---@field layouts bonsaiwm.Layout[]
+---Key bindings. This is where *all* user-facing bindings live; the C
+---defaults (`keys_defaults[]` in `config.c`) are deliberately minimal —
+---just escape hatches (Mod-Shift-R reload, Ctrl-Alt-Fn VT switch) that are
+---always present so you can recover from a broken config. Everything else
+---(spawn, focus, tags, layouts, kill, quit, gaps, etc.) must be defined here.
+---If an entry has the same (mod, key) as a C default, the lua entry wins.
+---Use `action = bonsaiwm.action.none` as an explicit noop placeholder.
+---@field keymaps bonsaiwm.Keymap[]
+
+bonsaiwm = {}
