@@ -452,6 +452,11 @@ static bool coerce_arg_ui(int action, lua_Integer v, uint32_t *out) {
     *out = 1u << (v - 1);
     return true;
   default:
+    if (v < 0) {
+      wlr_log(WLR_ERROR, "keymap: action %d arg %lld is negative", action,
+              (long long)v);
+      return false;
+    }
     *out = (uint32_t)v;
     return true;
   }
