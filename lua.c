@@ -15,8 +15,14 @@ lua_State *L = NULL;
 /* trampoline for lua-defined keymap actions. Dispatches the registry ref in
  * arg->i. No reentrancy guard needed: callbacks run synchronously inside
  * keybinding() on the single wayland thread, and the lua VM exposes no C
- * bindings, so a callback cannot reenter keybinding() or load_config(). */
+ * bindings, so a callback cannot reenter keybinding() or load_config(). The
+ * NULL L guard covers the brief teardown window in load_config() where the
+ * old VM has been closed and the new one is not yet built; today no event
+ * source can fire there, but the guard is cheap insurance against a future
+ * yield inside reload. */
 void lua_action(const Arg *arg) {
+  if (!L)
+    return;
   lua_rawgeti(L, LUA_REGISTRYINDEX, arg->i);
   if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
     wlr_log(WLR_ERROR, "lua_action callback error: %s", lua_tostring(L, -1));
