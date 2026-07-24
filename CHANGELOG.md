@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added per-tag layout state (pertag): layout, mfact and nmaster are now
+- Added per-tag layout state (tagstate): layout, mfact and nmaster are now
   remembered individually per tag, so each tag keeps the layout you left it in.
 - Added Meson build system as an alternative to the Makefile-based build.
 - Added configurable window gaps between tiled clients.
