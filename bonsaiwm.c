@@ -323,6 +323,7 @@ void togglegaps(const Arg *arg);
 void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
 static void unlocksession(struct wl_listener *listener, void *data);
+static void pertag_restore(Monitor *m);
 static void unmaplayersurfacenotify(struct wl_listener *listener, void *data);
 static void unmapnotify(struct wl_listener *listener, void *data);
 static void updatemons(struct wl_listener *listener, void *data);
@@ -1520,6 +1521,14 @@ void handlesig(int signo) {
       ;
   else if (signo == SIGINT || signo == SIGTERM)
     quit(NULL);
+}
+
+void pertag_restore(Monitor *m) {
+  m->nmaster = m->pertag->nmasters[m->pertag->curtag];
+  m->mfact = m->pertag->mfacts[m->pertag->curtag];
+  m->sellt = m->pertag->sellts[m->pertag->curtag];
+  m->lt[m->sellt] = m->pertag->ltidxs[m->pertag->curtag][m->sellt];
+  m->lt[m->sellt ^ 1] = m->pertag->ltidxs[m->pertag->curtag][m->sellt ^ 1];
 }
 
 void incnmaster(const Arg *arg) {
@@ -2839,11 +2848,6 @@ void toggleview(const Arg *arg) {
             selmon ? selmon->tagset[selmon->seltags] ^ (arg->ui & TAGMASK) : 0))
     return;
 
-  if (newtagset == (uint32_t)~0) {
-    selmon->pertag->prevtag = selmon->pertag->curtag;
-    selmon->pertag->curtag = 0;
-  }
-
   /* test if the user did not select the same tag */
   if (!(newtagset & 1 << (selmon->pertag->curtag - 1))) {
     selmon->pertag->prevtag = selmon->pertag->curtag;
@@ -2852,14 +2856,7 @@ void toggleview(const Arg *arg) {
     selmon->pertag->curtag = i + 1;
   }
 
-  /* apply settings for this view */
-  selmon->nmaster = selmon->pertag->nmasters[selmon->pertag->curtag];
-  selmon->mfact = selmon->pertag->mfacts[selmon->pertag->curtag];
-  selmon->sellt = selmon->pertag->sellts[selmon->pertag->curtag];
-  selmon->lt[selmon->sellt] =
-      selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
-  selmon->lt[selmon->sellt ^ 1] =
-      selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt ^ 1];
+  pertag_restore(selmon);
 
   selmon->tagset[selmon->seltags] = newtagset;
   focusclient(focustop(selmon), 1);
@@ -3060,13 +3057,7 @@ void view(const Arg *arg) {
     selmon->pertag->curtag = tmptag;
   }
 
-  selmon->nmaster = selmon->pertag->nmasters[selmon->pertag->curtag];
-  selmon->mfact = selmon->pertag->mfacts[selmon->pertag->curtag];
-  selmon->sellt = selmon->pertag->sellts[selmon->pertag->curtag];
-  selmon->lt[selmon->sellt] =
-      selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt];
-  selmon->lt[selmon->sellt ^ 1] =
-      selmon->pertag->ltidxs[selmon->pertag->curtag][selmon->sellt ^ 1];
+  pertag_restore(selmon);
 
   focusclient(focustop(selmon), 1);
   arrange(selmon);
