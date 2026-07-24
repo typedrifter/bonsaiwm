@@ -1,8 +1,0 @@
-{
-  "items": [
-    {
-      "text": "get started",
-      "items": [{ "text": "Build", "link": "build" }]
-    }
-  ]
-}
