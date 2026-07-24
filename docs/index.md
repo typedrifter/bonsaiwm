@@ -2,8 +2,8 @@
 layout: home
 hero:
   name: BonsaiWM
-  text: A compact, carefully trimmed and shaped Wayland compositor.
-  tagline: Simple, opinionated and extensible with Lua.
+  text: A compact tiling Wayland compositor, carefully trimmed and shaped.
+  tagline: Simple, opinionated, configured in Lua.
   image:
     src: /logo.webp
     alt: BonsaiWM
@@ -18,8 +18,9 @@ hero:
 
 ## What is BonsaiWM?
 
-**BonsaiWM** is a minimalist yet powerful [Wayland] compositor written in C.
-It is based on [dwl], with minimal dependencies, and uses [Lua] for configuration and scripting.
+**BonsaiWM** is a minimalist tiling [Wayland] compositor written in C.
+It is based on [dwl], with minimal dependencies, and
+configured in [Lua] (options, rules, layouts, keybinds) without recompiling.
 
 ## Why another compositor?
 
@@ -29,8 +30,9 @@ So I started using [dwl], applied numerous [user patches], and heavily customize
 ### Key Features
 
 - Built on **wlroots**
+- **Tiling** by default (tile / float / monocle) with tags
 - **Minimal dependencies** beyond wlroots
-- **Lua-configured**, no recompilation needed
+- **Lua-configured**: options, window rules, layouts, keybinds. Reload live, no recompilation
 
 ### Credits and inspirations
 
