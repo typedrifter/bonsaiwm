@@ -101,6 +101,7 @@ bonsaiwm = {
 		{ mod = "Alt", key = "7", action = bonsaiwm.action.view, arg = 7 },
 		{ mod = "Alt", key = "8", action = bonsaiwm.action.view, arg = 8 },
 		{ mod = "Alt", key = "9", action = bonsaiwm.action.view, arg = 9 },
+		{ mod = "Alt", key = "0", action = bonsaiwm.action.view, arg = 0 },
 		{ mod = "Alt+Shift", key = "exclam", action = bonsaiwm.action.tag, arg = 1 },
 		{ mod = "Alt+Shift", key = "at", action = bonsaiwm.action.tag, arg = 2 },
 		{ mod = "Alt+Shift", key = "numbersign", action = bonsaiwm.action.tag, arg = 3 },

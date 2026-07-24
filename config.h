@@ -97,6 +97,8 @@ typedef struct {
 
 /* tagging - TAGCOUNT must be no greater than 31 */
 #define TAGCOUNT (9)
+#define TAGMASK ((1u << TAGCOUNT) - 1)
+#define ALL_TAGS 0 /* curtag/prevtag sentinel for the "all tags" view */
 
 /* modifier key used in bindings */
 #define MODKEY WLR_MODIFIER_ALT

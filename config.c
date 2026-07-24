@@ -434,14 +434,22 @@ static bool parse_mod(const char *s, uint32_t *out) {
 }
 
 /* translate a lua integer arg for ArgUI actions. Tag actions (view, tag,
- * toggleview, toggletag) take a 1..TAGCOUNT tag number and convert it to the
- * 1<<(n-1) bitmask those C actions expect — asking users to write 1<<8 in
- * lua would be hostile. Other ArgUI actions (currently just chvt) pass
- * their value through unchanged. */
+ * toggleview, toggletag) take a tag number and convert it to the bitmask the
+ * C actions expect — asking users to write 1<<8 in lua would be hostile. For
+ * view/toggleview, 0 means "all tags" (TAGMASK). For tag/toggletag, 0 is
+ * invalid because moving a client to "all tags" is not supported. Other ArgUI
+ * actions (currently just chvt) pass their value through unchanged. */
 static bool coerce_arg_ui(int action, lua_Integer v, uint32_t *out) {
   switch (action) {
   case ActView:
   case ActToggleView:
+    if (v < 0 || v > TAGCOUNT) {
+      wlr_log(WLR_ERROR, "keymap: tag action arg %lld out of range [0,%d]",
+              (long long)v, TAGCOUNT);
+      return false;
+    }
+    *out = (v == 0) ? TAGMASK : (1u << (v - 1));
+    return true;
   case ActTag:
   case ActToggleTag:
     if (v < 1 || v > TAGCOUNT) {
