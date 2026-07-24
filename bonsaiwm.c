@@ -3036,26 +3036,20 @@ void urgent(struct wl_listener *listener, void *data) {
 }
 
 void view(const Arg *arg) {
-  size_t i, tmptag;
+  size_t i;
 
   if (!selmon || (arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
     return;
   selmon->seltags ^= 1; /* toggle sel tagset */
-  if (arg->ui & TAGMASK) {
-    selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
-    selmon->tagstate->prevtag = selmon->tagstate->curtag;
+  selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+  selmon->tagstate->prevtag = selmon->tagstate->curtag;
 
-    if (arg->ui == (unsigned int)TAGMASK)
-      selmon->tagstate->curtag = ALL_TAGS;
-    else {
-      for (i = 0; !(arg->ui & 1 << i); i++)
-        ;
-      selmon->tagstate->curtag = i + 1;
-    }
-  } else {
-    tmptag = selmon->tagstate->prevtag;
-    selmon->tagstate->prevtag = selmon->tagstate->curtag;
-    selmon->tagstate->curtag = tmptag;
+  if (arg->ui == (unsigned int)TAGMASK)
+    selmon->tagstate->curtag = ALL_TAGS;
+  else {
+    for (i = 0; !(arg->ui & 1 << i); i++)
+      ;
+    selmon->tagstate->curtag = i + 1;
   }
 
   tagstate_restore(selmon);
