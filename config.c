@@ -41,7 +41,6 @@ const int shadow_blur_sigma_focus = 40;
 const char *const shadow_ignore_list[] = {NULL};
 
 const int corner_radius = 8;
-const int corner_radius_inner = 9;
 const int corner_radius_only_floating = 0;
 
 const int blur = 1;

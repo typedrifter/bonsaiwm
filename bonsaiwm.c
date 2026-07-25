@@ -3532,16 +3532,16 @@ void update_client_corner_radius(Client *c) {
     wlr_scene_rect_set_corner_radii(c->round_border, corner_radii_all(radius));
   }
 
-  /* Match the blur node's corner radius to the inner radius so the blurred
-   * background also has rounded corners. */
+  /* Match the blur node's corner radius so the blurred background also
+   * has rounded corners. */
   if (blur && c->blur) {
-    int blur_radius = corner_radius_inner;
+    int blur_radius = corner_radius;
     if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen)
       blur_radius = 0;
     wlr_scene_blur_set_corner_radii(c->blur, corner_radii_all(blur_radius));
   }
 
-  if (corner_radius_inner > 0 && c->scene)
+  if (corner_radius > 0 && c->scene)
     wlr_scene_node_for_each_buffer(&c->scene_surface->node,
                                    iter_xdg_scene_buffers_corner_radius, c);
 }
@@ -3560,10 +3560,10 @@ void update_client_blur(Client *c) {
 void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer) {
   int radius;
 
-  if (!corner_radius_inner)
+  if (!corner_radius)
     return;
 
-  radius = corner_radius_inner;
+  radius = corner_radius;
   if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen)
     radius = 0;
   wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(radius));

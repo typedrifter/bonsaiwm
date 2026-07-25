@@ -178,9 +178,7 @@ extern const int shadow_blur_sigma;
 extern const int shadow_blur_sigma_focus;
 extern const char *const shadow_ignore_list[]; /* NULL-terminated app-id list */
 
-extern const int corner_radius; /* 0 disables outer corner rounding */
-extern const int
-    corner_radius_inner; /* 0 disables inner (surface) corner rounding */
+extern const int corner_radius; /* 0 disables rounded corners */
 extern const int
     corner_radius_only_floating; /* 1 = only floating windows get rounded */
 
