@@ -95,7 +95,10 @@ typedef struct {
   const Arg arg;
 } Button;
 
-/* tagging - TAGCOUNT must be no greater than 31 */
+/* tagging - TAGCOUNT must be no greater than 31, and please don't set it to
+ * 1 either — view()'s "all tags" sentinel check leans on TAGMASK != (1<<0),
+ * so a single-tag compositor would confuse "view tag 1" with "view all".
+ * Why would you do that anyway ?*/
 #define TAGCOUNT (9)
 #define TAGMASK ((1u << TAGCOUNT) - 1)
 #define ALL_TAGS 0 /* curtag/prevtag sentinel for the "all tags" view */

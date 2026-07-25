@@ -323,6 +323,10 @@ void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
 static void unlocksession(struct wl_listener *listener, void *data);
 static void tagstate_restore(Monitor *m);
+static size_t firsttag_from_bitmask(uint32_t mask);
+static void tagstate_init(TagState *ts, int nmaster, float mfact, int lt0,
+                          int lt1, int sellt);
+static void tagstate_clamp_layouts(TagState *ts, size_t layouts_count);
 static void unmaplayersurfacenotify(struct wl_listener *listener, void *data);
 static void unmapnotify(struct wl_listener *listener, void *data);
 static void updatemons(struct wl_listener *listener, void *data);
@@ -449,6 +453,46 @@ struct TagState {
   unsigned int sellts[TAGCOUNT + 1];      /* selected layouts */
   int ltidxs[TAGCOUNT + 1][2];            /* matrix of tags and layouts indexes */
 };
+
+/* Return the 1-based index of the lowest set bit in mask.
+ * This turns a tag bitmask (e.g. 1<<2) into a tag number (e.g. 3) so the
+ * per-tag state arrays know which slot to read/write. The callers already
+ * guarantee mask is non-zero, because an empty tagset is never a valid view. */
+static size_t firsttag_from_bitmask(uint32_t mask) {
+  size_t i = 0;
+  while (!(mask & (1u << i)))
+    i++;
+  return i + 1;
+}
+
+/* Seed every per-tag slot with the same layout values.
+ * When a monitor is created we have one default layout; all tags start from it
+ * so that switching to a tag for the first time feels consistent instead of
+ * falling back to zeroed state. */
+static void tagstate_init(TagState *ts, int nmaster, float mfact, int lt0,
+                          int lt1, int sellt) {
+  for (size_t i = 0; i <= TAGCOUNT; i++) {
+    ts->nmasters[i] = nmaster;
+    ts->mfacts[i] = mfact;
+    ts->ltidxs[i][0] = lt0;
+    ts->ltidxs[i][1] = lt1;
+    ts->sellts[i] = sellt;
+  }
+}
+
+/* Clamp saved layout indices after a config reload.
+ * The user may have removed layouts since the last reload, so previously
+ * valid indices can now be out of bounds; reset them to the first layout. */
+static void tagstate_clamp_layouts(TagState *ts, size_t layouts_count) {
+  for (size_t i = 0; i <= TAGCOUNT; i++) {
+    if ((size_t)ts->ltidxs[i][0] >= layouts_count)
+      ts->ltidxs[i][0] = 0;
+    if ((size_t)ts->ltidxs[i][1] >= layouts_count)
+      ts->ltidxs[i][1] = 0;
+    if (ts->sellts[i] > 1)
+      ts->sellts[i] = 0;
+  }
+}
 
 /* function implementations */
 void applybounds(Client *c, struct wlr_box *bbox) {
@@ -1075,15 +1119,8 @@ void createmon(struct wl_listener *listener, void *data) {
 
   m->tagstate = ecalloc(1, sizeof(TagState));
   m->tagstate->curtag = m->tagstate->prevtag = 1;
-
-  for (i = 0; i <= TAGCOUNT; i++) {
-    m->tagstate->nmasters[i] = m->nmaster;
-    m->tagstate->mfacts[i] = m->mfact;
-
-    m->tagstate->ltidxs[i][0] = m->lt[0];
-    m->tagstate->ltidxs[i][1] = m->lt[1];
-    m->tagstate->sellts[i] = m->sellt;
-  }
+  tagstate_init(m->tagstate, m->nmaster, m->mfact, m->lt[0], m->lt[1],
+                m->sellt);
 
   /* The xdg-protocol specifies:
    *
@@ -1522,7 +1559,7 @@ void handlesig(int signo) {
     quit(NULL);
 }
 
-void tagstate_restore(Monitor *m) {
+static void tagstate_restore(Monitor *m) {
   m->nmaster = m->tagstate->nmasters[m->tagstate->curtag];
   m->mfact = m->tagstate->mfacts[m->tagstate->curtag];
   m->sellt = m->tagstate->sellts[m->tagstate->curtag];
@@ -2337,7 +2374,6 @@ void setlayout(const Arg *arg) {
 
 void reload_monitor_layouts(void) {
   Monitor *m;
-  size_t i;
 
   wlr_log(WLR_DEBUG, "reload_monitor_layouts: layouts_count=%zu",
           layouts_count);
@@ -2369,14 +2405,7 @@ void reload_monitor_layouts(void) {
       m->sellt = 0;
     }
     /* clamp tagstate layout indices too (config reload may have fewer layouts) */
-    for (i = 0; i <= TAGCOUNT; i++) {
-      if ((size_t)m->tagstate->ltidxs[i][0] >= layouts_count)
-        m->tagstate->ltidxs[i][0] = 0;
-      if ((size_t)m->tagstate->ltidxs[i][1] >= layouts_count)
-        m->tagstate->ltidxs[i][1] = 0;
-      if (m->tagstate->sellts[i] > 1)
-        m->tagstate->sellts[i] = 0;
-    }
+    tagstate_clamp_layouts(m->tagstate, layouts_count);
     if (old0 == m->lt[0] && old1 == m->lt[1] && oldsellt == m->lt[m->sellt])
       wlr_log(WLR_DEBUG,
               "reload_monitor_layouts: %s layouts already valid, no change",
@@ -2842,7 +2871,6 @@ void toggletag(const Arg *arg) {
 
 void toggleview(const Arg *arg) {
   uint32_t newtagset;
-  size_t i;
   if (!(newtagset =
             selmon ? selmon->tagset[selmon->seltags] ^ (arg->ui & TAGMASK) : 0))
     return;
@@ -2852,9 +2880,7 @@ void toggleview(const Arg *arg) {
   if (selmon->tagstate->curtag == ALL_TAGS ||
       !(newtagset & 1 << (selmon->tagstate->curtag - 1))) {
     selmon->tagstate->prevtag = selmon->tagstate->curtag;
-    for (i = 0; !(newtagset & 1 << i); i++)
-      ;
-    selmon->tagstate->curtag = i + 1;
+    selmon->tagstate->curtag = firsttag_from_bitmask(newtagset);
   }
 
   tagstate_restore(selmon);
@@ -3036,8 +3062,6 @@ void urgent(struct wl_listener *listener, void *data) {
 }
 
 void view(const Arg *arg) {
-  size_t i;
-
   if (!selmon || (arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
     return;
   selmon->seltags ^= 1; /* toggle sel tagset */
@@ -3046,11 +3070,8 @@ void view(const Arg *arg) {
 
   if (arg->ui == (unsigned int)TAGMASK)
     selmon->tagstate->curtag = ALL_TAGS;
-  else {
-    for (i = 0; !(arg->ui & 1 << i); i++)
-      ;
-    selmon->tagstate->curtag = i + 1;
-  }
+  else
+    selmon->tagstate->curtag = firsttag_from_bitmask(arg->ui & TAGMASK);
 
   tagstate_restore(selmon);
 
