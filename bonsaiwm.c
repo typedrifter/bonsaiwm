@@ -363,13 +363,9 @@ static void xytonode(double x, double y, struct wlr_surface **psurface,
 void zoom(const Arg *arg);
 
 /* scenefx decoration helpers (defined after zoom()) */
+static struct wlr_surface *iter_client_surface(struct wlr_scene_buffer *buffer);
 static void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx,
                                    int sy, void *user_data);
-static void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer,
-                                           int sx, int sy, void *user_data);
-static void
-iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer, int sx,
-                                     int sy, void *user_data);
 static void output_configure_scene(struct wlr_scene_node *node, Client *c);
 static int in_shadow_ignore_list(const char *str);
 static void client_set_shadow_blur_sigma(Client *c, int blur_sigma);
@@ -3387,15 +3383,17 @@ void zoom(const Arg *arg) {
 
 /* ── scenefx decoration helpers ──────────────────────────────────────────── */
 
-void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
-                            void *user_data) {
-  Client *c = user_data;
+/* Shared boilerplate: extract the wlr_surface from a buffer, skipping
+ * buffers that aren't client surfaces (non-surfaces, popups).
+ * Returns NULL if this buffer shouldn't be decorated. */
+static struct wlr_surface *
+iter_client_surface(struct wlr_scene_buffer *buffer) {
   struct wlr_scene_surface *scene_surface =
       wlr_scene_surface_try_from_buffer(buffer);
   struct wlr_surface *surface;
 
   if (!scene_surface)
-    return;
+    return NULL;
 
   surface = scene_surface->surface;
 
@@ -3403,15 +3401,22 @@ void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
    * popups (rather than checking for XDG toplevels) ensures X11 surfaces and
    * subsurfaces also get effects. */
   if (wlr_xdg_popup_try_from_wlr_surface(surface) != NULL)
+    return NULL;
+
+  return surface;
+}
+
+void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
+                            void *user_data) {
+  Client *c = user_data;
+  struct wlr_surface *surface = iter_client_surface(buffer);
+
+  if (!surface)
     return;
 
   if (opacity)
     wlr_scene_buffer_set_opacity(buffer, c->opacity);
 
-  /* Apply corner radius to all non-popup buffers, including subsurfaces.
-   * Real apps like Firefox/Chrome use a subsurface for their content area;
-   * if we skip subsurfaces, the content's square corners poke through the
-   * toplevel's rounded corners. */
   update_buffer_corner_radius(c, buffer);
 
   /* The blur transparency mask should represent the window's overall shape,
@@ -3425,17 +3430,8 @@ void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
 void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer, int sx,
                                     int sy, void *user_data) {
   Client *c = user_data;
-  struct wlr_scene_surface *scene_surface =
-      wlr_scene_surface_try_from_buffer(buffer);
-  struct wlr_surface *surface;
 
-  if (!scene_surface)
-    return;
-
-  surface = scene_surface->surface;
-
-  /* Skip popups only — X11 surfaces and subsurfaces also get opacity. */
-  if (wlr_xdg_popup_try_from_wlr_surface(surface) != NULL)
+  if (!iter_client_surface(buffer))
     return;
 
   if (opacity)
@@ -3445,17 +3441,8 @@ void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer, int sx,
 void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
                                           int sx, int sy, void *user_data) {
   Client *c = user_data;
-  struct wlr_scene_surface *scene_surface =
-      wlr_scene_surface_try_from_buffer(buffer);
-  struct wlr_surface *surface;
 
-  if (!scene_surface)
-    return;
-
-  surface = scene_surface->surface;
-
-  /* Skip popups only — X11 surfaces and subsurfaces also get corner radius. */
-  if (wlr_xdg_popup_try_from_wlr_surface(surface) != NULL)
+  if (!iter_client_surface(buffer))
     return;
 
   update_buffer_corner_radius(c, buffer);
@@ -3484,17 +3471,9 @@ void output_configure_scene(struct wlr_scene_node *node, Client *c) {
 
   if (node->type == WLR_SCENE_NODE_BUFFER) {
     struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
-    struct wlr_scene_surface *scene_surface =
-        wlr_scene_surface_try_from_buffer(buffer);
-    struct wlr_surface *surface;
+    struct wlr_surface *surface = iter_client_surface(buffer);
 
-    if (!scene_surface)
-      return;
-
-    surface = scene_surface->surface;
-
-    /* Skip popups — they don't inherit toplevel effects. */
-    if (wlr_xdg_popup_try_from_wlr_surface(surface) != NULL)
+    if (!surface)
       return;
 
     /* Skip layer surfaces — they set node->data to a LayerSurface* (not a
