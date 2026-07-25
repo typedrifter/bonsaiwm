@@ -45,7 +45,14 @@
 #include <wlr/types/wlr_primary_selection.h>
 #include <wlr/types/wlr_primary_selection_v1.h>
 #include <wlr/types/wlr_relative_pointer_v1.h>
-#include <wlr/types/wlr_scene.h>
+/* wlr_scene.h is replaced by scenefx's version (via -I ordering: scenefx-0.5
+ * comes before wlroots-0.20 in cflags). The headers below provide the effects
+ * API: fx_renderer_create, wlr_scene_blur/shadow/optimized_blur, corner_radii,
+ * clipped_region, blur_data. */
+#include <scenefx/render/fx_renderer/fx_renderer.h>
+#include <scenefx/types/fx/blur_data.h>
+#include <scenefx/types/fx/clipped_region.h>
+#include <scenefx/types/wlr_scene.h>
 #include <wlr/types/wlr_screencopy_v1.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_server_decoration.h>
@@ -91,6 +98,7 @@
 enum { XDGShell, LayerShell, X11 }; /* client types */
 enum {
   LyrBg,
+  LyrBlur, /* optimized blur region; everything below it on this output gets blurred */
   LyrBottom,
   LyrTile,
   LyrFloat,
@@ -141,6 +149,18 @@ typedef struct {
   uint32_t tags;
   int isfloating, isurgent, isfullscreen;
   uint32_t resize; /* configure serial of a pending resize */
+
+  /* scenefx decoration state. round_border replaces the four flat border[] rects
+   * when corner_radius > 0 (the flat rects are drawn transparent in that case).
+   * blur is a per-toplevel blur node; shadow is the drop shadow.
+   * has_shadow_enabled caches the shadow visibility decision so focus changes
+   * can recolor without re-evaluating the ignore list. */
+  float opacity;
+  int corner_radius;
+  struct wlr_scene_blur *blur;
+  struct wlr_scene_shadow *shadow;
+  int has_shadow_enabled;
+  struct wlr_scene_rect *round_border;
 } Client;
 
 typedef struct {
@@ -200,6 +220,7 @@ struct Monitor {
   int nmaster;
   char ltsymbol[16];
   int asleep;
+  struct wlr_scene_optimized_blur *blur_layer; /* per-output optimized blur */
 };
 
 typedef struct {
@@ -340,6 +361,23 @@ static void xytonode(double x, double y, struct wlr_surface **psurface,
                      Client **pc, LayerSurface **pl, double *nx, double *ny);
 void zoom(const Arg *arg);
 
+/* scenefx decoration helpers (defined after zoom()) */
+static void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx,
+                                   int sy, void *user_data);
+static void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer,
+                                           int sx, int sy, void *user_data);
+static void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
+                                                 int sx, int sy,
+                                                 void *user_data);
+static void output_configure_scene(struct wlr_scene_node *node, Client *c);
+static int in_shadow_ignore_list(const char *str);
+static void client_set_shadow_blur_sigma(Client *c, int blur_sigma);
+static void update_client_corner_radius(Client *c);
+static void update_client_shadow_color(Client *c);
+static void update_client_focus_decorations(Client *c, int focused, int urgent);
+static void update_client_blur(Client *c);
+static void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer);
+
 /* variables */
 static pid_t child_pid = -1;
 static int log_level = WLR_ERROR;
@@ -395,6 +433,10 @@ static struct wlr_box sgeom;
 static struct wl_list mons;
 static Monitor *selmon;
 
+/* Transparent color used to hide the flat border[] rects when a
+ * round_border is in use, and to disable shadows on ignored/fullscreen clients */
+static float transparent[4] = {0.1f, 0.1f, 0.1f, 0.0f};
+
 /* global event handlers */
 static struct wl_listener cursor_axis = {.notify = axisnotify};
 static struct wl_listener cursor_button = {.notify = buttonpress};
@@ -441,6 +483,20 @@ static struct wlr_xwayland *xwayland;
 #endif
 
 /* attempt to encapsulate suck into one file */
+/* wlroots 0.20 dropped the generated xdg-shell-protocol.h from wlr_xdg_shell.h's
+ * transitive includes (it now pulls wayland-protocols/xdg-shell-enum.h, which
+ * only has state version macros). These two protocol-version constants are
+ * stable (xdg-shell.xml: configure_bounds since=4, wm_capabilities since=5) and
+ * are still emitted in our generated xdg-shell-protocol.h, but nothing includes
+ * that header anymore. Define them here so client.h's version check and
+ * maximizenotify's capabilities check compile. */
+#ifndef XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION
+#define XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION 4
+#endif
+#ifndef XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION
+#define XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION 5
+#endif
+
 #include "client.h"
 
 /* Per-tag layout state, ported from the dwl pertag patch:
@@ -553,6 +609,11 @@ void arrange(Monitor *m) {
 
   wlr_scene_node_set_enabled(&m->fullscreen_bg->node,
                              (c = focustop(m)) && c->isfullscreen);
+
+  /* Enable the per-output optimized blur layer whenever blur is on.
+   * It blurs everything below it on this output (background/bottom layers). */
+  if (blur)
+    wlr_scene_node_set_enabled(&m->blur_layer->node, 1);
 
   strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol, LENGTH(m->ltsymbol));
 
@@ -772,6 +833,10 @@ void cleanupmon(struct wl_listener *listener, void *data) {
   free(m->tagstate);
   closemon(m);
   wlr_scene_node_destroy(&m->fullscreen_bg->node);
+
+  if (blur)
+    wlr_scene_node_destroy(&m->blur_layer->node);
+
   free(m);
 }
 
@@ -877,6 +942,18 @@ void commitlayersurfacenotify(struct wl_listener *listener, void *data) {
   }
 
   arrangelayers(l->mon);
+
+  /* If a background/bottom layer surface committed, the optimized blur cached
+   * texture is stale — mark it dirty so it re-renders on the next frame. This
+   * is what makes a wallpaper change show up blurred behind tiled windows. */
+  if (blur && l->mon) {
+    struct wlr_layer_surface_v1 *wlr_layer_surface = l->layer_surface;
+    if (wlr_layer_surface->current.layer ==
+            ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND ||
+        wlr_layer_surface->current.layer == ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM) {
+      wlr_scene_optimized_blur_mark_dirty(l->mon->blur_layer);
+    }
+  }
 }
 
 void commitnotify(struct wl_listener *listener, void *data) {
@@ -1134,6 +1211,16 @@ void createmon(struct wl_listener *listener, void *data) {
   m->fullscreen_bg = wlr_scene_rect_create(layers[LyrFS], 0, 0, fullscreen_bg);
   wlr_scene_node_set_enabled(&m->fullscreen_bg->node, 0);
 
+  /* Per-output optimized blur node. Everything drawn below this node (on this
+   * output) gets blurred. Created disabled; enabled in arrange() when the blur
+   * option is on. Reparented into LyrBlur so it sits between the background/
+   * bottom layers and the tiling/floating layers. */
+  if (blur) {
+    m->blur_layer = wlr_scene_optimized_blur_create(&scene->tree, 0, 0);
+    wlr_scene_node_reparent(&m->blur_layer->node, layers[LyrBlur]);
+    wlr_scene_node_set_enabled(&m->blur_layer->node, 0);
+  }
+
   /* Adds this to the output layout in the order it was configured.
    *
    * The output layout utility automatically adds a wl_output global to the
@@ -1157,6 +1244,11 @@ void createnotify(struct wl_listener *listener, void *data) {
   c = toplevel->base->data = ecalloc(1, sizeof(*c));
   c->surface.xdg = toplevel->base;
   c->bw = config.borderpx;
+
+  /* Initialize per-client decoration state. These are read by the helpers
+   * called from mapnotify(). */
+  c->opacity = opacity;
+  c->corner_radius = corner_radius;
 
   LISTEN(&toplevel->base->surface->events.commit, &c->commit, commitnotify);
   LISTEN(&toplevel->base->surface->events.map, &c->map, mapnotify);
@@ -1435,8 +1527,11 @@ void focusclient(Client *c, int lift) {
 
     /* Don't change border color if there is an exclusive focus or we are
      * handling a drag operation */
-    if (!exclusive_focus && !seat->drag)
+    if (!exclusive_focus && !seat->drag) {
       client_set_border_color(c, focuscolor);
+
+      update_client_focus_decorations(c, 1, 0);
+    }
   }
 
   /* Deactivate old client if focus is changing */
@@ -1455,6 +1550,8 @@ void focusclient(Client *c, int lift) {
     } else if (old_c && !client_is_unmanaged(old_c) &&
                (!c || !client_wants_focus(c))) {
       client_set_border_color(old_c, bordercolor);
+
+      update_client_focus_decorations(old_c, 0, 0);
 
       client_activate_surface(old, 0);
     }
@@ -1532,7 +1629,7 @@ void gpureset(struct wl_listener *listener, void *data) {
   struct wlr_renderer *old_drw = drw;
   struct wlr_allocator *old_alloc = alloc;
   struct Monitor *m;
-  if (!(drw = wlr_renderer_autocreate(backend)))
+  if (!(drw = fx_renderer_create(backend)))
     die("couldn't recreate renderer");
 
   if (!(alloc = wlr_allocator_autocreate(backend, drw)))
@@ -1783,6 +1880,45 @@ void mapnotify(struct wl_listener *listener, void *data) {
     c->border[i]->node.data = c;
   }
 
+  /* Walk the toplevel's buffers and apply per-buffer decoration (opacity,
+   * corner radius, and link the blur node's transparency mask to the surface
+   * buffer). */
+  wlr_scene_node_for_each_buffer(&c->scene_surface->node,
+                                 iter_xdg_scene_buffers, c);
+
+  /* Rounded border: a single rounded rect replaces the four flat border[] rects
+   * when corner_radius > 0. The flat rects are made transparent (they still
+   * exist so resize() can keep updating them, but they don't draw). The
+   * round_border is lowered below the surface tree so the surface draws on
+   * top of it. */
+  if (corner_radius > 0) {
+    c->round_border = wlr_scene_rect_create(
+        c->scene, 0, 0, c->isurgent ? urgentcolor : bordercolor);
+    c->round_border->node.data = c;
+    wlr_scene_node_lower_to_bottom(&c->round_border->node);
+    for (i = 0; i < 4; i++)
+      wlr_scene_rect_set_color(c->border[i], transparent);
+  }
+
+  /* Drop shadow under the client, lowered below the border. */
+  if (shadow) {
+    c->shadow = wlr_scene_shadow_create(c->scene, 0, 0, c->corner_radius,
+                                        shadow_blur_sigma, shadow_color);
+    wlr_scene_node_lower_to_bottom(&c->shadow->node);
+  }
+
+  /* Per-toplevel blur node. should_only_blur_bottom_layer makes it blur only
+   * content beneath this toplevel; the output-wide optimized_blur layer (in
+   * LyrBlur) handles the rest. The transparency mask source is wired up in
+   * iter_xdg_scene_buffers so blur respects surface alpha. */
+  if (blur) {
+    c->blur = wlr_scene_blur_create(c->scene, 0, 0);
+    wlr_scene_blur_set_should_only_blur_bottom_layer(c->blur, true);
+    /* lower_to_bottom in order: round_border, shadow, blur — so blur ends up
+     * at the very bottom, shadow above it, round_border above that. */
+    wlr_scene_node_lower_to_bottom(&c->blur->node);
+  }
+
   /* Initialize client geometry with room for border */
   client_set_tiled(c, WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT |
                           WLR_EDGE_RIGHT);
@@ -1804,6 +1940,12 @@ void mapnotify(struct wl_listener *listener, void *data) {
     applyrules(c);
   }
   printstatus();
+
+  /* Finalize per-client decoration state now that the client is mapped, has a
+   * monitor, and its floating/fullscreen state is settled. */
+  update_client_corner_radius(c);
+  update_client_shadow_color(c);
+  update_client_blur(c);
 
 unset_fullscreen:
   m = c->mon ? c->mon : xytomon(c->geom.x, c->geom.y);
@@ -2165,6 +2307,11 @@ void rendermon(struct wl_listener *listener, void *data) {
       goto skip;
   }
 
+  /* Refresh per-buffer decoration data (opacity + corner radii) across the
+   * whole scene tree before committing. Keeps decoration in sync with
+   * focus/float/fullscreen changes that don't otherwise trigger a re-walk. */
+  output_configure_scene(&m->scene_output->scene->tree.node, NULL);
+
   wlr_scene_output_commit(m->scene_output, NULL);
 
 skip:
@@ -2226,6 +2373,34 @@ void resize(Client *c, struct wlr_box geo, int interact) {
       client_set_size(c, c->geom.width - 2 * c->bw, c->geom.height - 2 * c->bw);
   client_get_clip(c, &clip);
   wlr_scene_subsurface_tree_set_clip(&c->scene_surface->node, &clip);
+
+  /* Keep the rounded border rect and shadow in sync with the new geometry. The
+   * round_border is sized to the full geom (incl. border); its clipped_region
+   * carves out the inner hole (the surface area) with the inner corner radius.
+   * The shadow is repositioned/resized via its blur_sigma. */
+  if (corner_radius > 0 && c->round_border) {
+    wlr_scene_node_set_position(&c->round_border->node, 0, 0);
+    wlr_scene_rect_set_size(c->round_border, c->geom.width, c->geom.height);
+    wlr_scene_rect_set_clipped_region(
+        c->round_border,
+        (struct clipped_region){
+            .corners = corner_radii_all(c->corner_radius),
+            .area = {c->bw, c->bw, c->geom.width - c->bw * 2,
+                     c->geom.height - c->bw * 2},
+        });
+  }
+
+  if (shadow && c->shadow) {
+    client_set_shadow_blur_sigma(c, (int)round(c->shadow->blur_sigma));
+  }
+
+  /* Size and position the blur node to match the surface area (inside the
+   * border). Without this the blur stays at 0x0 and renders nothing. */
+  if (blur && c->blur) {
+    wlr_scene_node_set_position(&c->blur->node, c->bw, c->bw);
+    wlr_scene_blur_set_size(c->blur, c->geom.width - 2 * c->bw,
+                            c->geom.height - 2 * c->bw);
+  }
 }
 
 void run(char *startup_cmd) {
@@ -2323,6 +2498,13 @@ void setcursorshape(struct wl_listener *listener, void *data) {
 void setfloating(Client *c, int floating) {
   Client *p = client_get_parent(c);
   c->isfloating = floating;
+
+  /* Floating state affects whether shadows, rounded corners, and optimized
+   * blur apply (per the *_only_floating / blur_xray options). */
+  update_client_corner_radius(c);
+  update_client_shadow_color(c);
+  update_client_blur(c);
+
   /* If in floating layout do not change the client's layer */
   if (!c->mon || !client_surface(c)->mapped ||
       !arrangefn[layouts[c->mon->lt[c->mon->sellt]].arrange])
@@ -2353,6 +2535,14 @@ void setfullscreen(Client *c, int fullscreen) {
      * client positions are set by the user and cannot be recalculated */
     resize(c, c->prev, 0);
   }
+
+  /* Fullscreen hides rounded corners and shadows; restoring needs them back.
+   * Also covers the bw change (0 vs borderpx) which affects the round_border's
+   * clipped region. */
+  update_client_corner_radius(c);
+  update_client_shadow_color(c);
+  update_client_blur(c);
+
   arrange(c->mon);
   printstatus();
 }
@@ -2553,11 +2743,17 @@ void setup(void) {
   drag_icon = wlr_scene_tree_create(&scene->tree);
   wlr_scene_node_place_below(&drag_icon->node, &layers[LyrBlock]->node);
 
-  /* Autocreates a renderer, either Pixman, GLES2 or Vulkan for us. The user
-   * can also specify a renderer using the WLR_RENDERER env var.
-   * The renderer is responsible for defining the various pixel formats it
-   * supports for shared memory, this configures that for clients. */
-  if (!(drw = wlr_renderer_autocreate(backend)))
+  /* Set global blur parameters. Called before the renderer is created; the
+   * values are picked up at render time. */
+  if (blur) {
+    wlr_scene_set_blur_data(scene, blur_num_passes, blur_radius, blur_noise,
+                            blur_brightness, blur_contrast, blur_saturation);
+  }
+
+  /* fx_renderer_create replaces wlr_renderer_autocreate. It builds a renderer
+   * backed by the fx (GLES2) renderer that knows how to draw shadows, rounded
+   * corners, and blur. */
+  if (!(drw = fx_renderer_create(backend)))
     die("couldn't create renderer");
   wl_signal_add(&drw->events.lost, &gpu_reset);
 
@@ -2991,6 +3187,13 @@ void updatemons(struct wl_listener *listener, void *data) {
     wlr_scene_node_set_position(&m->fullscreen_bg->node, m->m.x, m->m.y);
     wlr_scene_rect_set_size(m->fullscreen_bg, m->m.width, m->m.height);
 
+    /* Keep the optimized blur layer positioned/sized to this monitor. Mirrors
+     * fullscreen_bg so multi-monitor setups get per-output blur. */
+    if (blur) {
+      wlr_scene_node_set_position(&m->blur_layer->node, m->m.x, m->m.y);
+      wlr_scene_optimized_blur_set_size(m->blur_layer, m->m.width, m->m.height);
+    }
+
     if (m->lock_surface) {
       struct wlr_scene_tree *scene_tree = m->lock_surface->surface->data;
       wlr_scene_node_set_position(&scene_tree->node, m->m.x, m->m.y);
@@ -3057,8 +3260,13 @@ void urgent(struct wl_listener *listener, void *data) {
   c->isurgent = 1;
   printstatus();
 
-  if (client_surface(c)->mapped)
+  if (client_surface(c)->mapped) {
     client_set_border_color(c, urgentcolor);
+
+    /* Urgent gets the focused shadow/opacity treatment so the urgent client
+     * visually pops even if it isn't the keyboard focus. */
+    update_client_focus_decorations(c, 1, 1);
+  }
 }
 
 void view(const Arg *arg) {
@@ -3172,6 +3380,271 @@ void zoom(const Arg *arg) {
   arrange(selmon);
 }
 
+/* ── scenefx decoration helpers ──────────────────────────────────────────── */
+
+void
+iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
+                       void *user_data)
+{
+  Client *c = user_data;
+  struct wlr_scene_surface *scene_surface =
+      wlr_scene_surface_try_from_buffer(buffer);
+  struct wlr_surface *surface;
+
+  if (!scene_surface)
+    return;
+
+  surface = scene_surface->surface;
+
+  /* Skip popups — they shouldn't inherit the toplevel's effects. Checking for
+   * popups (rather than checking for XDG toplevels) ensures X11 surfaces and
+   * subsurfaces also get effects. */
+  if (wlr_xdg_popup_try_from_wlr_surface(surface) != NULL)
+    return;
+
+  if (opacity)
+    wlr_scene_buffer_set_opacity(buffer, c->opacity);
+
+  /* Apply corner radius to all non-popup buffers, including subsurfaces.
+   * Real apps like Firefox/Chrome use a subsurface for their content area;
+   * if we skip subsurfaces, the content's square corners poke through the
+   * toplevel's rounded corners. */
+  update_buffer_corner_radius(c, buffer);
+
+  /* The blur transparency mask should represent the window's overall shape,
+   * so only set it from the main toplevel surface — not from subsurfaces. */
+  if (!wlr_subsurface_try_from_wlr_surface(surface)) {
+    if (blur && c->blur && blur_ignore_transparent)
+      wlr_scene_blur_set_transparency_mask_source(c->blur, buffer);
+  }
+}
+
+void
+iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer, int sx, int sy,
+                               void *user_data)
+{
+  Client *c = user_data;
+  struct wlr_scene_surface *scene_surface =
+      wlr_scene_surface_try_from_buffer(buffer);
+  struct wlr_surface *surface;
+
+  if (!scene_surface)
+    return;
+
+  surface = scene_surface->surface;
+
+  /* Skip popups only — X11 surfaces and subsurfaces also get opacity. */
+  if (wlr_xdg_popup_try_from_wlr_surface(surface) != NULL)
+    return;
+
+  if (opacity)
+    wlr_scene_buffer_set_opacity(buffer, c->opacity);
+}
+
+void
+iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer, int sx,
+                                      int sy, void *user_data)
+{
+  Client *c = user_data;
+  struct wlr_scene_surface *scene_surface =
+      wlr_scene_surface_try_from_buffer(buffer);
+  struct wlr_surface *surface;
+
+  if (!scene_surface)
+    return;
+
+  surface = scene_surface->surface;
+
+  /* Skip popups only — X11 surfaces and subsurfaces also get corner radius. */
+  if (wlr_xdg_popup_try_from_wlr_surface(surface) != NULL)
+    return;
+
+  update_buffer_corner_radius(c, buffer);
+}
+
+/* Recursive tree walk called from rendermon() before each commit. Refreshes
+ * per-buffer opacity + corner radii across the whole scene so decoration stays
+ * in sync with focus/float/fullscreen changes that don't otherwise re-walk.
+ *
+ * CAUTION: node->data is not always a Client*. BonsaiWM sets it to a
+ * LayerSurface* on layer surface trees (see createlayersurfacenotify), so we
+ * cannot blindly trust _c = node->data. Instead we verify the surface role at
+ * the buffer level — only XDG toplevels, X11 surfaces, and their subsurfaces
+ * are client surfaces worth decorating; layer surfaces, popups, lock surfaces,
+ * and drag icons are skipped. */
+void
+output_configure_scene(struct wlr_scene_node *node, Client *c)
+{
+  Client *_c;
+  struct wlr_scene_node *_node;
+
+  if (!node->enabled)
+    return;
+
+  _c = node->data;
+  if (_c)
+    c = _c;
+
+  if (node->type == WLR_SCENE_NODE_BUFFER) {
+    struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
+    struct wlr_scene_surface *scene_surface =
+        wlr_scene_surface_try_from_buffer(buffer);
+    struct wlr_surface *surface;
+
+    if (!scene_surface)
+      return;
+
+    surface = scene_surface->surface;
+
+    /* Skip popups — they don't inherit toplevel effects. */
+    if (wlr_xdg_popup_try_from_wlr_surface(surface) != NULL)
+      return;
+
+    /* Skip layer surfaces — they set node->data to a LayerSurface* (not a
+     * Client*), so c is garbage here. Without this check, c->opacity would
+     * read memory at the wrong offset and trip scenefx's [0,1] assertion. */
+    if (wlr_layer_surface_v1_try_from_wlr_surface(surface) != NULL)
+      return;
+
+    /* c may still be NULL if no client ancestor set node->data (e.g. lock
+     * surfaces or drag icons). Skip those. */
+    if (!c)
+      return;
+
+    /* At this point the surface is not a popup, not a layer surface, and c
+     * is non-NULL. For XDG subsurfaces and X11 surfaces, c was set from a
+     * client ancestor tree's node->data and is valid. */
+    if (opacity)
+      wlr_scene_buffer_set_opacity(buffer, c->opacity);
+
+    update_buffer_corner_radius(c, buffer);
+  } else if (node->type == WLR_SCENE_NODE_TREE) {
+    struct wlr_scene_tree *tree = wl_container_of(node, tree, node);
+    wl_list_for_each(_node, &tree->children, link) {
+      output_configure_scene(_node, c);
+    }
+  }
+}
+
+int
+in_shadow_ignore_list(const char *str)
+{
+  for (int i = 0; shadow_ignore_list[i] != NULL; i++) {
+    if (strcmp(shadow_ignore_list[i], str) == 0)
+      return 1;
+  }
+  return 0;
+}
+
+void
+client_set_shadow_blur_sigma(Client *c, int blur_sigma)
+{
+  wlr_scene_shadow_set_blur_sigma(c->shadow, blur_sigma);
+  wlr_scene_node_set_position(&c->shadow->node, -blur_sigma, -blur_sigma);
+  wlr_scene_shadow_set_size(c->shadow, c->geom.width + blur_sigma * 2,
+                            c->geom.height + blur_sigma * 2);
+  /* corner_radius + bw gives the outer radius matching the round_border. */
+  wlr_scene_shadow_set_clipped_region(
+      c->shadow,
+      (struct clipped_region){
+          .corners = corner_radii_all(c->corner_radius + c->bw),
+          .area = {blur_sigma, blur_sigma, c->geom.width, c->geom.height},
+      });
+}
+
+void
+update_client_corner_radius(Client *c)
+{
+  if (corner_radius && c->round_border) {
+    int radius = c->corner_radius + c->bw;
+    if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen)
+      radius = 0;
+    wlr_scene_rect_set_corner_radii(c->round_border, corner_radii_all(radius));
+  }
+
+  /* Match the blur node's corner radius to the inner radius so the blurred
+   * background also has rounded corners. */
+  if (blur && c->blur) {
+    int blur_radius = corner_radius_inner;
+    if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen)
+      blur_radius = 0;
+    wlr_scene_blur_set_corner_radii(c->blur, corner_radii_all(blur_radius));
+  }
+
+  if (corner_radius_inner > 0 && c->scene)
+    wlr_scene_node_for_each_buffer(&c->scene_surface->node,
+                                   iter_xdg_scene_buffers_corner_radius, c);
+}
+
+void
+update_client_blur(Client *c)
+{
+  if (!blur || !c->blur)
+    return;
+
+  /* Tiled clients blur only the bottom layer (the optimized, background-only
+   * path). Floating clients do the same only if blur_xray is set; otherwise
+   * they blur everything below them. */
+  int blur_optimized = !c->isfloating || blur_xray;
+  wlr_scene_blur_set_should_only_blur_bottom_layer(c->blur, blur_optimized);
+}
+
+void
+update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer)
+{
+  int radius;
+
+  if (!corner_radius_inner)
+    return;
+
+  radius = corner_radius_inner;
+  if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen)
+    radius = 0;
+  wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(radius));
+}
+
+void
+update_client_shadow_color(Client *c)
+{
+  int has_shadow_enabled = 1;
+  const float *color;
+
+  if (!shadow || !c->shadow)
+    return;
+
+  color = focustop(c->mon) == c ? shadow_color_focus : shadow_color;
+
+  if ((shadow_only_floating && !c->isfloating) ||
+      in_shadow_ignore_list(client_get_appid(c)) || c->isfullscreen) {
+    color = transparent;
+    has_shadow_enabled = 0;
+  }
+
+  wlr_scene_shadow_set_color(c->shadow, color);
+  c->has_shadow_enabled = has_shadow_enabled;
+}
+
+void
+update_client_focus_decorations(Client *c, int focused, int urgent)
+{
+  if (corner_radius > 0 && c->round_border) {
+    wlr_scene_rect_set_color(
+        c->round_border, urgent ? urgentcolor : (focused ? focuscolor : bordercolor));
+  }
+  if (shadow && c->shadow) {
+    client_set_shadow_blur_sigma(
+        c, (int)round(focused ? shadow_blur_sigma_focus : shadow_blur_sigma));
+    if (c->has_shadow_enabled)
+      wlr_scene_shadow_set_color(c->shadow,
+                                 focused ? shadow_color_focus : shadow_color);
+  }
+  if (opacity) {
+    c->opacity = focused ? opacity_active : opacity_inactive;
+    wlr_scene_node_for_each_buffer(&c->scene_surface->node,
+                                   iter_xdg_scene_buffers_opacity, c);
+  }
+}
+
 #ifdef XWAYLAND
 void activatex11(struct wl_listener *listener, void *data) {
   Client *c = wl_container_of(listener, c, activate);
@@ -3225,6 +3698,12 @@ void createnotifyx11(struct wl_listener *listener, void *data) {
   c->type = X11;
   c->bw = client_is_unmanaged(c) ? 0 : config.borderpx;
 
+  /* Initialize decoration state, same as createnotify() does for XDG clients.
+   * Without this, ecalloc zeros leave corner_radius=0 (square border) and
+   * opacity=0.0f (fully transparent surface). */
+  c->opacity = opacity;
+  c->corner_radius = corner_radius;
+
   /* Listen to the various events it can emit */
   LISTEN(&xsurface->events.associate, &c->associate, associatex11);
   LISTEN(&xsurface->events.destroy, &c->destroy, destroynotify);
@@ -3252,8 +3731,13 @@ void sethints(struct wl_listener *listener, void *data) {
   c->isurgent = xcb_icccm_wm_hints_get_urgency(c->surface.xwayland->hints);
   printstatus();
 
-  if (c->isurgent && surface && surface->mapped)
+  if (c->isurgent && surface && surface->mapped) {
     client_set_border_color(c, urgentcolor);
+
+    /* Mirror Wayland urgent handling — give the urgent X11 client the focused
+     * shadow/opacity decorations. */
+    update_client_focus_decorations(c, 1, 1);
+  }
 }
 
 void xwaylandready(struct wl_listener *listener, void *data) {
@@ -3262,11 +3746,13 @@ void xwaylandready(struct wl_listener *listener, void *data) {
   /* assign the one and only seat */
   wlr_xwayland_set_seat(xwayland, seat);
 
-  /* Set the default XWayland cursor to match the rest of bonsaiwm. */
+  /* Set the default XWayland cursor to match the rest of bonsaiwm.
+   * wlroots 0.20 changed wlr_xwayland_set_cursor to take a wlr_buffer
+   * instead of raw pixel data; wlr_xcursor_image_get_buffer wraps the
+   * xcursor image's pixels into the buffer the API now expects. */
   if ((xcursor = wlr_xcursor_manager_get_xcursor(cursor_mgr, "default", 1)))
     wlr_xwayland_set_cursor(
-        xwayland, xcursor->images[0]->buffer, xcursor->images[0]->width * 4,
-        xcursor->images[0]->width, xcursor->images[0]->height,
+        xwayland, wlr_xcursor_image_get_buffer(xcursor->images[0]),
         xcursor->images[0]->hotspot_x, xcursor->images[0]->hotspot_y);
 }
 #endif
