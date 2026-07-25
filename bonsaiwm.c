@@ -98,7 +98,8 @@
 enum { XDGShell, LayerShell, X11 }; /* client types */
 enum {
   LyrBg,
-  LyrBlur, /* optimized blur region; everything below it on this output gets blurred */
+  LyrBlur, /* optimized blur region; everything below it on this output gets
+              blurred */
   LyrBottom,
   LyrTile,
   LyrFloat,
@@ -150,9 +151,9 @@ typedef struct {
   int isfloating, isurgent, isfullscreen;
   uint32_t resize; /* configure serial of a pending resize */
 
-  /* scenefx decoration state. round_border replaces the four flat border[] rects
-   * when corner_radius > 0 (the flat rects are drawn transparent in that case).
-   * blur is a per-toplevel blur node; shadow is the drop shadow.
+  /* scenefx decoration state. round_border replaces the four flat border[]
+   * rects when corner_radius > 0 (the flat rects are drawn transparent in that
+   * case). blur is a per-toplevel blur node; shadow is the drop shadow.
    * has_shadow_enabled caches the shadow visibility decision so focus changes
    * can recolor without re-evaluating the ignore list. */
   float opacity;
@@ -208,10 +209,10 @@ struct Monitor {
   struct wl_list layers[4]; /* LayerSurface.link */
   int lt[2];                /* indices into layouts[] */
   TagState *tagstate;
-  int gappih;               /* horizontal gap between windows */
-  int gappiv;               /* vertical gap between windows */
-  int gappoh;               /* horizontal outer gaps */
-  int gappov;               /* vertical outer gaps */
+  int gappih; /* horizontal gap between windows */
+  int gappiv; /* vertical gap between windows */
+  int gappoh; /* horizontal outer gaps */
+  int gappov; /* vertical outer gaps */
   unsigned int seltags;
   unsigned int sellt;
   uint32_t tagset[2];
@@ -366,9 +367,9 @@ static void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx,
                                    int sy, void *user_data);
 static void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer,
                                            int sx, int sy, void *user_data);
-static void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
-                                                 int sx, int sy,
-                                                 void *user_data);
+static void
+iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer, int sx,
+                                     int sy, void *user_data);
 static void output_configure_scene(struct wlr_scene_node *node, Client *c);
 static int in_shadow_ignore_list(const char *str);
 static void client_set_shadow_blur_sigma(Client *c, int blur_sigma);
@@ -376,7 +377,8 @@ static void update_client_corner_radius(Client *c);
 static void update_client_shadow_color(Client *c);
 static void update_client_focus_decorations(Client *c, int focused, int urgent);
 static void update_client_blur(Client *c);
-static void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer);
+static void update_buffer_corner_radius(Client *c,
+                                        struct wlr_scene_buffer *buffer);
 
 /* variables */
 static pid_t child_pid = -1;
@@ -434,7 +436,8 @@ static struct wl_list mons;
 static Monitor *selmon;
 
 /* Transparent color used to hide the flat border[] rects when a
- * round_border is in use, and to disable shadows on ignored/fullscreen clients */
+ * round_border is in use, and to disable shadows on ignored/fullscreen clients
+ */
 static float transparent[4] = {0.1f, 0.1f, 0.1f, 0.0f};
 
 /* global event handlers */
@@ -483,13 +486,14 @@ static struct wlr_xwayland *xwayland;
 #endif
 
 /* attempt to encapsulate suck into one file */
-/* wlroots 0.20 dropped the generated xdg-shell-protocol.h from wlr_xdg_shell.h's
- * transitive includes (it now pulls wayland-protocols/xdg-shell-enum.h, which
- * only has state version macros). These two protocol-version constants are
- * stable (xdg-shell.xml: configure_bounds since=4, wm_capabilities since=5) and
- * are still emitted in our generated xdg-shell-protocol.h, but nothing includes
- * that header anymore. Define them here so client.h's version check and
- * maximizenotify's capabilities check compile. */
+/* wlroots 0.20 dropped the generated xdg-shell-protocol.h from
+ * wlr_xdg_shell.h's transitive includes (it now pulls
+ * wayland-protocols/xdg-shell-enum.h, which only has state version macros).
+ * These two protocol-version constants are stable (xdg-shell.xml:
+ * configure_bounds since=4, wm_capabilities since=5) and are still emitted in
+ * our generated xdg-shell-protocol.h, but nothing includes that header anymore.
+ * Define them here so client.h's version check and maximizenotify's
+ * capabilities check compile. */
 #ifndef XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION
 #define XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION 4
 #endif
@@ -503,11 +507,11 @@ static struct wlr_xwayland *xwayland;
  * https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/pertag
  * Layouts are stored as indices into layouts[] (upstream uses pointers). */
 struct TagState {
-  unsigned int curtag, prevtag;           /* current and previous tag */
-  int nmasters[TAGCOUNT + 1];             /* number of windows in master area */
-  float mfacts[TAGCOUNT + 1];             /* mfacts per tag */
-  unsigned int sellts[TAGCOUNT + 1];      /* selected layouts */
-  int ltidxs[TAGCOUNT + 1][2];            /* matrix of tags and layouts indexes */
+  unsigned int curtag, prevtag;      /* current and previous tag */
+  int nmasters[TAGCOUNT + 1];        /* number of windows in master area */
+  float mfacts[TAGCOUNT + 1];        /* mfacts per tag */
+  unsigned int sellts[TAGCOUNT + 1]; /* selected layouts */
+  int ltidxs[TAGCOUNT + 1][2];       /* matrix of tags and layouts indexes */
 };
 
 /* Return the 1-based index of the lowest set bit in mask.
@@ -2382,12 +2386,11 @@ void resize(Client *c, struct wlr_box geo, int interact) {
     wlr_scene_node_set_position(&c->round_border->node, 0, 0);
     wlr_scene_rect_set_size(c->round_border, c->geom.width, c->geom.height);
     wlr_scene_rect_set_clipped_region(
-        c->round_border,
-        (struct clipped_region){
-            .corners = corner_radii_all(c->corner_radius),
-            .area = {c->bw, c->bw, c->geom.width - c->bw * 2,
-                     c->geom.height - c->bw * 2},
-        });
+        c->round_border, (struct clipped_region){
+                             .corners = corner_radii_all(c->corner_radius),
+                             .area = {c->bw, c->bw, c->geom.width - c->bw * 2,
+                                      c->geom.height - c->bw * 2},
+                         });
   }
 
   if (shadow && c->shadow) {
@@ -2555,7 +2558,8 @@ void setlayout(const Arg *arg) {
     selmon->sellt = selmon->tagstate->sellts[selmon->tagstate->curtag] ^= 1;
   if (arg && arg->i >= 0 && (size_t)arg->i < layouts_count)
     selmon->lt[selmon->sellt] =
-        selmon->tagstate->ltidxs[selmon->tagstate->curtag][selmon->sellt] = arg->i;
+        selmon->tagstate->ltidxs[selmon->tagstate->curtag][selmon->sellt] =
+            arg->i;
   strncpy(selmon->ltsymbol, layouts[selmon->lt[selmon->sellt]].symbol,
           LENGTH(selmon->ltsymbol));
   arrange(selmon);
@@ -2594,7 +2598,8 @@ void reload_monitor_layouts(void) {
               m->wlr_output->name, m->sellt, oldsellt);
       m->sellt = 0;
     }
-    /* clamp tagstate layout indices too (config reload may have fewer layouts) */
+    /* clamp tagstate layout indices too (config reload may have fewer layouts)
+     */
     tagstate_clamp_layouts(m->tagstate, layouts_count);
     if (old0 == m->lt[0] && old1 == m->lt[1] && oldsellt == m->lt[m->sellt])
       wlr_log(WLR_DEBUG,
@@ -2637,8 +2642,8 @@ void reload_keyboard(void) {
     return;
   }
 
-  struct xkb_keymap *keymap = xkb_keymap_new_from_names(
-      ctx, &xkb_rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  struct xkb_keymap *keymap =
+      xkb_keymap_new_from_names(ctx, &xkb_rules, XKB_KEYMAP_COMPILE_NO_FLAGS);
   if (!keymap) {
     wlr_log(WLR_ERROR,
             "reload_keyboard: failed to compile keymap, keeping previous");
@@ -3382,10 +3387,8 @@ void zoom(const Arg *arg) {
 
 /* ── scenefx decoration helpers ──────────────────────────────────────────── */
 
-void
-iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
-                       void *user_data)
-{
+void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
+                            void *user_data) {
   Client *c = user_data;
   struct wlr_scene_surface *scene_surface =
       wlr_scene_surface_try_from_buffer(buffer);
@@ -3419,10 +3422,8 @@ iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
   }
 }
 
-void
-iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer, int sx, int sy,
-                               void *user_data)
-{
+void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer, int sx,
+                                    int sy, void *user_data) {
   Client *c = user_data;
   struct wlr_scene_surface *scene_surface =
       wlr_scene_surface_try_from_buffer(buffer);
@@ -3441,10 +3442,8 @@ iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer, int sx, int sy,
     wlr_scene_buffer_set_opacity(buffer, c->opacity);
 }
 
-void
-iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer, int sx,
-                                      int sy, void *user_data)
-{
+void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
+                                          int sx, int sy, void *user_data) {
   Client *c = user_data;
   struct wlr_scene_surface *scene_surface =
       wlr_scene_surface_try_from_buffer(buffer);
@@ -3472,9 +3471,7 @@ iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer, int sx,
  * the buffer level — only XDG toplevels, X11 surfaces, and their subsurfaces
  * are client surfaces worth decorating; layer surfaces, popups, lock surfaces,
  * and drag icons are skipped. */
-void
-output_configure_scene(struct wlr_scene_node *node, Client *c)
-{
+void output_configure_scene(struct wlr_scene_node *node, Client *c) {
   Client *_c;
   struct wlr_scene_node *_node;
 
@@ -3526,9 +3523,7 @@ output_configure_scene(struct wlr_scene_node *node, Client *c)
   }
 }
 
-int
-in_shadow_ignore_list(const char *str)
-{
+int in_shadow_ignore_list(const char *str) {
   for (int i = 0; shadow_ignore_list[i] != NULL; i++) {
     if (strcmp(shadow_ignore_list[i], str) == 0)
       return 1;
@@ -3536,9 +3531,7 @@ in_shadow_ignore_list(const char *str)
   return 0;
 }
 
-void
-client_set_shadow_blur_sigma(Client *c, int blur_sigma)
-{
+void client_set_shadow_blur_sigma(Client *c, int blur_sigma) {
   wlr_scene_shadow_set_blur_sigma(c->shadow, blur_sigma);
   wlr_scene_node_set_position(&c->shadow->node, -blur_sigma, -blur_sigma);
   wlr_scene_shadow_set_size(c->shadow, c->geom.width + blur_sigma * 2,
@@ -3552,9 +3545,7 @@ client_set_shadow_blur_sigma(Client *c, int blur_sigma)
       });
 }
 
-void
-update_client_corner_radius(Client *c)
-{
+void update_client_corner_radius(Client *c) {
   if (corner_radius && c->round_border) {
     int radius = c->corner_radius + c->bw;
     if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen)
@@ -3576,9 +3567,7 @@ update_client_corner_radius(Client *c)
                                    iter_xdg_scene_buffers_corner_radius, c);
 }
 
-void
-update_client_blur(Client *c)
-{
+void update_client_blur(Client *c) {
   if (!blur || !c->blur)
     return;
 
@@ -3589,9 +3578,7 @@ update_client_blur(Client *c)
   wlr_scene_blur_set_should_only_blur_bottom_layer(c->blur, blur_optimized);
 }
 
-void
-update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer)
-{
+void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer) {
   int radius;
 
   if (!corner_radius_inner)
@@ -3603,9 +3590,7 @@ update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer)
   wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(radius));
 }
 
-void
-update_client_shadow_color(Client *c)
-{
+void update_client_shadow_color(Client *c) {
   int has_shadow_enabled = 1;
   const float *color;
 
@@ -3624,12 +3609,11 @@ update_client_shadow_color(Client *c)
   c->has_shadow_enabled = has_shadow_enabled;
 }
 
-void
-update_client_focus_decorations(Client *c, int focused, int urgent)
-{
+void update_client_focus_decorations(Client *c, int focused, int urgent) {
   if (corner_radius > 0 && c->round_border) {
-    wlr_scene_rect_set_color(
-        c->round_border, urgent ? urgentcolor : (focused ? focuscolor : bordercolor));
+    wlr_scene_rect_set_color(c->round_border,
+                             urgent ? urgentcolor
+                                    : (focused ? focuscolor : bordercolor));
   }
   if (shadow && c->shadow) {
     client_set_shadow_blur_sigma(

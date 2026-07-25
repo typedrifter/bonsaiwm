@@ -295,10 +295,10 @@ static inline void client_set_border_color(Client *c,
   int i;
 
   /* When rounded borders are enabled, the four flat border rects are hidden
-   * (drawn transparent in mapnotify) and a single rounded rect (c->round_border)
-   * owns the border color. Skip recoloring the flat rects so they stay
-   * invisible. Applies to X11 clients too — they get a round_border just like
-   * XDG clients. */
+   * (drawn transparent in mapnotify) and a single rounded rect
+   * (c->round_border) owns the border color. Skip recoloring the flat rects so
+   * they stay invisible. Applies to X11 clients too — they get a round_border
+   * just like XDG clients. */
   if (corner_radius > 0)
     return;
 
