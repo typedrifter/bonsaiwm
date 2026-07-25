@@ -23,8 +23,36 @@ float rootcolor[] = COLOR(0x222222ff);
 float bordercolor[] = COLOR(0x444444ff);
 float focuscolor[] = COLOR(0x005577ff);
 float urgentcolor[] = COLOR(0xff0000ff);
-float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
-                         1.0f}; /* You can also use glsl colors */
+/* alpha 0.0 so blur shows through the fullscreen backdrop. Set to 1.0 for
+ * an opaque background. */
+float fullscreen_bg[] = {0.1f, 0.1f, 0.1f, 0.0f};
+
+/* scenefx effect defaults */
+const int opacity = 1; /* 0 = disabled */
+const float opacity_inactive = 0.9f;
+const float opacity_active = 0.9f;
+
+const int shadow = 0;
+const int shadow_only_floating = 0;
+float shadow_color[] = COLOR(0x0000FFff);
+float shadow_color_focus[] = COLOR(0xFF0000ff);
+const int shadow_blur_sigma = 20;
+const int shadow_blur_sigma_focus = 40;
+const char *const shadow_ignore_list[] = {NULL};
+
+const int corner_radius = 8;
+const int corner_radius_inner = 9;
+const int corner_radius_only_floating = 0;
+
+const int blur = 1;
+const int blur_xray = 0;
+const int blur_ignore_transparent = 0;
+const int blur_num_passes = 3;
+const int blur_radius = 5;
+const float blur_noise = 0.02f;
+const float blur_brightness = 0.9f;
+const float blur_contrast = 0.9f;
+const float blur_saturation = 1.1f;
 
 Config config = {
     .enablegaps = 1,  /* 1 = gaps enabled by default */
@@ -657,9 +685,8 @@ void load_config() {
     wlr_log(WLR_INFO, "loading lua config from %s", path);
     lua_load_config(path);
   } else {
-    wlr_log(WLR_INFO,
-             "no config.lua found in $XDG_CONFIG_HOME/bonsaiwm or "
-             "~/.config/bonsaiwm; using builtin defaults");
+    wlr_log(WLR_INFO, "no config.lua found in $XDG_CONFIG_HOME/bonsaiwm or "
+                      "~/.config/bonsaiwm; using builtin defaults");
   }
 
   wlr_log(WLR_DEBUG, "lua config loaded, applying values");
@@ -676,8 +703,7 @@ void load_config() {
          * via the cast below, producing broken layout geometry. Clamp
          * to zero instead. */
         if (v < 0) {
-          wlr_log(WLR_ERROR,
-                  "config: %s = %d is negative, clamping to 0",
+          wlr_log(WLR_ERROR, "config: %s = %d is negative, clamping to 0",
                   config_schema[i].lua_key, v);
           v = 0;
         }

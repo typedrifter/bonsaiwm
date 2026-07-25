@@ -164,6 +164,33 @@ extern float focuscolor[];
 extern float urgentcolor[];
 extern float fullscreen_bg[];
 
+/* scenefx effects */
+extern const int opacity; /* 0 disables opacity */
+extern const float opacity_inactive;
+extern const float opacity_active;
+
+extern const int shadow; /* 0 disables shadows */
+extern const int shadow_only_floating; /* 1 = only floating windows get shadows */
+extern float shadow_color[];
+extern float shadow_color_focus[];
+extern const int shadow_blur_sigma;
+extern const int shadow_blur_sigma_focus;
+extern const char *const shadow_ignore_list[]; /* NULL-terminated app-id list */
+
+extern const int corner_radius; /* 0 disables outer corner rounding */
+extern const int corner_radius_inner; /* 0 disables inner (surface) corner rounding */
+extern const int corner_radius_only_floating; /* 1 = only floating windows get rounded */
+
+extern const int blur; /* 0 disables blur */
+extern const int blur_xray; /* 1 = transparent fs/floating windows blur the background */
+extern const int blur_ignore_transparent; /* 1 = skip blur on transparent pixels */
+extern const int blur_num_passes;
+extern const int blur_radius;
+extern const float blur_noise;
+extern const float blur_brightness;
+extern const float blur_contrast;
+extern const float blur_saturation;
+
 /* window rules (heap-allocated, rebuilt from config.lua on every load) */
 extern Rule *rules;
 extern size_t rules_count;
