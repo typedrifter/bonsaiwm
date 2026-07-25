@@ -67,8 +67,9 @@ bonsaiwm = {
 	--         for Alt+Shift+1 needs its own entry with key="exclam".
 	-- action: bonsaiwm.action.* (see config.d.lua for the list).
 	-- arg:    type depends on the action. Tag actions (view/tag/toggleview/
-	--         toggletag) accept a 1-9 tag NUMBER here (converted internally
-	--         to the 1<<(n-1) bitmask the C actions expect).
+	--         toggletag) accept a 0-9 tag NUMBER here (0 = all tags,
+	--         converted internally to the TAGMASK bitmask the C actions
+	--         expect, or 1<<(n-1) for a single tag).
 	--
 	-- Setting action = bonsaiwm.action.none is a noop (useful as a placeholder).
 	keymaps = {
@@ -111,6 +112,7 @@ bonsaiwm = {
 		{ mod = "Alt+Shift", key = "ampersand", action = bonsaiwm.action.tag, arg = 7 },
 		{ mod = "Alt+Shift", key = "asterisk", action = bonsaiwm.action.tag, arg = 8 },
 		{ mod = "Alt+Shift", key = "parenleft", action = bonsaiwm.action.tag, arg = 9 },
+		{ mod = "Alt+Shift", key = "parenright", action = bonsaiwm.action.tag, arg = 0 },
 
 		-- lua-defined callback: `action` can also be a plain function.
 		-- runs in the compositor's lua VM with stdlib access, no compositor api.
