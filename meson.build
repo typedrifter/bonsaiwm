@@ -12,10 +12,14 @@ subdir('protocols')
 
 # ── Dependencies ──────────────────────────────────────────────────────────────
 # Core Wayland and input libraries required by bonsaiwm.
+# scenefx must be declared before wlroots so its headers take precedence
+# (scenefx ships its own wlr_scene.h that supersedes wlroots' version and
+# provides the effects API). meson preserves dependency list order in cflags.
+scenefx = dependency('scenefx-0.5', version: '>=0.5.0')
 wayland_server = dependency('wayland-server', version: '>=1.25.0')
 xkbcommon = dependency('xkbcommon')
 libinput = dependency('libinput', version: '>=1.27.1')
-wlroots = dependency('wlroots-0.19', version: '>=0.19.0')
+wlroots = dependency('wlroots-0.20', version: '>=0.20.0')
 lua = dependency('lua5.4', required: true)
 
 # libm is needed for math functions used in cursor/monitor calculations.
@@ -78,7 +82,7 @@ sources = files(
 bonsaiwm = executable('bonsaiwm',
   sources,
   wayland_sources,
-  dependencies: [wayland_server, xkbcommon, libinput, wlroots, libm, xcb, xcb_icccm, lua],
+  dependencies: [scenefx, wayland_server, xkbcommon, libinput, wlroots, libm, xcb, xcb_icccm, lua],
   c_args: c_args,
   link_args: link_args,
   install: true,
