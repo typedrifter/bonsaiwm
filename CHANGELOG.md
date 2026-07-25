@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The `tag` and `toggletag` keymap actions now accept `arg = 0` to mean "all
+  tags" (matching `view`/`toggleview`), so a client can be moved to every tag
+  at once. The default `config.lua` binds `Alt+Shift+0` to move the focused
+  client to all tags, mirroring the existing `Alt+0` (view all tags).
+- Added per-tag layout state (tagstate): layout, mfact and nmaster are now
+  remembered individually per tag, so each tag keeps the layout you left it in.
 - Added Meson build system as an alternative to the Makefile-based build.
 - Added configurable window gaps between tiled clients.
 - Added Astro-based documentation site under `site/`.

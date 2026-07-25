@@ -3,6 +3,17 @@
 BonsaiWM is built on the shoulders of several upstream projects. This file
 credits their authors and reproduces licensing information.
 
+## Patches
+
+### pertag
+
+Per-tag layout settings (layout, mfact, nmaster remembered for each tag
+individually), ported from the dwl pertag patch.
+
+- Original author: wochap `<gean.marroquin@gmail.com>`
+- Repository: <https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/pertag>
+- AI assistance was used to port the patch to BonsaiWM's codebase.
+
 ## Upstream projects
 
 ### dwl — dwm for Wayland

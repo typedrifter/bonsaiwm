@@ -79,7 +79,6 @@
 #define VISIBLEON(C, M)                                                        \
   ((M) && (C)->mon == (M) && ((C)->tags & (M)->tagset[(M)->seltags]))
 #define LENGTH(X) (sizeof X / sizeof X[0])
-#define TAGMASK ((1u << TAGCOUNT) - 1)
 #define LISTEN(E, L, H) wl_signal_add((E), ((L)->notify = (H), (L)))
 #define LISTEN_STATIC(E, H)                                                    \
   do {                                                                         \
@@ -102,6 +101,7 @@ enum {
   NUM_LAYERS
 }; /* scene layers */
 
+typedef struct TagState TagState;
 typedef struct Monitor Monitor;
 typedef struct {
   /* Must keep this field first */
@@ -187,6 +187,7 @@ struct Monitor {
   struct wlr_box w;         /* window area, layout-relative */
   struct wl_list layers[4]; /* LayerSurface.link */
   int lt[2];                /* indices into layouts[] */
+  TagState *tagstate;
   int gappih;               /* horizontal gap between windows */
   int gappiv;               /* vertical gap between windows */
   int gappoh;               /* horizontal outer gaps */
@@ -321,6 +322,11 @@ void togglegaps(const Arg *arg);
 void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
 static void unlocksession(struct wl_listener *listener, void *data);
+static void tagstate_restore(Monitor *m);
+static size_t firsttag_from_bitmask(uint32_t mask);
+static void tagstate_init(TagState *ts, int nmaster, float mfact, int lt0,
+                          int lt1, int sellt);
+static void tagstate_clamp_layouts(TagState *ts, size_t layouts_count);
 static void unmaplayersurfacenotify(struct wl_listener *listener, void *data);
 static void unmapnotify(struct wl_listener *listener, void *data);
 static void updatemons(struct wl_listener *listener, void *data);
@@ -436,6 +442,57 @@ static struct wlr_xwayland *xwayland;
 
 /* attempt to encapsulate suck into one file */
 #include "client.h"
+
+/* Per-tag layout state, ported from the dwl pertag patch:
+ * https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/pertag
+ * Layouts are stored as indices into layouts[] (upstream uses pointers). */
+struct TagState {
+  unsigned int curtag, prevtag;           /* current and previous tag */
+  int nmasters[TAGCOUNT + 1];             /* number of windows in master area */
+  float mfacts[TAGCOUNT + 1];             /* mfacts per tag */
+  unsigned int sellts[TAGCOUNT + 1];      /* selected layouts */
+  int ltidxs[TAGCOUNT + 1][2];            /* matrix of tags and layouts indexes */
+};
+
+/* Return the 1-based index of the lowest set bit in mask.
+ * This turns a tag bitmask (e.g. 1<<2) into a tag number (e.g. 3) so the
+ * per-tag state arrays know which slot to read/write. The callers already
+ * guarantee mask is non-zero, because an empty tagset is never a valid view. */
+static size_t firsttag_from_bitmask(uint32_t mask) {
+  size_t i = 0;
+  while (!(mask & (1u << i)))
+    i++;
+  return i + 1;
+}
+
+/* Seed every per-tag slot with the same layout values.
+ * When a monitor is created we have one default layout; all tags start from it
+ * so that switching to a tag for the first time feels consistent instead of
+ * falling back to zeroed state. */
+static void tagstate_init(TagState *ts, int nmaster, float mfact, int lt0,
+                          int lt1, int sellt) {
+  for (size_t i = 0; i <= TAGCOUNT; i++) {
+    ts->nmasters[i] = nmaster;
+    ts->mfacts[i] = mfact;
+    ts->ltidxs[i][0] = lt0;
+    ts->ltidxs[i][1] = lt1;
+    ts->sellts[i] = sellt;
+  }
+}
+
+/* Clamp saved layout indices after a config reload.
+ * The user may have removed layouts since the last reload, so previously
+ * valid indices can now be out of bounds; reset them to the first layout. */
+static void tagstate_clamp_layouts(TagState *ts, size_t layouts_count) {
+  for (size_t i = 0; i <= TAGCOUNT; i++) {
+    if ((size_t)ts->ltidxs[i][0] >= layouts_count)
+      ts->ltidxs[i][0] = 0;
+    if ((size_t)ts->ltidxs[i][1] >= layouts_count)
+      ts->ltidxs[i][1] = 0;
+    if (ts->sellts[i] > 1)
+      ts->sellts[i] = 0;
+  }
+}
 
 /* function implementations */
 void applybounds(Client *c, struct wlr_box *bbox) {
@@ -712,6 +769,7 @@ void cleanupmon(struct wl_listener *listener, void *data) {
   wlr_output_layout_remove(output_layout, m->wlr_output);
   wlr_scene_output_destroy(m->scene_output);
 
+  free(m->tagstate);
   closemon(m);
   wlr_scene_node_destroy(&m->fullscreen_bg->node);
   free(m);
@@ -1058,6 +1116,11 @@ void createmon(struct wl_listener *listener, void *data) {
 
   wl_list_insert(&mons, &m->link);
   printstatus();
+
+  m->tagstate = ecalloc(1, sizeof(TagState));
+  m->tagstate->curtag = m->tagstate->prevtag = 1;
+  tagstate_init(m->tagstate, m->nmaster, m->mfact, m->lt[0], m->lt[1],
+                m->sellt);
 
   /* The xdg-protocol specifies:
    *
@@ -1496,10 +1559,19 @@ void handlesig(int signo) {
     quit(NULL);
 }
 
+static void tagstate_restore(Monitor *m) {
+  m->nmaster = m->tagstate->nmasters[m->tagstate->curtag];
+  m->mfact = m->tagstate->mfacts[m->tagstate->curtag];
+  m->sellt = m->tagstate->sellts[m->tagstate->curtag];
+  m->lt[m->sellt] = m->tagstate->ltidxs[m->tagstate->curtag][m->sellt];
+  m->lt[m->sellt ^ 1] = m->tagstate->ltidxs[m->tagstate->curtag][m->sellt ^ 1];
+}
+
 void incnmaster(const Arg *arg) {
   if (!arg || !selmon)
     return;
-  selmon->nmaster = MAX(selmon->nmaster + arg->i, 0);
+  selmon->nmaster = selmon->tagstate->nmasters[selmon->tagstate->curtag] =
+      MAX(selmon->nmaster + arg->i, 0);
   arrange(selmon);
 }
 
@@ -2290,9 +2362,10 @@ void setlayout(const Arg *arg) {
     return;
   /* arg->i < 0: just toggle between lt[0] and lt[1] */
   if (!arg || arg->i < 0 || arg->i != selmon->lt[selmon->sellt])
-    selmon->sellt ^= 1;
+    selmon->sellt = selmon->tagstate->sellts[selmon->tagstate->curtag] ^= 1;
   if (arg && arg->i >= 0 && (size_t)arg->i < layouts_count)
-    selmon->lt[selmon->sellt] = arg->i;
+    selmon->lt[selmon->sellt] =
+        selmon->tagstate->ltidxs[selmon->tagstate->curtag][selmon->sellt] = arg->i;
   strncpy(selmon->ltsymbol, layouts[selmon->lt[selmon->sellt]].symbol,
           LENGTH(selmon->ltsymbol));
   arrange(selmon);
@@ -2331,6 +2404,8 @@ void reload_monitor_layouts(void) {
               m->wlr_output->name, m->sellt, oldsellt);
       m->sellt = 0;
     }
+    /* clamp tagstate layout indices too (config reload may have fewer layouts) */
+    tagstate_clamp_layouts(m->tagstate, layouts_count);
     if (old0 == m->lt[0] && old1 == m->lt[1] && oldsellt == m->lt[m->sellt])
       wlr_log(WLR_DEBUG,
               "reload_monitor_layouts: %s layouts already valid, no change",
@@ -2401,7 +2476,7 @@ void setmfact(const Arg *arg) {
   f = arg->f < 1.0f ? arg->f + selmon->mfact : arg->f - 1.0f;
   if (f < 0.1 || f > 0.9)
     return;
-  selmon->mfact = f;
+  selmon->mfact = selmon->tagstate->mfacts[selmon->tagstate->curtag] = f;
   arrange(selmon);
 }
 
@@ -2800,6 +2875,16 @@ void toggleview(const Arg *arg) {
             selmon ? selmon->tagset[selmon->seltags] ^ (arg->ui & TAGMASK) : 0))
     return;
 
+  /* test if the user did not select the same tag (curtag == ALL_TAGS means all
+   * tags, so the tag is always considered changed). */
+  if (selmon->tagstate->curtag == ALL_TAGS ||
+      !(newtagset & 1 << (selmon->tagstate->curtag - 1))) {
+    selmon->tagstate->prevtag = selmon->tagstate->curtag;
+    selmon->tagstate->curtag = firsttag_from_bitmask(newtagset);
+  }
+
+  tagstate_restore(selmon);
+
   selmon->tagset[selmon->seltags] = newtagset;
   focusclient(focustop(selmon), 1);
   arrange(selmon);
@@ -2980,8 +3065,16 @@ void view(const Arg *arg) {
   if (!selmon || (arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
     return;
   selmon->seltags ^= 1; /* toggle sel tagset */
-  if (arg->ui & TAGMASK)
-    selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+  selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
+  selmon->tagstate->prevtag = selmon->tagstate->curtag;
+
+  if (arg->ui == (unsigned int)TAGMASK)
+    selmon->tagstate->curtag = ALL_TAGS;
+  else
+    selmon->tagstate->curtag = firsttag_from_bitmask(arg->ui & TAGMASK);
+
+  tagstate_restore(selmon);
+
   focusclient(focustop(selmon), 1);
   arrange(selmon);
   printstatus();

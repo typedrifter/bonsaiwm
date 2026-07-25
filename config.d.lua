@@ -49,8 +49,9 @@
 ---@field action integer|fun()
 ---Argument passed to the action. Type depends on the action:
 ---  - `spawn`           → string (command line, e.g. `"foot"`)
----  - `view`/`toggleview`/`tag`/`toggletag` → tag NUMBER 1-9
----    (internally converted to the `1<<(n-1)` bitmask the action expects)
+---  - `view`/`toggleview`/`tag`/`toggletag` → tag NUMBER 0-9
+---    (0 = all tags, 1..9 = single tag; internally converted to the bitmask
+---    the action expects — `TAGMASK` for 0, `1<<(n-1)` otherwise)
 ---  - `focusstack`/`incnmaster`/`focusmon`/`tagmon`/`incgaps`/`chvt` → integer
 ---  - `setmfact`        → number (float or integer)
 ---  - `setlayout`       → integer (0=float, 1=tile, 2=monocle; -1 to toggle)
