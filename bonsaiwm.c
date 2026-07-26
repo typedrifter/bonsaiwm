@@ -3385,7 +3385,7 @@ void zoom(const Arg *arg) {
 /* ── scenefx decoration helpers ──────────────────────────────────────────── */
 
 /* Shared boilerplate: extract the wlr_surface from a buffer, skipping
- * buffers that aren't client surfaces (non-surfaces, popups).
+ * buffers that aren't client surfaces (non-surfaces, popups, layer shells).
  * Returns NULL if this buffer shouldn't be decorated. */
 static struct wlr_surface *
 iter_client_surface(struct wlr_scene_buffer *buffer) {
@@ -3398,10 +3398,10 @@ iter_client_surface(struct wlr_scene_buffer *buffer) {
 
   surface = scene_surface->surface;
 
-  /* Skip popups — they shouldn't inherit the toplevel's effects. Checking for
-   * popups (rather than checking for XDG toplevels) ensures X11 surfaces and
-   * subsurfaces also get effects. */
   if (wlr_xdg_popup_try_from_wlr_surface(surface) != NULL)
+    return NULL;
+
+  if (wlr_layer_surface_v1_try_from_wlr_surface(surface) != NULL)
     return NULL;
 
   return surface;
@@ -3450,15 +3450,8 @@ void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
 }
 
 /* Recursive tree walk called from rendermon() before each commit. Refreshes
- * per-buffer opacity + corner radii across the whole scene so decoration stays
- * in sync with focus/float/fullscreen changes that don't otherwise re-walk.
- *
- * CAUTION: node->data is not always a Client*. BonsaiWM sets it to a
- * LayerSurface* on layer surface trees (see createlayersurfacenotify), so we
- * cannot blindly trust _c = node->data. Instead we verify the surface role at
- * the buffer level — only XDG toplevels, X11 surfaces, and their subsurfaces
- * are client surfaces worth decorating; layer surfaces, popups, lock surfaces,
- * and drag icons are skipped. */
+ * per-buffer opacity + corner radii. iter_client_surface handles the
+ * per-buffer role check (non-surfaces, popups, layer shells). */
 void output_configure_scene(struct wlr_scene_node *node, Client *c) {
   Client *_c;
   struct wlr_scene_node *_node;
@@ -3472,25 +3465,13 @@ void output_configure_scene(struct wlr_scene_node *node, Client *c) {
 
   if (node->type == WLR_SCENE_NODE_BUFFER) {
     struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
-    struct wlr_surface *surface = iter_client_surface(buffer);
 
-    if (!surface)
+    if (!iter_client_surface(buffer))
       return;
 
-    /* Skip layer surfaces — they set node->data to a LayerSurface* (not a
-     * Client*), so c is garbage here. Without this check, c->opacity would
-     * read memory at the wrong offset and trip scenefx's [0,1] assertion. */
-    if (wlr_layer_surface_v1_try_from_wlr_surface(surface) != NULL)
-      return;
-
-    /* c may still be NULL if no client ancestor set node->data (e.g. lock
-     * surfaces or drag icons). Skip those. */
     if (!c)
       return;
 
-    /* At this point the surface is not a popup, not a layer surface, and c
-     * is non-NULL. For XDG subsurfaces and X11 surfaces, c was set from a
-     * client ancestor tree's node->data and is valid. */
     if (opacity)
       wlr_scene_buffer_set_opacity(buffer, c->opacity);
 
