@@ -369,6 +369,7 @@ static void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx,
 static void output_configure_scene(struct wlr_scene_node *node, Client *c);
 static int in_shadow_ignore_list(const char *str);
 static void client_set_shadow_blur_sigma(Client *c, int blur_sigma);
+static int effective_corner_radius(Client *c);
 static void update_client_corner_radius(Client *c);
 static void update_client_shadow_color(Client *c);
 static void update_client_focus_decorations(Client *c, int focused, int urgent);
@@ -3524,21 +3525,22 @@ void client_set_shadow_blur_sigma(Client *c, int blur_sigma) {
       });
 }
 
-void update_client_corner_radius(Client *c) {
-  if (corner_radius && c->round_border) {
-    int radius = c->corner_radius + c->bw;
-    if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen)
-      radius = 0;
-    wlr_scene_rect_set_corner_radii(c->round_border, corner_radii_all(radius));
-  }
+static int
+effective_corner_radius(Client *c) {
+  if (!corner_radius) return 0;
+  if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen) return 0;
+  return c->corner_radius + c->bw;
+}
 
-  /* Match the blur node's corner radius so the blurred background also
-   * has rounded corners. */
+void update_client_corner_radius(Client *c) {
+  int r = effective_corner_radius(c);
+
+  if (c->round_border)
+    wlr_scene_rect_set_corner_radii(c->round_border, corner_radii_all(r));
+
   if (blur && c->blur) {
-    int blur_radius = corner_radius;
-    if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen)
-      blur_radius = 0;
-    wlr_scene_blur_set_corner_radii(c->blur, corner_radii_all(blur_radius));
+    int br = r ? corner_radius : 0;
+    wlr_scene_blur_set_corner_radii(c->blur, corner_radii_all(br));
   }
 
   if (corner_radius > 0 && c->scene)
@@ -3558,15 +3560,8 @@ void update_client_blur(Client *c) {
 }
 
 void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer) {
-  int radius;
-
-  if (!corner_radius)
-    return;
-
-  radius = corner_radius;
-  if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen)
-    radius = 0;
-  wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(radius));
+  wlr_scene_buffer_set_corner_radii(buffer,
+                                    corner_radii_all(effective_corner_radius(c)));
 }
 
 void update_client_shadow_color(Client *c) {
