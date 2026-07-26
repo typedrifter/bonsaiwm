@@ -28,6 +28,32 @@ bonsaiwm = {
 	urgentcolor = "#f7768eff",
 	fullscreen_bg = "#1a1b26ff",
 
+	-- scenefx effects (applied live on Mod-Shift-R reload)
+	opacity = 1,
+	opacity_active = 0.9,
+	opacity_inactive = 0.8,
+
+	shadow = 1,
+	shadow_only_floating = 0,
+	shadow_color = "#0000ffff",
+	shadow_color_focus = "#ff0000ff",
+	shadow_blur_sigma = 20,
+	shadow_blur_sigma_focus = 40,
+	shadow_ignore_list = {},
+
+	corner_radius = 10,
+	corner_radius_only_floating = 0,
+
+	blur = 1,
+	blur_xray = 0,
+	blur_ignore_transparent = 0,
+	blur_num_passes = 3,
+	blur_radius = 5,
+	blur_noise = 0.02,
+	blur_brightness = 0.9,
+	blur_contrast = 0.9,
+	blur_saturation = 1.1,
+
 	-- window rules: id and title are substring matches (nil = match any).
 	--   id:         app_id (Wayland) or class (X11)
 	--   title:      window title

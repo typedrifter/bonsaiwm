@@ -133,6 +133,50 @@
 ---@field urgentcolor string
 ---Backdrop color shown behind a fullscreen client. Hex string.
 ---@field fullscreen_bg string
+---Global opacity toggle. 0 = all windows fully opaque, 1 = per-client opacity.
+---Applied live on config reload.
+---@field opacity integer
+---Opacity value for the focused client (0.0 - 1.0).
+---@field opacity_active number
+---Opacity value for unfocused clients (0.0 - 1.0).
+---@field opacity_inactive number
+---Drop shadow toggle. 0 = no shadows, 1 = shadows enabled.
+---@field shadow integer
+---When nonzero, only floating windows get shadows.
+---@field shadow_only_floating integer
+---Default shadow color. Hex string (supports alpha).
+---@field shadow_color string
+---Shadow color for the focused client. Hex string.
+---@field shadow_color_focus string
+---Shadow blur sigma (spread) in pixels.
+---@field shadow_blur_sigma integer
+---Shadow blur sigma for the focused client.
+---@field shadow_blur_sigma_focus integer
+---List of app-id strings whose shadows are suppressed. Applied live on reload.
+---@field shadow_ignore_list string[]
+---Rounded corner radius in pixels. 0 = square corners.
+---@field corner_radius integer
+---When nonzero, only floating windows get rounded corners.
+---@field corner_radius_only_floating integer
+---Blur toggle. 0 = no blur, 1 = background blur enabled.
+---@field blur integer
+---When nonzero, transparent fullscreen/floating windows blur the background.
+---@field blur_xray integer
+---When nonzero, transparent pixels in the surface skip blur (maintains sharp
+---text on transparent backgrounds).
+---@field blur_ignore_transparent integer
+---Number of blur passes (quality). Higher = more pass iterations.
+---@field blur_num_passes integer
+---Blur radius in pixels.
+---@field blur_radius integer
+---Blur noise factor (0.0 - 1.0). Adds grain to the blur.
+---@field blur_noise number
+---Blur brightness adjustment (0.0 = black, 1.0 = no change).
+---@field blur_brightness number
+---Blur contrast adjustment (0.0 = grey, 1.0 = no change).
+---@field blur_contrast number
+---Blur saturation adjustment (0.0 = greyscale, 1.0 = no change).
+---@field blur_saturation number
 ---Window rules. Rebuilt from this table on every config reload (Mod-Shift-R).
 ---May be empty or omitted; in that case no rules apply and clients keep their
 ---default tags/monitor. At least one example is usually present.

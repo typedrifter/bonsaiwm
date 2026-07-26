@@ -28,30 +28,30 @@ float urgentcolor[] = COLOR(0xff0000ff);
 float fullscreen_bg[] = {0.1f, 0.1f, 0.1f, 0.0f};
 
 /* scenefx effect defaults */
-const int opacity = 1; /* 0 = disabled */
-const float opacity_inactive = 0.9f;
-const float opacity_active = 0.9f;
+int opacity = 1; /* 0 = disabled */
+float opacity_inactive = 0.9f;
+float opacity_active = 0.9f;
 
-const int shadow = 0;
-const int shadow_only_floating = 0;
+int shadow = 0;
+int shadow_only_floating = 0;
 float shadow_color[] = COLOR(0x0000FFff);
 float shadow_color_focus[] = COLOR(0xFF0000ff);
-const int shadow_blur_sigma = 20;
-const int shadow_blur_sigma_focus = 40;
-const char *const shadow_ignore_list[] = {NULL};
+int shadow_blur_sigma = 20;
+int shadow_blur_sigma_focus = 40;
+char **shadow_ignore_list = NULL;
 
-const int corner_radius = 8;
-const int corner_radius_only_floating = 0;
+int corner_radius = 8;
+int corner_radius_only_floating = 0;
 
-const int blur = 1;
-const int blur_xray = 0;
-const int blur_ignore_transparent = 0;
-const int blur_num_passes = 3;
-const int blur_radius = 5;
-const float blur_noise = 0.02f;
-const float blur_brightness = 0.9f;
-const float blur_contrast = 0.9f;
-const float blur_saturation = 1.1f;
+int blur = 1;
+int blur_xray = 0;
+int blur_ignore_transparent = 0;
+int blur_num_passes = 3;
+int blur_radius = 5;
+float blur_noise = 0.02f;
+float blur_brightness = 0.9f;
+float blur_contrast = 0.9f;
+float blur_saturation = 1.1f;
 
 Config config = {
     .enablegaps = 1,  /* 1 = gaps enabled by default */
@@ -72,23 +72,44 @@ static const struct {
   const char *lua_key;
   int *as_int;
   unsigned int *as_uint;
+  float *as_float;
   float *as_color;
 } config_schema[] = {
-    {"enablegaps", &config.enablegaps, NULL, NULL},
-    {"smartgaps", &config.smartgaps, NULL, NULL},
-    {"gappoh", NULL, &config.gappoh, NULL},
-    {"gappov", NULL, &config.gappov, NULL},
-    {"gappih", NULL, &config.gappih, NULL},
-    {"gappiv", NULL, &config.gappiv, NULL},
-    {"sloppyfocus", &config.sloppyfocus, NULL, NULL},
-    {"borderpx", NULL, &config.borderpx, NULL},
-    {"repeat_rate", &config.repeat_rate, NULL, NULL},
-    {"repeat_delay", &config.repeat_delay, NULL, NULL},
-    {"rootcolor", NULL, NULL, rootcolor},
-    {"bordercolor", NULL, NULL, bordercolor},
-    {"focuscolor", NULL, NULL, focuscolor},
-    {"urgentcolor", NULL, NULL, urgentcolor},
-    {"fullscreen_bg", NULL, NULL, fullscreen_bg},
+    {"enablegaps", &config.enablegaps, NULL, NULL, NULL},
+    {"smartgaps", &config.smartgaps, NULL, NULL, NULL},
+    {"gappoh", NULL, &config.gappoh, NULL, NULL},
+    {"gappov", NULL, &config.gappov, NULL, NULL},
+    {"gappih", NULL, &config.gappih, NULL, NULL},
+    {"gappiv", NULL, &config.gappiv, NULL, NULL},
+    {"sloppyfocus", &config.sloppyfocus, NULL, NULL, NULL},
+    {"borderpx", NULL, &config.borderpx, NULL, NULL},
+    {"repeat_rate", &config.repeat_rate, NULL, NULL, NULL},
+    {"repeat_delay", &config.repeat_delay, NULL, NULL, NULL},
+    {"opacity", &opacity, NULL, NULL, NULL},
+    {"opacity_inactive", NULL, NULL, &opacity_inactive, NULL},
+    {"opacity_active", NULL, NULL, &opacity_active, NULL},
+    {"shadow", &shadow, NULL, NULL, NULL},
+    {"shadow_only_floating", &shadow_only_floating, NULL, NULL, NULL},
+    {"shadow_blur_sigma", &shadow_blur_sigma, NULL, NULL, NULL},
+    {"shadow_blur_sigma_focus", &shadow_blur_sigma_focus, NULL, NULL, NULL},
+    {"shadow_color", NULL, NULL, NULL, shadow_color},
+    {"shadow_color_focus", NULL, NULL, NULL, shadow_color_focus},
+    {"corner_radius", &corner_radius, NULL, NULL, NULL},
+    {"corner_radius_only_floating", &corner_radius_only_floating, NULL, NULL, NULL},
+    {"blur", &blur, NULL, NULL, NULL},
+    {"blur_xray", &blur_xray, NULL, NULL, NULL},
+    {"blur_ignore_transparent", &blur_ignore_transparent, NULL, NULL, NULL},
+    {"blur_num_passes", &blur_num_passes, NULL, NULL, NULL},
+    {"blur_radius", &blur_radius, NULL, NULL, NULL},
+    {"blur_noise", NULL, NULL, &blur_noise, NULL},
+    {"blur_brightness", NULL, NULL, &blur_brightness, NULL},
+    {"blur_contrast", NULL, NULL, &blur_contrast, NULL},
+    {"blur_saturation", NULL, NULL, &blur_saturation, NULL},
+    {"rootcolor", NULL, NULL, NULL, rootcolor},
+    {"bordercolor", NULL, NULL, NULL, bordercolor},
+    {"focuscolor", NULL, NULL, NULL, focuscolor},
+    {"urgentcolor", NULL, NULL, NULL, urgentcolor},
+    {"fullscreen_bg", NULL, NULL, NULL, fullscreen_bg},
 };
 
 /* window rules: empty by default, populated from config.lua in load_config() */
@@ -664,6 +685,30 @@ static const char *resolve_config_path(void) {
   return NULL;
 }
 
+static void
+shadow_ignore_list_load_from_lua(void) {
+  if (shadow_ignore_list) {
+    for (char **p = shadow_ignore_list; *p; p++)
+      free(*p);
+    free(shadow_ignore_list);
+    shadow_ignore_list = NULL;
+  }
+  lua_getglobal(L, "bonsaiwm");
+  lua_getfield(L, -1, "shadow_ignore_list");
+  if (lua_istable(L, -1)) {
+    size_t count = lua_rawlen(L, -1);
+    shadow_ignore_list = ecalloc(count + 1, sizeof(char *));
+    for (size_t i = 0; i < count; i++) {
+      lua_rawgeti(L, -1, i + 1);
+      shadow_ignore_list[i] = strdup(lua_tostring(L, -1));
+      lua_pop(L, 1);
+    }
+    shadow_ignore_list[count] = NULL;
+  }
+  lua_pop(L, 1);
+  lua_pop(L, 1);
+}
+
 void load_config() {
   /* free heap state and close previously running lua runtime to prevent
    * memory leaks when reloading config */
@@ -693,9 +738,9 @@ void load_config() {
   for (size_t i = 0; i < LENGTH(config_schema); i++) {
     lua_getfield(L, -1, config_schema[i].lua_key);
     if (lua_isnumber(L, -1)) {
-      int v = (int)lua_tonumber(L, -1);
+      double v = lua_tonumber(L, -1);
       if (config_schema[i].as_int)
-        *config_schema[i].as_int = v;
+        *config_schema[i].as_int = (int)v;
       if (config_schema[i].as_uint) {
         /* unsigned fields (borderpx, gaps) cannot be negative; a
          * negative lua value would silently wrap to a huge unsigned
@@ -703,11 +748,13 @@ void load_config() {
          * to zero instead. */
         if (v < 0) {
           wlr_log(WLR_ERROR, "config: %s = %d is negative, clamping to 0",
-                  config_schema[i].lua_key, v);
+                  config_schema[i].lua_key, (int)v);
           v = 0;
         }
         *config_schema[i].as_uint = (unsigned)v;
       }
+      if (config_schema[i].as_float)
+        *config_schema[i].as_float = (float)v;
     } else if (lua_isstring(L, -1) && config_schema[i].as_color) {
       if (hex_to_rgba(lua_tostring(L, -1), config_schema[i].as_color) < 0)
         wlr_log(WLR_ERROR, "invalid color for %s: %s", config_schema[i].lua_key,
@@ -716,10 +763,12 @@ void load_config() {
     lua_pop(L, 1);
   }
   lua_pop(L, 1);
+  shadow_ignore_list_load_from_lua();
   xkb_rules_load_from_lua();
   rules_load_from_lua();
   layouts_load_from_lua();
   keys_load();
   reload_monitor_layouts();
   reload_keyboard();
+  reload_decorations();
 }

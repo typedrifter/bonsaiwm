@@ -2659,6 +2659,68 @@ void reload_keyboard(void) {
                                config.repeat_rate, config.repeat_delay);
 }
 
+void reload_decorations(void) {
+  /* Re-apply global blur parameters. wlr_scene_set_blur_data sets render-time
+   * values on the scene graph; re-calling it updates all existing blur nodes. */
+  if (blur)
+    wlr_scene_set_blur_data(scene, blur_num_passes, blur_radius, blur_noise,
+                            blur_brightness, blur_contrast, blur_saturation);
+
+  Client *c;
+  wl_list_for_each(c, &clients, link) {
+    /* Re-sync per-client snapshots that get stale on config reload */
+    c->corner_radius = corner_radius;
+    c->bw = (client_is_unmanaged(c) || c->isfullscreen) ? 0 : config.borderpx;
+
+    /* Handle round_border toggle */
+    if (corner_radius > 0 && !c->round_border) {
+      c->round_border = wlr_scene_rect_create(
+          c->scene, 0, 0, c->isurgent ? urgentcolor : bordercolor);
+      c->round_border->node.data = c;
+      wlr_scene_node_lower_to_bottom(&c->round_border->node);
+      for (int i = 0; i < 4; i++)
+        wlr_scene_rect_set_color(c->border[i], transparent);
+    } else if (corner_radius == 0 && c->round_border) {
+      wlr_scene_node_destroy(&c->round_border->node);
+      c->round_border = NULL;
+    }
+
+    /* Handle blur toggle */
+    if (blur && !c->blur) {
+      c->blur = wlr_scene_blur_create(c->scene, 0, 0);
+      wlr_scene_blur_set_should_only_blur_bottom_layer(c->blur, true);
+      wlr_scene_node_lower_to_bottom(&c->blur->node);
+    } else if (!blur && c->blur) {
+      wlr_scene_node_destroy(&c->blur->node);
+      c->blur = NULL;
+    }
+
+    /* Handle shadow toggle */
+    if (shadow && !c->shadow) {
+      c->shadow = wlr_scene_shadow_create(c->scene, 0, 0, c->corner_radius,
+                                          shadow_blur_sigma, shadow_color);
+      wlr_scene_node_lower_to_bottom(&c->shadow->node);
+    } else if (!shadow && c->shadow) {
+      wlr_scene_node_destroy(&c->shadow->node);
+      c->shadow = NULL;
+    }
+
+    /* Re-apply geometry with updated bw. Keeps outer geometry unchanged;
+     * surface size inside is recalculated from the new border width. */
+    resize(c, c->geom, 0);
+
+    /* Update decorations with current focus state */
+    int focused = focustop(c->mon) == c;
+    update_client_corner_radius(c);
+    update_client_blur(c);
+    update_client_shadow_color(c);
+    update_client_focus_decorations(c, focused, c->isurgent);
+  }
+
+  /* Refresh root background color from the reloaded config */
+  wlr_scene_rect_set_color(root_bg, rootcolor);
+}
+
 /* arg > 1.0 will set mfact absolutely */
 void setmfact(const Arg *arg) {
   float f;
@@ -3485,6 +3547,8 @@ void output_configure_scene(struct wlr_scene_node *node, Client *c) {
 }
 
 int in_shadow_ignore_list(const char *str) {
+  if (!shadow_ignore_list)
+    return 0;
   for (int i = 0; shadow_ignore_list[i] != NULL; i++) {
     if (strcmp(shadow_ignore_list[i], str) == 0)
       return 1;
