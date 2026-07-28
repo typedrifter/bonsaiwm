@@ -12,6 +12,8 @@ subdir('protocols')
 
 # ── Dependencies ──────────────────────────────────────────────────────────────
 # Core Wayland and input libraries required by bonsaiwm.
+# scenefx must be declared before wlroots so its headers/links take precedence.
+scenefx = dependency('scenefx-0.4', version: '>=0.4.0')
 wayland_server = dependency('wayland-server', version: '>=1.25.0')
 xkbcommon = dependency('xkbcommon')
 libinput = dependency('libinput', version: '>=1.27.1')
@@ -78,7 +80,7 @@ sources = files(
 bonsaiwm = executable('bonsaiwm',
   sources,
   wayland_sources,
-  dependencies: [wayland_server, xkbcommon, libinput, wlroots, libm, xcb, xcb_icccm, lua],
+  dependencies: [scenefx, wayland_server, xkbcommon, libinput, wlroots, libm, xcb, xcb_icccm, lua],
   c_args: c_args,
   link_args: link_args,
   install: true,

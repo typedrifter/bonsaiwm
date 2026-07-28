@@ -6,6 +6,7 @@
 #include <libinput.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <scenefx/types/fx/blur_data.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_output.h>
 #include <xkbcommon/xkbcommon.h>
@@ -163,6 +164,25 @@ extern float bordercolor[];
 extern float focuscolor[];
 extern float urgentcolor[];
 extern float fullscreen_bg[];
+
+/* scenefx appearance */
+extern const int opacity;
+extern const float opacity_inactive;
+extern const float opacity_active;
+extern const int shadow;
+extern const int shadow_only_floating;
+extern const float shadow_color[4];
+extern const float shadow_color_focus[4];
+extern const int shadow_blur_sigma;
+extern const int shadow_blur_sigma_focus;
+extern const char *const shadow_ignore_list[];
+extern const int corner_radius;
+extern const int corner_radius_inner;
+extern const int corner_radius_only_floating;
+extern const int blur;
+extern const int blur_xray;
+extern const int blur_ignore_transparent;
+extern const struct blur_data blur_data;
 
 /* window rules (heap-allocated, rebuilt from config.lua on every load) */
 extern Rule *rules;

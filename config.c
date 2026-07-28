@@ -26,6 +26,37 @@ float urgentcolor[] = COLOR(0xff0000ff);
 float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
                          1.0f}; /* You can also use glsl colors */
 
+/* scenefx appearance */
+const int opacity = 0; /* flag to enable opacity */
+const float opacity_inactive = 0.5f;
+const float opacity_active = 1.0f;
+
+const int shadow = 0;               /* flag to enable shadow */
+const int shadow_only_floating = 0; /* only apply shadow to floating windows */
+const float shadow_color[4] = COLOR(0x0000FFff);
+const float shadow_color_focus[4] = COLOR(0xFF0000ff);
+const int shadow_blur_sigma = 20;
+const int shadow_blur_sigma_focus = 40;
+const char *const shadow_ignore_list[] = {NULL}; /* list of app-id to ignore */
+
+const int corner_radius = 5;       /* 0 disables corner_radius */
+const int corner_radius_inner = 9; /* 0 disables corner_radius */
+const int corner_radius_only_floating =
+    0; /* only apply corner_radius to floating windows */
+
+const int blur = 1;      /* flag to enable blur */
+const int blur_xray = 0; /* flag to make transparent fs and floating windows
+                            display your background */
+const int blur_ignore_transparent = 1;
+const struct blur_data blur_data = {
+    .radius = 5,
+    .num_passes = 3,
+    .noise = (float)0.02,
+    .brightness = (float)0.9,
+    .contrast = (float)0.9,
+    .saturation = (float)1.1,
+};
+
 Config config = {
     .enablegaps = 1,  /* 1 = gaps enabled by default */
     .smartgaps = 1,   /* 1 = no outer gap when only one window */
@@ -657,9 +688,8 @@ void load_config() {
     wlr_log(WLR_INFO, "loading lua config from %s", path);
     lua_load_config(path);
   } else {
-    wlr_log(WLR_INFO,
-             "no config.lua found in $XDG_CONFIG_HOME/bonsaiwm or "
-             "~/.config/bonsaiwm; using builtin defaults");
+    wlr_log(WLR_INFO, "no config.lua found in $XDG_CONFIG_HOME/bonsaiwm or "
+                      "~/.config/bonsaiwm; using builtin defaults");
   }
 
   wlr_log(WLR_DEBUG, "lua config loaded, applying values");
@@ -676,8 +706,7 @@ void load_config() {
          * via the cast below, producing broken layout geometry. Clamp
          * to zero instead. */
         if (v < 0) {
-          wlr_log(WLR_ERROR,
-                  "config: %s = %d is negative, clamping to 0",
+          wlr_log(WLR_ERROR, "config: %s = %d is negative, clamping to 0",
                   config_schema[i].lua_key, v);
           v = 0;
         }

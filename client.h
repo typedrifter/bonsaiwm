@@ -128,10 +128,10 @@ static inline const char *client_get_appid(Client *c) {
 
 static inline void client_get_clip(Client *c, struct wlr_box *clip) {
   *clip = (struct wlr_box){
-      .x = 0,
-      .y = 0,
-      .width = c->geom.width - c->bw,
-      .height = c->geom.height - c->bw,
+      .x = c->bw,
+      .y = c->bw,
+      .width = c->geom.width - c->bw * 2,
+      .height = c->geom.height - c->bw * 2,
   };
 
 #ifdef XWAYLAND
@@ -293,6 +293,17 @@ static inline void client_send_close(Client *c) {
 static inline void client_set_border_color(Client *c,
                                            const float color[static 4]) {
   int i;
+
+#ifdef XWAYLAND
+  if (!client_is_x11(c)) {
+#endif
+    if (corner_radius > 0) {
+      return;
+    }
+#ifdef XWAYLAND
+  }
+#endif
+
   for (i = 0; i < 4; i++)
     wlr_scene_rect_set_color(c->border[i], color);
 }
