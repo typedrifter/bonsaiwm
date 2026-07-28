@@ -6,7 +6,7 @@ bonsaiwm = {
 	gappih = 80,
 	gappiv = 80,
 	sloppyfocus = 1,
-	borderpx = 1,
+	borderpx = 2,
 	repeat_rate = 25,
 	repeat_delay = 600,
 
@@ -23,7 +23,7 @@ bonsaiwm = {
 
 	-- colors: "#RRGGBB" or "#RRGGBBAA"
 	rootcolor = "#1a1b26ff",
-	bordercolor = "#41486800",
+	bordercolor = "#880808ff",
 	focuscolor = "#7aa2f7ff",
 	urgentcolor = "#f7768eff",
 	fullscreen_bg = "#1a1b26ff",
@@ -33,7 +33,7 @@ bonsaiwm = {
 	opacity_active = 0.9,
 	opacity_inactive = 0.8,
 
-	shadow = 1,
+	shadow = 0,
 	shadow_only_floating = 0,
 	shadow_color = "#0000ffff",
 	shadow_color_focus = "#ff0000ff",

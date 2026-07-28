@@ -3605,8 +3605,16 @@ void update_client_blur(Client *c) {
 }
 
 void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer) {
-  wlr_scene_buffer_set_corner_radii(buffer,
-                                    corner_radii_all(effective_corner_radius(c)));
+  /* The surface buffer is inset by c->bw inside the round_border, so it must
+   * use the INNER corner radius (c->corner_radius), not the outer radius
+   * (c->corner_radius + c->bw) which only the round_border rect should have.
+   * Applying the outer radius here curves the surface more aggressively than
+   * the border's inner cutout, leaving a stair-stepped seam at the corners.
+   * (cf. swayfx output_configure_scene, where the buffer gets con->corner_radius
+   * and only the border rects add border_width.) */
+  int r = effective_corner_radius(c) - c->bw;
+  if (r < 0) r = 0;
+  wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(r));
 }
 
 void update_client_shadow_color(Client *c) {
