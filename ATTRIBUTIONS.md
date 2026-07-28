@@ -14,6 +14,18 @@ individually), ported from the dwl pertag patch.
 - Repository: <https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/pertag>
 - AI assistance was used to port the patch to BonsaiWM's codebase.
 
+### scenefx
+
+Rounded corners, drop shadows, blur and per-client opacity, ported from the
+dwl scenefx patch. The patch was adapted to scenefx 0.4.1 (wlroots-0.19)
+rather than scenefx-0.2 (wlroots-0.18), and config knobs were split into
+BonsaiWM's `config.h`/`config.c` extern/const layout instead of dwl's
+`config.def.h` `static const` style.
+
+- Original author: wochap `<gean.marroquin@gmail.com>`
+- Repository: <https://codeberg.org/dwl/dwl-patches/src/branch/main/stale-patches/scenefx>
+- AI assistance was used to port the patch to BonsaiWM's codebase.
+
 ## Upstream projects
 
 ### dwl — dwm for Wayland
@@ -48,6 +60,16 @@ Wayland compositor) and the wlroots library are used throughout.
 - Repository: <https://github.com/swaywm/sway>
 - License: MIT — see [`LICENSE.sway`](./LICENSE.sway)
 - © 2016–2017 Drew DeVault
+
+### SceneFX
+
+SceneFX is a wlroots fork that extends the scene-graph API with rounded
+corners, shadows, blur and opacity. BonsaiWM links against it as a drop-in
+replacement for wlroots' renderer and `wlr_scene` headers.
+
+- Repository: <https://github.com/wlrfx/scenefx>
+- License: MIT — see [`LICENSE.scenefx`](./LICENSE.scenefx)
+- © 2017–2018 Drew DeVault, © 2014 Jari Vetoniemi
 
 ## Inspiration
 

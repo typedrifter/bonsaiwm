@@ -6,6 +6,6 @@ BonsaiWM is a work in progress. Here's the high-level direction:
 | ✓      | Meson build system | modern build setup for subprojects and multiple source files |  |
 | ✓      | Lua integration    | runtime scripting via `config.lua` — config, window rules, layouts, keymaps |  |
 | ✓      | Gaps               | inner/outer gaps with smart gap support |  |
-|        | SceneFX            | rounded corners and visual effects |  |
+| ✓      | SceneFX            | rounded corners and visual effects |  |
 |        | Rounded corners    | configurable border radius |  |
 |        | Animations         | open/close slide + fade effects |  |
