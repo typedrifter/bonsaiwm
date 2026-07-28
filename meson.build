@@ -15,7 +15,7 @@ subdir('protocols')
 wayland_server = dependency('wayland-server', version: '>=1.25.0')
 xkbcommon = dependency('xkbcommon')
 libinput = dependency('libinput', version: '>=1.27.1')
-wlroots = dependency('wlroots-0.19', version: '>=0.19.0')
+wlroots = dependency('wlroots-0.20', version: '>=0.20.0')
 lua = dependency('lua5.4', required: true)
 
 # libm is needed for math functions used in cursor/monitor calculations.
