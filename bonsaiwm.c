@@ -3506,8 +3506,10 @@ void output_configure_scene(struct wlr_scene_node *node, Client *c) {
 }
 
 int in_shadow_ignore_list(const char *str) {
+  if (!str)
+    return 0;
   for (size_t i = 0; i < shadow_ignore_list_count; i++) {
-    if (strcmp(shadow_ignore_list[i], str) == 0) {
+    if (strstr(str, shadow_ignore_list[i])) {
       return 1;
     }
   }

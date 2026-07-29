@@ -1,6 +1,6 @@
 bonsaiwm = {
 	enablegaps = 1,
-	smartgaps = 1,
+	smartgaps = 0,
 	gappoh = 40,
 	gappov = 40,
 	gappih = 80,
@@ -22,11 +22,11 @@ bonsaiwm = {
 	},
 
 	-- colors: "#RRGGBB" or "#RRGGBBAA"
-	rootcolor = "#201b14ff",
-	bordercolor = "#444444ff",
-	focuscolor = "#c9b890ff",
-	urgentcolor = "#ad401fff",
-	fullscreen_bg = "#201b14ff",
+	rootcolor = "#1a1b26ff",
+	bordercolor = "#414868ff",
+	focuscolor = "#7aa2f7ff",
+	urgentcolor = "#f7768eff",
+	fullscreen_bg = "#1a1b26ff",
 
 	-- SceneFX visual effects: rounded corners, drop shadows, backdrop blur and
 	-- per-client opacity. The table is optional and grouped into four logical
@@ -44,7 +44,7 @@ bonsaiwm = {
 		opacity = {
 			enabled = true, -- master switch
 			active = 0.9, -- opacity of the focused client
-			inactive = 0.9, -- opacity of unfocused clients
+			inactive = 0.7, -- opacity of unfocused clients
 		},
 
 		-- drop shadows behind clients
