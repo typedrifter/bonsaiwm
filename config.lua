@@ -1,6 +1,6 @@
 bonsaiwm = {
 	enablegaps = 1,
-	smartgaps = 0,
+	smartgaps = 1,
 	gappoh = 40,
 	gappov = 40,
 	gappih = 80,
@@ -22,11 +22,64 @@ bonsaiwm = {
 	},
 
 	-- colors: "#RRGGBB" or "#RRGGBBAA"
-	rootcolor = "#1a1b26ff",
-	bordercolor = "#414868ff",
-	focuscolor = "#7aa2f7ff",
-	urgentcolor = "#f7768eff",
-	fullscreen_bg = "#1a1b26ff",
+	rootcolor = "#201b14ff",
+	bordercolor = "#444444ff",
+	focuscolor = "#c9b890ff",
+	urgentcolor = "#ad401fff",
+	fullscreen_bg = "#201b14ff",
+
+	-- SceneFX visual effects: rounded corners, drop shadows, backdrop blur and
+	-- per-client opacity. The table is optional and grouped into four logical
+	-- sub-tables; every field is optional, so any subset is a valid override —
+	-- omitted fields keep the compiled-in defaults shown below.
+	--
+	-- Reload (Mod-Shift-R) applies changes live where possible: value tweaks
+	-- (colors, radii, blur sigmas, opacity levels, blur params) are re-applied
+	-- to already-mapped windows; structural flag toggles (shadow/corner_radius/
+	-- blur on/off) take full effect on windows created after the reload.
+	-- Boolean flags also accept 1/0 to match the integer-flag convention used
+	-- elsewhere in this config.
+	scenefx = {
+		-- per-client opacity: dim unfocused windows
+		opacity = {
+			enabled = true, -- master switch
+			active = 0.9, -- opacity of the focused client
+			inactive = 0.9, -- opacity of unfocused clients
+		},
+
+		-- drop shadows behind clients
+		shadow = {
+			enabled = false, -- master switch
+			only_floating = false, -- only shadow floating clients
+			color = "#0000FFFF", -- shadow color (unfocused clients)
+			color_focus = "#FF0000FF", -- shadow color (focused client)
+			blur_sigma = 20, -- shadow blur radius (unfocused)
+			blur_sigma_focus = 40, -- shadow blur radius (focused)
+			-- app-ids that never get a shadow (substring match against app_id/
+			-- class), e.g. { "firefox", "discord" }. Empty = shadow everything.
+			ignore_list = {},
+		},
+
+		-- rounded corners
+		corner_radius = {
+			radius = 5, -- corner radius in pixels (0 = square)
+			only_floating = false, -- only round floating clients
+			no_radius_when_single = true, -- square corners with one tiled client
+		},
+
+		-- backdrop blur behind clients
+		blur = {
+			enabled = true, -- master switch
+			xray = false, -- let transparent fullscreen/floating show bg
+			ignore_transparent = true, -- don't blur transparent regions
+			radius = 5,
+			num_passes = 3,
+			noise = 0.02,
+			brightness = 0.9,
+			contrast = 0.9,
+			saturation = 1.1,
+		},
+	},
 
 	-- window rules: id and title are substring matches (nil = match any).
 	--   id:         app_id (Wayland) or class (X11)

@@ -97,6 +97,85 @@
 --- 	options = "ctrl:nocaps",
 --- }
 
+---@class bonsaiwm.ScenefxOpacity
+---Master switch for per-client opacity. Also accepts `1`/`0`.
+---@field enabled boolean|integer
+---Opacity of the focused client (0.0–1.0).
+---@field active number
+---Opacity of unfocused clients (0.0–1.0).
+---@field inactive number
+
+---@class bonsaiwm.ScenefxShadow
+---Master switch for drop shadows. Also accepts `1`/`0`.
+---@field enabled boolean|integer
+---When true, only floating clients get a shadow. Also accepts `1`/`0`.
+---@field only_floating boolean|integer
+---Shadow color for unfocused clients, as `"#RRGGBB"` or `"#RRGGBBAA"`.
+---@field color string
+---Shadow color for the focused client, as a hex string.
+---@field color_focus string
+---Shadow blur radius (pixels) for unfocused clients.
+---@field blur_sigma integer
+---Shadow blur radius (pixels) for the focused client.
+---@field blur_sigma_focus integer
+---App-ids that never get a shadow (substring match against app_id/class,
+---e.g. `{ "firefox", "discord" }`). Empty = shadow everything. Rebuilt on
+---every config reload.
+---@field ignore_list string[]
+---@example
+--- bonsaiwm.scenefx.shadow = {
+--- 	enabled = true,
+--- 	color = "#0000FFFF",
+--- 	ignore_list = { "firefox" },
+--- }
+
+---@class bonsaiwm.ScenefxCornerRadius
+---Corner radius in pixels applied to both the border and the surface content
+---(0 = square corners).
+---@field radius integer
+---When true, only floating clients get rounded corners. Also accepts `1`/`0`.
+---@field only_floating boolean|integer
+---When true, square corners when only one tiling client is visible. Also accepts `1`/`0`.
+---@field no_radius_when_single boolean|integer
+
+---@class bonsaiwm.ScenefxBlur
+---Master switch for backdrop blur. Also accepts `1`/`0`.
+---@field enabled boolean|integer
+---When true, transparent fullscreen/floating windows show the background
+---through the blur. Also accepts `1`/`0`.
+---@field xray boolean|integer
+---When true, transparent regions are not blurred. Also accepts `1`/`0`.
+---@field ignore_transparent boolean|integer
+---Blur kernel radius (pixels).
+---@field radius integer
+---Number of blur passes.
+---@field num_passes integer
+---Blur noise amount (0.0–1.0).
+---@field noise number
+---Brightness multiplier applied through the blur.
+---@field brightness number
+---Contrast multiplier applied through the blur.
+---@field contrast number
+---Saturation multiplier applied through the blur.
+---@field saturation number
+---@example
+--- bonsaiwm.scenefx.blur = {
+--- 	enabled = true,
+--- 	radius = 5,
+--- 	num_passes = 3,
+--- }
+
+---@class bonsaiwm.Scenefx
+---Per-client opacity (dimming unfocused windows). Omit the whole sub-table to
+---keep compiled-in defaults.
+---@field opacity? bonsaiwm.ScenefxOpacity
+---Drop shadows behind clients.
+---@field shadow? bonsaiwm.ScenefxShadow
+---Rounded corners on client borders and surfaces.
+---@field corner_radius? bonsaiwm.ScenefxCornerRadius
+---Backdrop blur behind clients.
+---@field blur? bonsaiwm.ScenefxBlur
+
 ---@class bonsaiwm
 ---Enables tiling gaps when nonzero.
 ---@field enablegaps integer
@@ -133,6 +212,13 @@
 ---@field urgentcolor string
 ---Backdrop color shown behind a fullscreen client. Hex string.
 ---@field fullscreen_bg string
+---SceneFX visual effects: rounded corners, drop shadows, backdrop blur and
+---per-client opacity. Grouped into four optional sub-tables (`opacity`,
+---`shadow`, `corner_radius`, `blur`); any subset is a valid override and
+---omitted fields keep the compiled-in defaults. Rebuilt on every config
+---reload (Mod-Shift-R): value tweaks apply live to already-mapped windows,
+---structural flag toggles take full effect on windows created after the reload.
+---@field scenefx? bonsaiwm.Scenefx
 ---Window rules. Rebuilt from this table on every config reload (Mod-Shift-R).
 ---May be empty or omitted; in that case no rules apply and clients keep their
 ---default tags/monitor. At least one example is usually present.

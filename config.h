@@ -166,23 +166,24 @@ extern float urgentcolor[];
 extern float fullscreen_bg[];
 
 /* scenefx appearance */
-extern const int opacity;
-extern const float opacity_inactive;
-extern const float opacity_active;
-extern const int shadow;
-extern const int shadow_only_floating;
-extern const float shadow_color[4];
-extern const float shadow_color_focus[4];
-extern const int shadow_blur_sigma;
-extern const int shadow_blur_sigma_focus;
-extern const char *const shadow_ignore_list[];
-extern const int corner_radius;
-extern const int corner_radius_inner;
-extern const int corner_radius_only_floating;
-extern const int blur;
-extern const int blur_xray;
-extern const int blur_ignore_transparent;
-extern const struct blur_data blur_data;
+extern int opacity;
+extern float opacity_inactive;
+extern float opacity_active;
+extern int shadow;
+extern int shadow_only_floating;
+extern float shadow_color[4];
+extern float shadow_color_focus[4];
+extern int shadow_blur_sigma;
+extern int shadow_blur_sigma_focus;
+extern char **shadow_ignore_list;
+extern size_t shadow_ignore_list_count;
+extern int corner_radius;
+extern int corner_radius_only_floating;
+extern int no_radius_when_single;
+extern int blur;
+extern int blur_xray;
+extern int blur_ignore_transparent;
+extern struct blur_data blur_data;
 
 /* window rules (heap-allocated, rebuilt from config.lua on every load) */
 extern Rule *rules;
@@ -222,6 +223,14 @@ extern const size_t buttons_count;
 
 extern void reload_monitor_layouts(void);
 extern void reload_keyboard(void);
+/* re-push blur_data to the live scene graph after a config reload. blur_data
+ * is otherwise only applied once at scene creation, so without this a lua
+ * change to bonsaiwm.scenefx.blur params would need a full restart. */
+extern void reload_blur(void);
+/* re-apply scenefx decorations (corner radius, shadow color, blur, opacity)
+ * to all existing clients after a config reload, so value tweaks take effect
+ * on already-mapped windows without re-creating them. */
+extern void reload_decorations(void);
 
 void load_config();
 
