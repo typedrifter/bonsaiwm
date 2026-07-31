@@ -13,6 +13,13 @@ static inline int client_is_x11(Client *c) {
   return 0;
 }
 
+static inline int client_supports_scenefx(Client *c) {
+#ifdef XWAYLAND
+  return !client_is_x11(c);
+#endif
+  return 1;
+}
+
 static inline struct wlr_surface *client_surface(Client *c) {
 #ifdef XWAYLAND
   if (client_is_x11(c))
@@ -294,15 +301,11 @@ static inline void client_set_border_color(Client *c,
                                            const float color[static 4]) {
   int i;
 
-#ifdef XWAYLAND
-  if (!client_is_x11(c)) {
-#endif
+  if (client_supports_scenefx(c)) {
     if (corner_radius > 0) {
       return;
     }
-#ifdef XWAYLAND
   }
-#endif
 
   for (i = 0; i < 4; i++)
     wlr_scene_rect_set_color(c->border[i], color);

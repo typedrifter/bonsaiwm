@@ -1857,9 +1857,7 @@ void mapnotify(struct wl_listener *listener, void *data) {
   wlr_scene_node_for_each_buffer(&c->scene_surface->node,
                                  iter_xdg_scene_buffers, c);
 
-#ifdef XWAYLAND
-  if (!client_is_x11(c)) {
-#endif
+  if (client_supports_scenefx(c)) {
     if (corner_radius > 0) {
       c->round_border = wlr_scene_rect_create(
           c->scene, 0, 0, c->isurgent ? urgentcolor : bordercolor);
@@ -1870,21 +1868,15 @@ void mapnotify(struct wl_listener *listener, void *data) {
         wlr_scene_rect_set_color(c->border[i], transparent);
       }
     }
-#ifdef XWAYLAND
   }
-#endif
 
-#ifdef XWAYLAND
-  if (!client_is_x11(c)) {
-#endif
+  if (client_supports_scenefx(c)) {
     if (shadow) {
       c->shadow = wlr_scene_shadow_create(c->scene, 0, 0, c->corner_radius,
                                           shadow_blur_sigma, shadow_color);
       wlr_scene_node_lower_to_bottom(&c->shadow->node);
     }
-#ifdef XWAYLAND
   }
-#endif
 
   /* Initialize client geometry with room for border */
   client_set_tiled(c, WLR_EDGE_TOP | WLR_EDGE_BOTTOM | WLR_EDGE_LEFT |
@@ -3568,16 +3560,12 @@ void update_client_corner_radius(Client *c) {
                                             : CORNER_LOCATION_NONE);
   }
 
-#ifdef XWAYLAND
-  if (!client_is_x11(c)) {
-#endif
+  if (client_supports_scenefx(c)) {
     if (corner_radius > 0 && c->scene) {
       wlr_scene_node_for_each_buffer(&c->scene_surface->node,
                                      iter_xdg_scene_buffers_corner_radius, c);
     }
-#ifdef XWAYLAND
   }
-#endif
 }
 
 void update_client_blur(Client *c) {
@@ -3592,11 +3580,9 @@ void update_client_blur(Client *c) {
 }
 
 void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer) {
-#ifdef XWAYLAND
-  if (client_is_x11(c)) {
+  if (!client_supports_scenefx(c)) {
     return;
   }
-#endif
 
   if (!corner_radius) {
     return;
