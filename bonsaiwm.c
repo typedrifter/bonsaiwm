@@ -1215,7 +1215,7 @@ void createnotify(struct wl_listener *listener, void *data) {
   c->surface.xdg = toplevel->base;
   c->bw = config.borderpx;
 
-  c->opacity = opacity;
+  c->opacity = opacity ? opacity_inactive : 1.0f;
   c->corner_radius = corner_radius;
 
   LISTEN(&toplevel->base->surface->events.commit, &c->commit, commitnotify);
@@ -3676,7 +3676,7 @@ void createnotifyx11(struct wl_listener *listener, void *data) {
   c->type = X11;
   c->bw = client_is_unmanaged(c) ? 0 : config.borderpx;
 
-  c->opacity = opacity;
+  c->opacity = opacity ? opacity_inactive : 1.0f;
   c->corner_radius = corner_radius;
 
   /* Listen to the various events it can emit */
