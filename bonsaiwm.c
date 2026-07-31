@@ -3143,6 +3143,7 @@ void updatemons(struct wl_listener *listener, void *data) {
     wlr_scene_node_set_position(&m->fullscreen_bg->node, m->m.x, m->m.y);
     wlr_scene_rect_set_size(m->fullscreen_bg, m->m.width, m->m.height);
 
+    wlr_scene_node_set_position(&m->blur_layer->node, m->m.x, m->m.y);
     wlr_scene_optimized_blur_set_size(m->blur_layer, m->m.width, m->m.height);
 
     if (m->lock_surface) {
