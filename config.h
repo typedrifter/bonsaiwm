@@ -175,8 +175,6 @@ extern float shadow_color[4];
 extern float shadow_color_focus[4];
 extern int shadow_blur_sigma;
 extern int shadow_blur_sigma_focus;
-extern char **shadow_ignore_list;
-extern size_t shadow_ignore_list_count;
 extern int corner_radius;
 extern int corner_radius_only_floating;
 extern int no_radius_when_single;

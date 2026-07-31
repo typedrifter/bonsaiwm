@@ -37,9 +37,6 @@ float shadow_color[4] = COLOR(0x00000066);
 float shadow_color_focus[4] = COLOR(0x00000099);
 int shadow_blur_sigma = 20;
 int shadow_blur_sigma_focus = 40;
-char **shadow_ignore_list = NULL; /* list of app-id to ignore */
-size_t shadow_ignore_list_count = 0;
-
 int corner_radius = 5; /* 0 disables corner_radius */
 int corner_radius_only_floating =
     0; /* only apply corner_radius to floating windows */

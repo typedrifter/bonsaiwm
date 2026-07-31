@@ -362,7 +362,6 @@ static void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer
                                                  int sx, int sy,
                                                  void *user_data);
 static void apply_output_scene_effects(struct wlr_scene_node *node, Client *c);
-static int in_shadow_ignore_list(const char *str);
 static enum corner_location set_client_corner_location(Client *c);
 static int effective_corner_radius(Client *c);
 static void client_set_shadow_blur_sigma(Client *c, int blur_sigma);
@@ -3513,17 +3512,6 @@ void apply_output_scene_effects(struct wlr_scene_node *node, Client *c) {
   }
 }
 
-int in_shadow_ignore_list(const char *str) {
-  if (!str)
-    return 0;
-  for (size_t i = 0; i < shadow_ignore_list_count; i++) {
-    if (strstr(str, shadow_ignore_list[i])) {
-      return 1;
-    }
-  }
-  return 0;
-}
-
 static int visible_tiling_clients(Monitor *m) {
   int n = 0;
   Client *c;
@@ -3636,7 +3624,7 @@ void update_client_shadow_color(Client *c) {
   color = focustop(c->mon) == c ? shadow_color_focus : shadow_color;
 
   if ((shadow_only_floating && !c->isfloating) ||
-      in_shadow_ignore_list(client_get_appid(c)) || c->isfullscreen) {
+      c->isfullscreen) {
     color = transparent;
     has_shadow_enabled = 0;
   }
