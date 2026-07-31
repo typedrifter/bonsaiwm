@@ -364,6 +364,7 @@ static void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer
 static void output_configure_scene(struct wlr_scene_node *node, Client *c);
 static int in_shadow_ignore_list(const char *str);
 static enum corner_location set_client_corner_location(Client *c);
+static int effective_corner_radius(Client *c);
 static void client_set_shadow_blur_sigma(Client *c, int blur_sigma);
 static void update_client_corner_radius(Client *c);
 static void update_client_shadow_color(Client *c);
@@ -3552,15 +3553,19 @@ void client_set_shadow_blur_sigma(Client *c, int blur_sigma) {
       });
 }
 
+static int effective_corner_radius(Client *c) {
+  if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen) {
+    return 0;
+  }
+  return c->corner_radius;
+}
+
 void update_client_corner_radius(Client *c) {
   if (corner_radius && c->round_border) {
-    int radius = c->corner_radius;
-    enum corner_location loc = set_client_corner_location(c);
-    if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen) {
-      radius = 0;
-      loc = CORNER_LOCATION_NONE;
-    }
-    wlr_scene_rect_set_corner_radius(c->round_border, radius, loc);
+    int radius = effective_corner_radius(c);
+    wlr_scene_rect_set_corner_radius(c->round_border, radius,
+                                     radius ? set_client_corner_location(c)
+                                            : CORNER_LOCATION_NONE);
   }
 
 #ifdef XWAYLAND
@@ -3587,8 +3592,6 @@ void update_client_blur(Client *c) {
 }
 
 void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer) {
-  int radius;
-
 #ifdef XWAYLAND
   if (client_is_x11(c)) {
     return;
@@ -3599,10 +3602,7 @@ void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer) {
     return;
   }
 
-  radius = c->corner_radius;
-  if ((corner_radius_only_floating && !c->isfloating) || c->isfullscreen) {
-    radius = 0;
-  }
+  int radius = effective_corner_radius(c);
   wlr_scene_buffer_set_corner_radius(buffer, radius,
                                      radius ? set_client_corner_location(c)
                                             : CORNER_LOCATION_NONE);
