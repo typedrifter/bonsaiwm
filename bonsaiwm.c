@@ -361,7 +361,7 @@ static void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer,
 static void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
                                                  int sx, int sy,
                                                  void *user_data);
-static void output_configure_scene(struct wlr_scene_node *node, Client *c);
+static void apply_output_scene_effects(struct wlr_scene_node *node, Client *c);
 static int in_shadow_ignore_list(const char *str);
 static enum corner_location set_client_corner_location(Client *c);
 static int effective_corner_radius(Client *c);
@@ -2266,7 +2266,7 @@ void rendermon(struct wl_listener *listener, void *data) {
       goto skip;
   }
 
-  output_configure_scene(&m->scene_output->scene->tree.node, NULL);
+  apply_output_scene_effects(&m->scene_output->scene->tree.node, NULL);
 
   wlr_scene_output_commit(m->scene_output, NULL);
 
@@ -3450,11 +3450,12 @@ void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
   update_buffer_corner_radius(c, buffer);
 }
 
-void output_configure_scene(struct wlr_scene_node *node, Client *c) {
+void apply_output_scene_effects(struct wlr_scene_node *node, Client *c) {
   Client *_c;
   struct wlr_xdg_surface *xdg_surface;
   struct wlr_scene_node *_node;
 
+  /* Buffer commits reset opacity/corner-radius, so re-apply each frame. */
   if (!node->enabled) {
     return;
   }
@@ -3482,7 +3483,7 @@ void output_configure_scene(struct wlr_scene_node *node, Client *c) {
   } else if (node->type == WLR_SCENE_NODE_TREE) {
     struct wlr_scene_tree *tree = wl_container_of(node, tree, node);
     wl_list_for_each(_node, &tree->children, link) {
-      output_configure_scene(_node, c);
+      apply_output_scene_effects(_node, c);
     }
   }
 }
