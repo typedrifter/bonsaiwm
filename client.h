@@ -135,8 +135,11 @@ static inline void client_get_clip(Client *c, struct wlr_box *clip) {
   };
 
 #ifdef XWAYLAND
-  if (client_is_x11(c))
+  if (client_is_x11(c)) {
+    clip->x = 0;
+    clip->y = 0;
     return;
+  }
 #endif
 
   clip->x = c->surface.xdg->geometry.x;
