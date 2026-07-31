@@ -371,6 +371,7 @@ static void update_client_shadow_color(Client *c);
 static void update_client_focus_decorations(Client *c, int focused,
                                             int urgent);
 static void update_client_blur(Client *c);
+static void apply_client_decorations(Client *c);
 static void update_buffer_corner_radius(Client *c,
                                         struct wlr_scene_buffer *buffer);
 
@@ -1900,11 +1901,7 @@ void mapnotify(struct wl_listener *listener, void *data) {
   }
   printstatus();
 
-  update_client_corner_radius(c);
-
-  update_client_shadow_color(c);
-
-  update_client_blur(c);
+  apply_client_decorations(c);
 
 unset_fullscreen:
   m = c->mon ? c->mon : xytomon(c->geom.x, c->geom.y);
@@ -2446,11 +2443,7 @@ void setfloating(Client *c, int floating) {
   Client *p = client_get_parent(c);
   c->isfloating = floating;
 
-  update_client_corner_radius(c);
-
-  update_client_shadow_color(c);
-
-  update_client_blur(c);
+  apply_client_decorations(c);
 
   /* If in floating layout do not change the client's layer */
   if (!c->mon || !client_surface(c)->mapped ||
@@ -2483,11 +2476,7 @@ void setfullscreen(Client *c, int fullscreen) {
     resize(c, c->prev, 0);
   }
 
-  update_client_corner_radius(c);
-
-  update_client_shadow_color(c);
-
-  update_client_blur(c);
+  apply_client_decorations(c);
 
   arrange(c->mon);
   printstatus();
@@ -2626,9 +2615,7 @@ void reload_blur(void) {
 void reload_decorations(void) {
   Client *c;
   wl_list_for_each(c, &clients, link) {
-    update_client_corner_radius(c);
-    update_client_shadow_color(c);
-    update_client_blur(c);
+    apply_client_decorations(c);
     if (opacity) {
       c->opacity = (focustop(c->mon) == c) ? opacity_active : opacity_inactive;
       wlr_scene_node_for_each_buffer(&c->scene_surface->node,
@@ -3578,6 +3565,15 @@ void update_client_blur(Client *c) {
     wlr_scene_node_for_each_buffer(&c->scene_surface->node,
                                    iter_xdg_scene_buffers_blur, c);
   }
+}
+
+/* Re-apply all live scenefx decorations to a client: corner radius, shadow
+ * color, and blur. Each update helper guards on its own feature flag, so it
+ * is safe to call this even for effects that are disabled. */
+void apply_client_decorations(Client *c) {
+  update_client_corner_radius(c);
+  update_client_shadow_color(c);
+  update_client_blur(c);
 }
 
 void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer) {
