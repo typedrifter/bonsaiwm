@@ -3561,6 +3561,7 @@ void update_client_blur(Client *c) {
  * color, and blur. Each update helper guards on its own feature flag, so it
  * is safe to call this even for effects that are disabled. */
 void apply_client_decorations(Client *c) {
+  c->corner_radius = corner_radius;
   update_client_corner_radius(c);
   update_client_shadow_color(c);
   update_client_blur(c);
@@ -3595,6 +3596,10 @@ void update_client_shadow_color(Client *c) {
 
   wlr_scene_shadow_set_color(c->shadow, color);
   c->has_shadow_enabled = has_shadow_enabled;
+
+  client_set_shadow_blur_sigma(c, (int)round(focustop(c->mon) == c
+                                                 ? shadow_blur_sigma_focus
+                                                 : shadow_blur_sigma));
 }
 
 void update_client_focus_decorations(Client *c, int focused, int urgent) {
