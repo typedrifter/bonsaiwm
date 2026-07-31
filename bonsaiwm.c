@@ -3690,8 +3690,11 @@ void sethints(struct wl_listener *listener, void *data) {
   c->isurgent = xcb_icccm_wm_hints_get_urgency(c->surface.xwayland->hints);
   printstatus();
 
-  if (c->isurgent && surface && surface->mapped)
+  if (c->isurgent && surface && surface->mapped) {
     client_set_border_color(c, urgentcolor);
+
+    update_client_focus_decorations(c, 1, 1);
+  }
 }
 
 void xwaylandready(struct wl_listener *listener, void *data) {
