@@ -591,9 +591,7 @@ void arrange(Monitor *m) {
   wlr_scene_node_set_enabled(&m->fullscreen_bg->node,
                              (c = focustop(m)) && c->isfullscreen);
 
-  if (blur) {
-    wlr_scene_node_set_enabled(&m->blur_layer->node, 1);
-  }
+  wlr_scene_node_set_enabled(&m->blur_layer->node, blur);
 
   strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol, LENGTH(m->ltsymbol));
 
@@ -812,11 +810,8 @@ void cleanupmon(struct wl_listener *listener, void *data) {
 
   free(m->tagstate);
   closemon(m);
+  wlr_scene_node_destroy(&m->blur_layer->node);
   wlr_scene_node_destroy(&m->fullscreen_bg->node);
-
-  if (blur) {
-    wlr_scene_node_destroy(&m->blur_layer->node);
-  }
 
   free(m);
 }
@@ -1192,11 +1187,9 @@ void createmon(struct wl_listener *listener, void *data) {
   m->fullscreen_bg = wlr_scene_rect_create(layers[LyrFS], 0, 0, fullscreen_bg);
   wlr_scene_node_set_enabled(&m->fullscreen_bg->node, 0);
 
-  if (blur) {
-    m->blur_layer = wlr_scene_optimized_blur_create(&scene->tree, 0, 0);
-    wlr_scene_node_reparent(&m->blur_layer->node, layers[LyrBlur]);
-    wlr_scene_node_set_enabled(&m->blur_layer->node, 0);
-  }
+  m->blur_layer = wlr_scene_optimized_blur_create(&scene->tree, 0, 0);
+  wlr_scene_node_reparent(&m->blur_layer->node, layers[LyrBlur]);
+  wlr_scene_node_set_enabled(&m->blur_layer->node, 0);
 
   /* Adds this to the output layout in the order it was configured.
    *
@@ -3150,10 +3143,7 @@ void updatemons(struct wl_listener *listener, void *data) {
     wlr_scene_node_set_position(&m->fullscreen_bg->node, m->m.x, m->m.y);
     wlr_scene_rect_set_size(m->fullscreen_bg, m->m.width, m->m.height);
 
-    if (blur) {
-      wlr_scene_optimized_blur_set_size(m->blur_layer, m->m.width,
-                                        m->m.height);
-    }
+    wlr_scene_optimized_blur_set_size(m->blur_layer, m->m.width, m->m.height);
 
     if (m->lock_surface) {
       struct wlr_scene_tree *scene_tree = m->lock_surface->surface->data;
