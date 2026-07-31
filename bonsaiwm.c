@@ -2600,15 +2600,56 @@ void reload_blur(void) {
 }
 
 /* re-apply scenefx decorations to every mapped client after a config reload,
- * so value tweaks (corner radii, shadow colors/blur sigma, blur, opacity)
- * take effect on already-mapped windows without re-creating them. Structural
- * flag toggles that change the scene graph (e.g. enabling shadow for clients
- * created while shadow was off) only fully apply to clients created after the
- * reload; this function does the best-effort re-apply for what the existing
- * scene nodes can honor. */
+ * so value tweaks (corner radii, shadow colors/blur sigma, blur, opacity) and
+ * structural master-flag toggles (shadow/corner_radius/blur on-off) take
+ * effect on already-mapped windows without re-creating them. */
 void reload_decorations(void) {
   Client *c;
   wl_list_for_each(c, &clients, link) {
+    /* The per-client scenefx nodes are normally born once at map time, so a
+     * master-flag toggle only reached new windows. Rebuild them here to honor
+     * toggles for existing clients. */
+    if (shadow && !c->shadow) {
+      c->shadow = wlr_scene_shadow_create(c->scene, 0, 0, c->corner_radius,
+                                          shadow_blur_sigma, shadow_color);
+      wlr_scene_node_lower_to_bottom(&c->shadow->node);
+    } else if (!shadow && c->shadow) {
+      wlr_scene_node_destroy(&c->shadow->node);
+      c->shadow = NULL;
+    }
+
+    if (corner_radius > 0 && !c->round_border) {
+      int i;
+      int radius = effective_corner_radius(c);
+      enum corner_location corners = radius ? set_client_corner_location(c)
+                                            : CORNER_LOCATION_NONE;
+      if (radius && corners == CORNER_LOCATION_NONE)
+        radius = 0;
+      c->round_border = wlr_scene_rect_create(
+          c->scene, 0, 0,
+          c->isurgent ? urgentcolor
+                      : focustop(c->mon) == c ? focuscolor : bordercolor);
+      c->round_border->node.data = c;
+      wlr_scene_node_lower_to_bottom(&c->round_border->node);
+      wlr_scene_node_set_position(&c->round_border->node, 0, 0);
+      wlr_scene_rect_set_size(c->round_border, c->geom.width, c->geom.height);
+      wlr_scene_rect_set_clipped_region(
+          c->round_border, (struct clipped_region){
+                              .corner_radius = radius,
+                              .corners = corners,
+                              .area = {c->bw, c->bw,
+                                       c->geom.width - c->bw * 2,
+                                       c->geom.height - c->bw * 2},
+                          });
+      for (i = 0; i < 4; i++)
+        wlr_scene_rect_set_color(c->border[i], transparent);
+    } else if (corner_radius == 0 && c->round_border) {
+      wlr_scene_node_destroy(&c->round_border->node);
+      c->round_border = NULL;
+      client_set_border_color(c, c->isurgent ? urgentcolor
+                          : focustop(c->mon) == c ? focuscolor : bordercolor);
+    }
+
     apply_client_decorations(c);
     if (opacity) {
       c->opacity = (focustop(c->mon) == c) ? opacity_active : opacity_inactive;
@@ -3393,7 +3434,12 @@ void iter_xdg_scene_buffers_blur(struct wlr_scene_buffer *buffer, int sx,
 
   if (blur) {
     int blur_optimized = !c->isfloating || blur_xray;
+    wlr_scene_buffer_set_backdrop_blur(buffer, 1);
     wlr_scene_buffer_set_backdrop_blur_optimized(buffer, blur_optimized);
+    wlr_scene_buffer_set_backdrop_blur_ignore_transparent(
+        buffer, blur_ignore_transparent);
+  } else {
+    wlr_scene_buffer_set_backdrop_blur(buffer, 0);
   }
 }
 
@@ -3547,10 +3593,6 @@ void update_client_corner_radius(Client *c) {
 }
 
 void update_client_blur(Client *c) {
-  if (!blur) {
-    return;
-  }
-
   if (c->scene) {
     wlr_scene_node_for_each_buffer(&c->scene_surface->node,
                                    iter_xdg_scene_buffers_blur, c);

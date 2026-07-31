@@ -33,10 +33,10 @@ bonsaiwm = {
 	-- sub-tables; every field is optional, so any subset is a valid override —
 	-- omitted fields keep the compiled-in defaults shown below.
 	--
-	-- Reload (Mod-Shift-R) applies changes live where possible: value tweaks
-	-- (colors, radii, blur sigmas, opacity levels, blur params) are re-applied
-	-- to already-mapped windows; structural flag toggles (shadow/corner_radius/
-	-- blur on/off) take full effect on windows created after the reload.
+	-- Reload (Mod-Shift-R) applies changes live: value tweaks (colors, radii,
+	-- blur sigmas, opacity levels, blur params) and structural toggles
+	-- (shadow/corner_radius/blur on/off) are re-applied to already-mapped
+	-- windows.
 	-- Boolean flags also accept 1/0 to match the integer-flag convention used
 	-- elsewhere in this config.
 	scenefx = {
