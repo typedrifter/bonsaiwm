@@ -2317,12 +2317,17 @@ void resize(Client *c, struct wlr_box geo, int interact) {
   wlr_scene_subsurface_tree_set_clip(&c->scene_surface->node, &clip);
 
   if (corner_radius > 0 && c->round_border) {
+    int radius = effective_corner_radius(c);
+    enum corner_location corners = radius ? set_client_corner_location(c)
+                                          : CORNER_LOCATION_NONE;
+    if (radius && corners == CORNER_LOCATION_NONE)
+      radius = 0;
     wlr_scene_node_set_position(&c->round_border->node, 0, 0);
     wlr_scene_rect_set_size(c->round_border, c->geom.width, c->geom.height);
     wlr_scene_rect_set_clipped_region(
         c->round_border, (struct clipped_region){
-                             .corner_radius = c->corner_radius,
-                             .corners = set_client_corner_location(c),
+                             .corner_radius = radius,
+                             .corners = corners,
                              .area = {c->bw, c->bw,
                                       c->geom.width - c->bw * 2,
                                       c->geom.height - c->bw * 2},
@@ -3502,14 +3507,19 @@ static enum corner_location set_client_corner_location(Client *c) {
 }
 
 void client_set_shadow_blur_sigma(Client *c, int blur_sigma) {
+  int radius = effective_corner_radius(c);
+  enum corner_location corners = radius ? set_client_corner_location(c)
+                                        : CORNER_LOCATION_NONE;
+  if (radius && corners == CORNER_LOCATION_NONE)
+    radius = 0;
   wlr_scene_shadow_set_blur_sigma(c->shadow, blur_sigma);
   wlr_scene_node_set_position(&c->shadow->node, -blur_sigma, -blur_sigma);
   wlr_scene_shadow_set_size(c->shadow, c->geom.width + blur_sigma * 2,
                             c->geom.height + blur_sigma * 2);
   wlr_scene_shadow_set_clipped_region(
       c->shadow, (struct clipped_region){
-          .corner_radius = c->corner_radius,
-          .corners = set_client_corner_location(c),
+          .corner_radius = radius,
+          .corners = corners,
           .area = {blur_sigma, blur_sigma, c->geom.width,
                    c->geom.height},
       });
