@@ -3363,35 +3363,49 @@ void zoom(const Arg *arg) {
   arrange(selmon);
 }
 
-void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
-                            void *user_data) {
+static struct wlr_xdg_surface *xdg_toplevel_from_buffer(
+    struct wlr_scene_buffer *buffer, void *user_data) {
   Client *c = user_data;
   struct wlr_scene_surface *scene_surface =
       wlr_scene_surface_try_from_buffer(buffer);
   struct wlr_xdg_surface *xdg_surface;
 
   if (!scene_surface) {
-    return;
+    return NULL;
   }
 
   xdg_surface = wlr_xdg_surface_try_from_wlr_surface(scene_surface->surface);
 
   if (c && xdg_surface &&
       xdg_surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-    if (opacity) {
-      wlr_scene_buffer_set_opacity(buffer, c->opacity);
-    }
+    return xdg_surface;
+  }
+  return NULL;
+}
 
-    if (!wlr_subsurface_try_from_wlr_surface(xdg_surface->surface)) {
-      update_buffer_corner_radius(c, buffer);
+void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
+                            void *user_data) {
+  Client *c = user_data;
+  struct wlr_xdg_surface *xdg_surface =
+      xdg_toplevel_from_buffer(buffer, user_data);
 
-      if (blur) {
-        int blur_optimized = !c->isfloating || blur_xray;
-        wlr_scene_buffer_set_backdrop_blur(buffer, 1);
-        wlr_scene_buffer_set_backdrop_blur_optimized(buffer, blur_optimized);
-        wlr_scene_buffer_set_backdrop_blur_ignore_transparent(
-            buffer, blur_ignore_transparent);
-      }
+  if (!xdg_surface) {
+    return;
+  }
+
+  if (opacity) {
+    wlr_scene_buffer_set_opacity(buffer, c->opacity);
+  }
+
+  if (!wlr_subsurface_try_from_wlr_surface(xdg_surface->surface)) {
+    update_buffer_corner_radius(c, buffer);
+
+    if (blur) {
+      int blur_optimized = !c->isfloating || blur_xray;
+      wlr_scene_buffer_set_backdrop_blur(buffer, 1);
+      wlr_scene_buffer_set_backdrop_blur_optimized(buffer, blur_optimized);
+      wlr_scene_buffer_set_backdrop_blur_ignore_transparent(
+          buffer, blur_ignore_transparent);
     }
   }
 }
@@ -3399,23 +3413,17 @@ void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
 void iter_xdg_scene_buffers_blur(struct wlr_scene_buffer *buffer, int sx,
                                  int sy, void *user_data) {
   Client *c = user_data;
-  struct wlr_scene_surface *scene_surface =
-      wlr_scene_surface_try_from_buffer(buffer);
-  struct wlr_xdg_surface *xdg_surface;
+  struct wlr_xdg_surface *xdg_surface =
+      xdg_toplevel_from_buffer(buffer, user_data);
 
-  if (!scene_surface) {
+  if (!xdg_surface) {
     return;
   }
 
-  xdg_surface = wlr_xdg_surface_try_from_wlr_surface(scene_surface->surface);
-
-  if (c && xdg_surface &&
-      xdg_surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-    if (!wlr_subsurface_try_from_wlr_surface(xdg_surface->surface)) {
-      if (blur) {
-        int blur_optimized = !c->isfloating || blur_xray;
-        wlr_scene_buffer_set_backdrop_blur_optimized(buffer, blur_optimized);
-      }
+  if (!wlr_subsurface_try_from_wlr_surface(xdg_surface->surface)) {
+    if (blur) {
+      int blur_optimized = !c->isfloating || blur_xray;
+      wlr_scene_buffer_set_backdrop_blur_optimized(buffer, blur_optimized);
     }
   }
 }
@@ -3423,21 +3431,15 @@ void iter_xdg_scene_buffers_blur(struct wlr_scene_buffer *buffer, int sx,
 void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer, int sx,
                                     int sy, void *user_data) {
   Client *c = user_data;
-  struct wlr_scene_surface *scene_surface =
-      wlr_scene_surface_try_from_buffer(buffer);
-  struct wlr_xdg_surface *xdg_surface;
+  struct wlr_xdg_surface *xdg_surface =
+      xdg_toplevel_from_buffer(buffer, user_data);
 
-  if (!scene_surface) {
+  if (!xdg_surface) {
     return;
   }
 
-  xdg_surface = wlr_xdg_surface_try_from_wlr_surface(scene_surface->surface);
-
-  if (c && xdg_surface &&
-      xdg_surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-    if (opacity) {
-      wlr_scene_buffer_set_opacity(buffer, c->opacity);
-    }
+  if (opacity) {
+    wlr_scene_buffer_set_opacity(buffer, c->opacity);
   }
 }
 
@@ -3445,20 +3447,14 @@ void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
                                           int sx, int sy,
                                           void *user_data) {
   Client *c = user_data;
-  struct wlr_scene_surface *scene_surface =
-      wlr_scene_surface_try_from_buffer(buffer);
-  struct wlr_xdg_surface *xdg_surface;
+  struct wlr_xdg_surface *xdg_surface =
+      xdg_toplevel_from_buffer(buffer, user_data);
 
-  if (!scene_surface) {
+  if (!xdg_surface) {
     return;
   }
 
-  xdg_surface = wlr_xdg_surface_try_from_wlr_surface(scene_surface->surface);
-
-  if (c && xdg_surface &&
-      xdg_surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-    update_buffer_corner_radius(c, buffer);
-  }
+  update_buffer_corner_radius(c, buffer);
 }
 
 void output_configure_scene(struct wlr_scene_node *node, Client *c) {
@@ -3478,24 +3474,17 @@ void output_configure_scene(struct wlr_scene_node *node, Client *c) {
   if (node->type == WLR_SCENE_NODE_BUFFER) {
     struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
 
-    struct wlr_scene_surface *scene_surface =
-        wlr_scene_surface_try_from_buffer(buffer);
-    if (!scene_surface) {
+    xdg_surface = xdg_toplevel_from_buffer(buffer, c);
+    if (!xdg_surface) {
       return;
     }
 
-    xdg_surface =
-        wlr_xdg_surface_try_from_wlr_surface(scene_surface->surface);
+    if (opacity) {
+      wlr_scene_buffer_set_opacity(buffer, c->opacity);
+    }
 
-    if (c && xdg_surface &&
-        xdg_surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-      if (opacity) {
-        wlr_scene_buffer_set_opacity(buffer, c->opacity);
-      }
-
-      if (!wlr_subsurface_try_from_wlr_surface(xdg_surface->surface)) {
-        update_buffer_corner_radius(c, buffer);
-      }
+    if (!wlr_subsurface_try_from_wlr_surface(xdg_surface->surface)) {
+      update_buffer_corner_radius(c, buffer);
     }
   } else if (node->type == WLR_SCENE_NODE_TREE) {
     struct wlr_scene_tree *tree = wl_container_of(node, tree, node);
