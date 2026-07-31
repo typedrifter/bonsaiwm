@@ -2608,6 +2608,9 @@ void reload_decorations(void) {
   wl_list_for_each(c, &clients, link) {
     c->corner_radius = corner_radius;
 
+    if (client_is_unmanaged(c))
+      continue;
+
     /* The per-client scenefx nodes are normally born once at map time, so a
      * master-flag toggle only reached new windows. Rebuild them here to honor
      * toggles for existing clients. */
