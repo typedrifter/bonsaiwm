@@ -49,10 +49,10 @@ bonsaiwm = {
 
 		-- drop shadows behind clients
 		shadow = {
-			enabled = false, -- master switch
+			enabled = true, -- master switch
 			only_floating = false, -- only shadow floating clients
-			color = "#0000FFFF", -- shadow color (unfocused clients)
-			color_focus = "#FF0000FF", -- shadow color (focused client)
+			color = "#00000066", -- shadow color (unfocused clients)
+			color_focus = "#00000099", -- shadow color (focused client)
 			blur_sigma = 20, -- shadow blur radius (unfocused)
 			blur_sigma_focus = 40, -- shadow blur radius (focused)
 			-- app-ids that never get a shadow (substring match against app_id/

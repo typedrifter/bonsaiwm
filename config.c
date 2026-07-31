@@ -33,8 +33,8 @@ float opacity_active = 1.0f;
 
 int shadow = 0;               /* flag to enable shadow */
 int shadow_only_floating = 0; /* only apply shadow to floating windows */
-float shadow_color[4] = COLOR(0x0000FFff);
-float shadow_color_focus[4] = COLOR(0xFF0000ff);
+float shadow_color[4] = COLOR(0x00000066);
+float shadow_color_focus[4] = COLOR(0x00000099);
 int shadow_blur_sigma = 20;
 int shadow_blur_sigma_focus = 40;
 char **shadow_ignore_list = NULL; /* list of app-id to ignore */
