@@ -2606,6 +2606,8 @@ void reload_blur(void) {
 void reload_decorations(void) {
   Client *c;
   wl_list_for_each(c, &clients, link) {
+    c->corner_radius = corner_radius;
+
     /* The per-client scenefx nodes are normally born once at map time, so a
      * master-flag toggle only reached new windows. Rebuild them here to honor
      * toggles for existing clients. */
