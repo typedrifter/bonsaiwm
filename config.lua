@@ -1,16 +1,30 @@
 bonsaiwm = {
+	-- Gaps
 	enablegaps = 1,
 	smartgaps = 0,
 	gappoh = 40,
 	gappov = 40,
 	gappih = 80,
 	gappiv = 80,
+
+	-- Focus
 	sloppyfocus = 1,
+
+	-- Window borders
 	borderpx = 1,
+	border_unfocused = "#414868ff",
+	border_focused = "#7aa2f7ff",
+	border_urgent = "#f7768eff",
+
+	-- Background
+	bg = "#1a1b26ff",
+	fullscreen_bg = "#1a1b26ff",
+
+	-- Keyboard repeat
 	repeat_rate = 25,
 	repeat_delay = 600,
 
-	-- keyboard layout (XKB RMLVO); all fields optional, nil = xkbcommon default.
+	-- Keyboard layout (XKB RMLVO); all fields optional, nil = xkbcommon default.
 	-- applied live on Mod-Shift-R reload.
 	--   rules:   usually "evdev" (default)
 	--   model:   usually "pc104" (default)
@@ -21,67 +35,7 @@ bonsaiwm = {
 		-- options = "ctrl:nocaps",
 	},
 
-	-- colors: "#RRGGBB" or "#RRGGBBAA"
-	rootcolor = "#1a1b26ff",
-	bordercolor = "#414868ff",
-	focuscolor = "#7aa2f7ff",
-	urgentcolor = "#f7768eff",
-	fullscreen_bg = "#1a1b26ff",
-
-	-- SceneFX visual effects: rounded corners, drop shadows, backdrop blur and
-	-- per-client opacity. The table is optional and grouped into four logical
-	-- sub-tables; every field is optional, so any subset is a valid override —
-	-- omitted fields keep the compiled-in defaults shown below.
-	--
-	-- Reload (Mod-Shift-R) applies changes live: value tweaks (colors, radii,
-	-- blur sigmas, opacity levels, blur params) and structural toggles
-	-- (shadow/corner_radius/blur on/off) are re-applied to already-mapped
-	-- windows.
-	-- Boolean flags also accept 1/0 to match the integer-flag convention used
-	-- elsewhere in this config.
-	scenefx = {
-		-- per-client opacity: dim unfocused windows
-		opacity = {
-			enabled = true, -- master switch
-			active = 0.9, -- opacity of the focused client
-			inactive = 0.7, -- opacity of unfocused clients
-		},
-
-		-- drop shadows behind clients
-		shadow = {
-			enabled = true, -- master switch
-			only_floating = false, -- only shadow floating clients
-			color = "#00000066", -- shadow color (unfocused clients)
-			color_focus = "#00000099", -- shadow color (focused client)
-			blur_sigma = 20, -- shadow blur radius (unfocused)
-			blur_sigma_focus = 40, -- shadow blur radius (focused)
-			-- app-ids that never get a shadow (substring match against app_id/
-			-- class), e.g. { "firefox", "discord" }. Empty = shadow everything.
-			ignore_list = {},
-		},
-
-		-- rounded corners
-		corner_radius = {
-			radius = 5, -- corner radius in pixels (0 = square)
-			only_floating = false, -- only round floating clients
-			no_radius_when_single = true, -- square corners with one tiled client
-		},
-
-		-- backdrop blur behind clients
-		blur = {
-			enabled = true, -- master switch
-			xray = false, -- let transparent fullscreen/floating show bg
-			ignore_transparent = true, -- don't blur transparent regions
-			radius = 5,
-			num_passes = 3,
-			noise = 0.02,
-			brightness = 0.9,
-			contrast = 0.9,
-			saturation = 1.1,
-		},
-	},
-
-	-- window rules: id and title are substring matches (nil = match any).
+	-- Window rules: id and title are substring matches (nil = match any).
 	--   id:         app_id (Wayland) or class (X11)
 	--   title:      window title
 	--   tags:       tag NUMBER 1-9 (1 = tag 1, 9 = tag 9), 0 = keep currently
@@ -99,6 +53,8 @@ bonsaiwm = {
 		-- user rule:
 		{ id = "helium", title = nil, isfloating = 1, tags = 0, monitor = -1 },
 	},
+
+	-- Layouts
 	layouts = {
 		{ symbol = "Float", arrange = 0 },
 		{
@@ -108,10 +64,10 @@ bonsaiwm = {
 		{ symbol = "Monocle", arrange = 2 },
 	},
 
-	-- keymaps: lua entries take precedence over C defaults. The C defaults are
-	-- just escape hatches (Mod-Shift-R reload, Ctrl-Alt-Fn VT switch) so
-	-- they're always available even if this table is broken; everything else
-	-- must be defined here.
+	-- Key bindings: lua entries take precedence over C defaults. The C
+	-- defaults are just escape hatches (Mod-Shift-R reload, Ctrl-Alt-Fn VT
+	-- switch) so they're always available even if this table is broken;
+	-- everything else must be defined here.
 	--
 	-- mod:    case-insensitive modifiers joined with "+", e.g. "Alt",
 	--         "Alt+Shift", "Ctrl+Alt". "none" = no modifier required.
