@@ -1858,25 +1858,21 @@ void mapnotify(struct wl_listener *listener, void *data) {
   wlr_scene_node_for_each_buffer(&c->scene_surface->node,
                                  iter_xdg_scene_buffers, c);
 
-  if (client_supports_scenefx(c)) {
-    if (corner_radius > 0) {
-      c->round_border = wlr_scene_rect_create(
-          c->scene, 0, 0, c->isurgent ? urgentcolor : bordercolor);
-      c->round_border->node.data = c;
-      wlr_scene_node_lower_to_bottom(&c->round_border->node);
+  if (corner_radius > 0) {
+    c->round_border = wlr_scene_rect_create(
+        c->scene, 0, 0, c->isurgent ? urgentcolor : bordercolor);
+    c->round_border->node.data = c;
+    wlr_scene_node_lower_to_bottom(&c->round_border->node);
 
-      for (i = 0; i < 4; i++) {
-        wlr_scene_rect_set_color(c->border[i], transparent);
-      }
+    for (i = 0; i < 4; i++) {
+      wlr_scene_rect_set_color(c->border[i], transparent);
     }
   }
 
-  if (client_supports_scenefx(c)) {
-    if (shadow) {
-      c->shadow = wlr_scene_shadow_create(c->scene, 0, 0, c->corner_radius,
-                                          shadow_blur_sigma, shadow_color);
-      wlr_scene_node_lower_to_bottom(&c->shadow->node);
-    }
+  if (shadow) {
+    c->shadow = wlr_scene_shadow_create(c->scene, 0, 0, c->corner_radius,
+                                        shadow_blur_sigma, shadow_color);
+    wlr_scene_node_lower_to_bottom(&c->shadow->node);
   }
 
   /* Initialize client geometry with room for border */
@@ -3343,33 +3339,34 @@ void zoom(const Arg *arg) {
   arrange(selmon);
 }
 
-static struct wlr_xdg_surface *xdg_toplevel_from_buffer(
-    struct wlr_scene_buffer *buffer, void *user_data) {
-  Client *c = user_data;
-  struct wlr_scene_surface *scene_surface =
-      wlr_scene_surface_try_from_buffer(buffer);
-  struct wlr_xdg_surface *xdg_surface;
+static struct wlr_surface *client_surface_from_buffer(
+    struct wlr_scene_buffer *buffer, Client *c) {
+  struct wlr_scene_surface *scene_surface;
+  struct wlr_surface *surface;
 
+  if (!c || (c->type != XDGShell && c->type != X11)) {
+    return NULL;
+  }
+
+  scene_surface = wlr_scene_surface_try_from_buffer(buffer);
   if (!scene_surface) {
     return NULL;
   }
 
-  xdg_surface = wlr_xdg_surface_try_from_wlr_surface(scene_surface->surface);
-
-  if (c && xdg_surface &&
-      xdg_surface->role == WLR_XDG_SURFACE_ROLE_TOPLEVEL) {
-    return xdg_surface;
+  surface = scene_surface->surface;
+  if (surface != client_surface(c)) {
+    return NULL;
   }
-  return NULL;
+  return surface;
 }
 
 void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
                             void *user_data) {
   Client *c = user_data;
-  struct wlr_xdg_surface *xdg_surface =
-      xdg_toplevel_from_buffer(buffer, user_data);
+  struct wlr_surface *surface =
+      client_surface_from_buffer(buffer, user_data);
 
-  if (!xdg_surface) {
+  if (!surface) {
     return;
   }
 
@@ -3377,44 +3374,40 @@ void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
     wlr_scene_buffer_set_opacity(buffer, c->opacity);
   }
 
-  if (!wlr_subsurface_try_from_wlr_surface(xdg_surface->surface)) {
-    update_buffer_corner_radius(c, buffer);
+  update_buffer_corner_radius(c, buffer);
 
-    if (blur) {
-      int blur_optimized = !c->isfloating || blur_xray;
-      wlr_scene_buffer_set_backdrop_blur(buffer, 1);
-      wlr_scene_buffer_set_backdrop_blur_optimized(buffer, blur_optimized);
-      wlr_scene_buffer_set_backdrop_blur_ignore_transparent(
-          buffer, blur_ignore_transparent);
-    }
+  if (blur) {
+    int blur_optimized = !c->isfloating || blur_xray;
+    wlr_scene_buffer_set_backdrop_blur(buffer, 1);
+    wlr_scene_buffer_set_backdrop_blur_optimized(buffer, blur_optimized);
+    wlr_scene_buffer_set_backdrop_blur_ignore_transparent(
+        buffer, blur_ignore_transparent);
   }
 }
 
 void iter_xdg_scene_buffers_blur(struct wlr_scene_buffer *buffer, int sx,
                                  int sy, void *user_data) {
   Client *c = user_data;
-  struct wlr_xdg_surface *xdg_surface =
-      xdg_toplevel_from_buffer(buffer, user_data);
+  struct wlr_surface *surface =
+      client_surface_from_buffer(buffer, user_data);
 
-  if (!xdg_surface) {
+  if (!surface) {
     return;
   }
 
-  if (!wlr_subsurface_try_from_wlr_surface(xdg_surface->surface)) {
-    if (blur) {
-      int blur_optimized = !c->isfloating || blur_xray;
-      wlr_scene_buffer_set_backdrop_blur_optimized(buffer, blur_optimized);
-    }
+  if (blur) {
+    int blur_optimized = !c->isfloating || blur_xray;
+    wlr_scene_buffer_set_backdrop_blur_optimized(buffer, blur_optimized);
   }
 }
 
 void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer, int sx,
                                     int sy, void *user_data) {
   Client *c = user_data;
-  struct wlr_xdg_surface *xdg_surface =
-      xdg_toplevel_from_buffer(buffer, user_data);
+  struct wlr_surface *surface =
+      client_surface_from_buffer(buffer, user_data);
 
-  if (!xdg_surface) {
+  if (!surface) {
     return;
   }
 
@@ -3427,10 +3420,10 @@ void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
                                           int sx, int sy,
                                           void *user_data) {
   Client *c = user_data;
-  struct wlr_xdg_surface *xdg_surface =
-      xdg_toplevel_from_buffer(buffer, user_data);
+  struct wlr_surface *surface =
+      client_surface_from_buffer(buffer, user_data);
 
-  if (!xdg_surface) {
+  if (!surface) {
     return;
   }
 
@@ -3439,7 +3432,7 @@ void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
 
 void apply_output_scene_effects(struct wlr_scene_node *node, Client *c) {
   Client *_c;
-  struct wlr_xdg_surface *xdg_surface;
+  struct wlr_surface *surface;
   struct wlr_scene_node *_node;
 
   /* Buffer commits reset opacity/corner-radius, so re-apply each frame. */
@@ -3455,8 +3448,8 @@ void apply_output_scene_effects(struct wlr_scene_node *node, Client *c) {
   if (node->type == WLR_SCENE_NODE_BUFFER) {
     struct wlr_scene_buffer *buffer = wlr_scene_buffer_from_node(node);
 
-    xdg_surface = xdg_toplevel_from_buffer(buffer, c);
-    if (!xdg_surface) {
+    surface = client_surface_from_buffer(buffer, c);
+    if (!surface) {
       return;
     }
 
@@ -3464,9 +3457,7 @@ void apply_output_scene_effects(struct wlr_scene_node *node, Client *c) {
       wlr_scene_buffer_set_opacity(buffer, c->opacity);
     }
 
-    if (!wlr_subsurface_try_from_wlr_surface(xdg_surface->surface)) {
-      update_buffer_corner_radius(c, buffer);
-    }
+    update_buffer_corner_radius(c, buffer);
   } else if (node->type == WLR_SCENE_NODE_TREE) {
     struct wlr_scene_tree *tree = wl_container_of(node, tree, node);
     wl_list_for_each(_node, &tree->children, link) {
@@ -3548,11 +3539,9 @@ void update_client_corner_radius(Client *c) {
                                             : CORNER_LOCATION_NONE);
   }
 
-  if (client_supports_scenefx(c)) {
-    if (corner_radius > 0 && c->scene) {
-      wlr_scene_node_for_each_buffer(&c->scene_surface->node,
-                                     iter_xdg_scene_buffers_corner_radius, c);
-    }
+  if (corner_radius > 0 && c->scene) {
+    wlr_scene_node_for_each_buffer(&c->scene_surface->node,
+                                   iter_xdg_scene_buffers_corner_radius, c);
   }
 }
 
@@ -3577,10 +3566,6 @@ void apply_client_decorations(Client *c) {
 }
 
 void update_buffer_corner_radius(Client *c, struct wlr_scene_buffer *buffer) {
-  if (!client_supports_scenefx(c)) {
-    return;
-  }
-
   if (!corner_radius) {
     return;
   }
@@ -3684,6 +3669,9 @@ void createnotifyx11(struct wl_listener *listener, void *data) {
   c->surface.xwayland = xsurface;
   c->type = X11;
   c->bw = client_is_unmanaged(c) ? 0 : config.borderpx;
+
+  c->opacity = opacity;
+  c->corner_radius = corner_radius;
 
   /* Listen to the various events it can emit */
   LISTEN(&xsurface->events.associate, &c->associate, associatex11);
