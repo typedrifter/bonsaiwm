@@ -3478,6 +3478,9 @@ void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
 }
 
 void apply_output_scene_effects(struct wlr_scene_node *node, Client *c) {
+  if (!opacity && !corner_radius)
+    return;
+
   Client *_c;
   struct wlr_surface *surface;
   struct wlr_scene_node *_node;
