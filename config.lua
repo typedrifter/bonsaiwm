@@ -16,6 +16,7 @@ bonsaiwm = {
 	-- border width and colors. Every field is optional.
 	border = {
 		width = 1,
+		smart = false, -- no border when only one tiled client
 		color = "#414868ff",
 		color_focus = "#7aa2f7ff",
 		color_urgent = "#f7768eff",

@@ -312,6 +312,7 @@ static void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requeststartdrag(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
 static void resize(Client *c, struct wlr_box geo, int interact);
+static int visible_tiling_clients(Monitor *m);
 static void run(char *startup_cmd);
 static void setcursor(struct wl_listener *listener, void *data);
 static void setcursorshape(struct wl_listener *listener, void *data);
@@ -2299,16 +2300,23 @@ void resize(Client *c, struct wlr_box geo, int interact) {
   applybounds(c, bbox);
 
   /* Update scene-graph, including borders */
+  unsigned int border_smart_eff =
+      (border_smart && visible_tiling_clients(c->mon) == 1) ? 0 : c->bw;
   wlr_scene_node_set_position(&c->scene->node, c->geom.x, c->geom.y);
-  wlr_scene_node_set_position(&c->scene_surface->node, c->bw, c->bw);
-  wlr_scene_rect_set_size(c->border[0], c->geom.width, c->bw);
-  wlr_scene_rect_set_size(c->border[1], c->geom.width, c->bw);
-  wlr_scene_rect_set_size(c->border[2], c->bw, c->geom.height - 2 * c->bw);
-  wlr_scene_rect_set_size(c->border[3], c->bw, c->geom.height - 2 * c->bw);
-  wlr_scene_node_set_position(&c->border[1]->node, 0, c->geom.height - c->bw);
-  wlr_scene_node_set_position(&c->border[2]->node, 0, c->bw);
-  wlr_scene_node_set_position(&c->border[3]->node, c->geom.width - c->bw,
-                              c->bw);
+  wlr_scene_node_set_position(&c->scene_surface->node, border_smart_eff,
+                              border_smart_eff);
+  wlr_scene_rect_set_size(c->border[0], c->geom.width, border_smart_eff);
+  wlr_scene_rect_set_size(c->border[1], c->geom.width, border_smart_eff);
+  wlr_scene_rect_set_size(c->border[2], border_smart_eff,
+                          c->geom.height - 2 * border_smart_eff);
+  wlr_scene_rect_set_size(c->border[3], border_smart_eff,
+                          c->geom.height - 2 * border_smart_eff);
+  wlr_scene_node_set_position(&c->border[1]->node, 0,
+                              c->geom.height - border_smart_eff);
+  wlr_scene_node_set_position(&c->border[2]->node, 0, border_smart_eff);
+  wlr_scene_node_set_position(&c->border[3]->node,
+                              c->geom.width - border_smart_eff,
+                              border_smart_eff);
 
   /* this is a no-op if size hasn't changed */
   c->resize =

@@ -20,6 +20,8 @@
 ---@class bonsaiwm.Border
 ---Border width in pixels.
 ---@field width integer
+---When true, hide border when only one tiled client is visible. Also accepts `1`/`0`.
+---@field smart boolean|integer
 ---Color of the unfocused-client border, as a hex string.
 ---@field color string
 ---Color of the focused-client border, as a hex string.

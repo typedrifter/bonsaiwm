@@ -44,6 +44,7 @@ int corner_radius = 5; /* 0 disables corner_radius */
 int corner_radius_only_floating =
     0; /* only apply corner_radius to floating windows */
 int no_radius_when_single = 1; /* 0 disables no_radius_when_single */
+int border_smart = 0; /* 1 removes border when only one tiled client */
 
 int blur = 1;      /* flag to enable blur */
 int blur_xray = 0; /* flag to make transparent fs and floating windows
@@ -550,6 +551,7 @@ static void borders_load_from_lua(void) {
   }
   lua_pop(L, 1);
 
+  lua_get_flag_field(L, "smart", &border_smart);
   lua_get_color_field(L, "color", border_color);
   lua_get_color_field(L, "color_focus", border_color_focus);
   lua_get_color_field(L, "color_urgent", border_color_urgent);
