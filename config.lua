@@ -6,7 +6,6 @@ bonsaiwm = {
 	gappih = 80,
 	gappiv = 80,
 	sloppyfocus = 1,
-	borderpx = 1,
 	repeat_rate = 25,
 	repeat_delay = 600,
 
@@ -23,10 +22,15 @@ bonsaiwm = {
 
 	-- colors: "#RRGGBB" or "#RRGGBBAA"
 	background = "#1a1b26ff",
-	border_color = "#414868ff",
-	border_color_focus = "#7aa2f7ff",
-	border_color_urgent = "#f7768eff",
 	fullscreen_background = "#1a1b26ff",
+
+	-- border width and colors. Every field is optional.
+	border = {
+		width = 1,
+		color = "#414868ff",
+		color_focus = "#7aa2f7ff",
+		color_urgent = "#f7768eff",
+	},
 
 	-- Visual effects: opacity, shadows, rounded corners, backdrop blur.
 	-- All tables are optional; every field is optional, so any subset is a

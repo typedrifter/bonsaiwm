@@ -165,6 +165,23 @@
 --- 	num_passes = 3,
 --- }
 
+---@class bonsaiwm.Border
+---Border width in pixels.
+---@field width integer
+---Color of the unfocused-client border, as a hex string.
+---@field color string
+---Color of the focused-client border, as a hex string.
+---@field color_focus string
+---Color of the urgent-client border, as a hex string.
+---@field color_urgent string
+---@example
+--- bonsaiwm.border = {
+--- 	width = 2,
+--- 	color = "#414868ff",
+--- 	color_focus = "#7aa2f7ff",
+--- 	color_urgent = "#f7768eff",
+--- }
+
 ---@class bonsaiwm
 ---Enables tiling gaps when nonzero.
 ---@field enablegaps integer
@@ -180,8 +197,6 @@
 ---@field gappiv integer
 ---When nonzero, focus follows the pointer (focus the window under the cursor).
 ---@field sloppyfocus integer
----Border thickness around clients (pixels).
----@field borderpx integer
 ---Keyboard repeat rate (keys per second).
 ---@field repeat_rate integer
 ---Keyboard repeat delay (ms) before a held key starts repeating.
@@ -193,14 +208,11 @@
 ---@field xkb_rules bonsaiwm.XkbRules
 ---Root (background) color as a hex string, e.g. "#1a1b26" or "#1a1b26ff".
 ---@field background string
----Unfocused-client border color. Hex string.
----@field border_color string
----Focused-client border color. Hex string.
----@field border_color_focus string
----Urgent-client border color. Hex string.
----@field border_color_urgent string
 ---Backdrop color shown behind a fullscreen client. Hex string.
 ---@field fullscreen_background string
+---Border width and colors. Every field is optional; omitted fields keep
+---compiled-in defaults.
+---@field border? bonsaiwm.Border
 ---Visual effects: per-client opacity, drop shadows, rounded corners, and
 ---backdrop blur. Grouped into four optional tables; any subset is a valid
 ---override, and omitted fields keep the compiled-in defaults. Applied live

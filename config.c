@@ -86,13 +86,9 @@ static const struct {
     {"gappih", NULL, &config.gappih, NULL},
     {"gappiv", NULL, &config.gappiv, NULL},
     {"sloppyfocus", &config.sloppyfocus, NULL, NULL},
-    {"borderpx", NULL, &config.borderpx, NULL},
     {"repeat_rate", &config.repeat_rate, NULL, NULL},
     {"repeat_delay", &config.repeat_delay, NULL, NULL},
     {"background", NULL, NULL, background},
-    {"border_color", NULL, NULL, border_color},
-    {"border_color_focus", NULL, NULL, border_color_focus},
-    {"border_color_urgent", NULL, NULL, border_color_urgent},
     {"fullscreen_background", NULL, NULL, fullscreen_background},
 };
 
@@ -495,6 +491,31 @@ static void shadow_ignore_list_load_from_lua(void) {
   shadow_ignore_list_count = valid;
 }
 
+/* ─── border config loader ─────────────────────────────────────────────────
+ * Read bonsaiwm.border.{width, color, color_focus, color_urgent} as a flat
+ * table. Every field is optional; absent or wrong-typed fields leave the
+ * compiled-in default untouched. */
+static void borders_load_from_lua(void) {
+  lua_getglobal(L, "bonsaiwm");
+  if (!lua_get_subtable(L, "border")) {
+    lua_pop(L, 1);
+    return;
+  }
+
+  lua_getfield(L, -1, "width");
+  if (lua_isinteger(L, -1)) {
+    int v = (int)lua_tointeger(L, -1);
+    config.borderpx = (v < 0) ? 0 : (unsigned)v;
+  }
+  lua_pop(L, 1);
+
+  lua_get_color_field(L, "color", border_color);
+  lua_get_color_field(L, "color_focus", border_color_focus);
+  lua_get_color_field(L, "color_urgent", border_color_urgent);
+
+  lua_pop(L, 2);
+}
+
 /* read the four optional top-level decoration tables from bonsaiwm (opacity,
  * shadow, corner_radius, blur) and populate the C globals. Absent tables or
  * fields keep their compiled-in defaults, so any subset is a valid override.
@@ -859,7 +880,7 @@ void load_config() {
       if (config_schema[i].as_int)
         *config_schema[i].as_int = v;
       if (config_schema[i].as_uint) {
-        /* unsigned fields (borderpx, gaps) cannot be negative; a
+        /* unsigned fields (gaps) cannot be negative; a
          * negative lua value would silently wrap to a huge unsigned
          * via the cast below, producing broken layout geometry. Clamp
          * to zero instead. */
@@ -878,6 +899,7 @@ void load_config() {
     lua_pop(L, 1);
   }
   lua_pop(L, 1);
+  borders_load_from_lua();
   xkb_rules_load_from_lua();
   rules_load_from_lua();
   layouts_load_from_lua();
