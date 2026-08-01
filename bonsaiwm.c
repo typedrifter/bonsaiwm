@@ -2209,7 +2209,7 @@ void printstatus(void) {
 
     printf("%s gaps %u %u %u %u\n", m->wlr_output->name, m->gappoh, m->gappov,
            m->gappih, m->gappiv);
-    printf("%s smartgaps %u\n", m->wlr_output->name, config.smartgaps);
+    printf("%s gap.smart %u\n", m->wlr_output->name, config.smartgaps);
     printf("%s selmon %u\n", m->wlr_output->name, m == selmon);
     printf("%s tags %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 "\n",
            m->wlr_output->name, occ, m->tagset[m->seltags], sel, urg);

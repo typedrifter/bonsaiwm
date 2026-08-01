@@ -1,23 +1,12 @@
 bonsaiwm = {
-	enablegaps = 1,
-	smartgaps = 0,
-	gappoh = 40,
-	gappov = 40,
-	gappih = 80,
-	gappiv = 80,
-	sloppyfocus = 1,
-	repeat_rate = 25,
-	repeat_delay = 600,
-
-	-- keyboard layout (XKB RMLVO); all fields optional, nil = xkbcommon default.
-	-- applied live on Mod-Shift-R reload.
-	--   rules:   usually "evdev" (default)
-	--   model:   usually "pc104" (default)
-	--   layout:  e.g. "us", "fr", "de" (comma-separated for multiple)
-	--   variant: e.g. "dvorak", "colemak"
-	--   options: e.g. "ctrl:nocaps" (CapsLock as Ctrl), "compose:menu"
-	xkb_rules = {
-		-- options = "ctrl:nocaps",
+	-- gaps between clients and screen edges
+	gap = {
+		enabled = true,
+		smart = false, -- remove outer gaps when only one tiled client
+		inner_h = 80,
+		inner_v = 80,
+		outer_h = 40,
+		outer_v = 40,
 	},
 
 	-- colors: "#RRGGBB" or "#RRGGBBAA"
@@ -32,49 +21,68 @@ bonsaiwm = {
 		color_urgent = "#f7768eff",
 	},
 
+	sloppy_focus = true,
+	repeat_rate = 25,
+	repeat_delay = 600,
+
+	-- keyboard layout (XKB RMLVO); all fields optional, nil = xkbcommon default.
+	-- applied live on Mod-Shift-R reload.
+	--   rules:   usually "evdev" (default)
+	--   model:   usually "pc104" (default)
+	--   layout:  e.g. "us", "fr", "de" (comma-separated for multiple)
+	--   variant: e.g. "dvorak", "colemak"
+	--   options: e.g. "ctrl:nocaps" (CapsLock as Ctrl), "compose:menu"
+	xkb_rules = {
+		-- options = "ctrl:nocaps",
+	},
+
 	-- Visual effects: opacity, shadows, rounded corners, backdrop blur.
-	-- All tables are optional; every field is optional, so any subset is a
-	-- valid override — omitted fields keep the compiled-in defaults shown.
-	-- Reload (Mod-Shift-R) applies changes live: value tweaks and structural
-	-- toggles are re-applied to already-mapped windows.
-	-- Boolean flags also accept 1/0 to match the integer-flag convention.
-	opacity = {
-		enabled = true, -- master switch
-		active = 0.9, -- opacity of the focused client
-		inactive = 0.7, -- opacity of unfocused clients
-	},
+	-- All sub-tables are optional; every field within is optional, so any
+	-- subset is a valid override — omitted fields keep the compiled-in
+	-- defaults shown below. Reload (Mod-Shift-R) applies changes live:
+	-- value tweaks and structural toggles are re-applied to already-mapped
+	-- windows. Boolean flags also accept 1/0 to match the integer-flag
+	-- convention.
+	decoration = {
+		-- per-client opacity
+		opacity = {
+			enabled = false, -- master switch
+			active = 0.9, -- opacity of the focused client
+			inactive = 0.7, -- opacity of unfocused clients
+		},
 
-	-- drop shadows behind clients
-	shadow = {
-		enabled = true, -- master switch
-		only_floating = false, -- only shadow floating clients
-		color = "#00000066", -- shadow color (unfocused clients)
-		color_focus = "#00000099", -- shadow color (focused client)
-		blur_sigma = 20, -- shadow blur radius (unfocused)
-		blur_sigma_focus = 40, -- shadow blur radius (focused)
-		-- app-ids that never get a shadow (substring match against app_id/
-		-- class), e.g. { "firefox", "discord" }. Empty = shadow everything.
-		ignore_list = {},
-	},
+		-- drop shadows behind clients
+		shadow = {
+			enabled = false, -- master switch
+			color = "#00000066", -- shadow color (unfocused clients)
+			color_focus = "#00000099", -- shadow color (focused client)
+			only_floating = false, -- only shadow floating clients
+			blur_sigma = 20, -- shadow blur radius (unfocused)
+			blur_sigma_focus = 40, -- shadow blur radius (focused)
+			-- app-ids that never get a shadow (substring match against app_id/
+			-- class), e.g. { "firefox", "discord" }. Empty = shadow everything.
+			ignore_list = {},
+		},
 
-	-- rounded corners
-	corner_radius = {
-		radius = 5, -- corner radius in pixels (0 = square)
-		only_floating = false, -- only round floating clients
-		no_radius_when_single = true, -- square corners with one tiled client
-	},
+		-- rounded corners
+		corner_radius = {
+			radius = 5, -- corner radius in pixels (0 = square)
+			only_floating = false, -- only round floating clients
+			smart = true, -- square corners when only one tiled client
+		},
 
-	-- backdrop blur behind clients
-	blur = {
-		enabled = true, -- master switch
-		xray = false, -- let transparent fullscreen/floating show bg
-		ignore_transparent = true, -- don't blur transparent regions
-		radius = 5,
-		num_passes = 3,
-		noise = 0.02,
-		brightness = 0.9,
-		contrast = 0.9,
-		saturation = 1.1,
+		-- backdrop blur behind clients
+		blur = {
+			enabled = false, -- master switch
+			xray = false, -- let transparent fullscreen/floating show bg
+			ignore_transparent = true, -- don't blur transparent regions
+			radius = 5,
+			num_passes = 3,
+			noise = 0.02,
+			brightness = 0.9,
+			contrast = 0.9,
+			saturation = 1.1,
+		},
 	},
 
 	-- window rules: id and title are substring matches (nil = match any).
