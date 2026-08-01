@@ -1597,7 +1597,7 @@ void gpureset(struct wl_listener *listener, void *data) {
   struct wlr_renderer *old_drw = drw;
   struct wlr_allocator *old_alloc = alloc;
   struct Monitor *m;
-  if (!(drw = wlr_renderer_autocreate(backend)))
+  if (!(drw = fx_renderer_create(backend)))
     die("couldn't recreate renderer");
 
   if (!(alloc = wlr_allocator_autocreate(backend, drw)))
