@@ -413,12 +413,12 @@ static void layouts_load_from_lua(void) {
   lua_pop(L, 2);
 }
 
-/* ─── scenefx config loaders ──────────────────────────────────────────────
- * The bonsaiwm.scenefx table is grouped into four logical sub-tables —
- * opacity, shadow, corner_radius, blur — mirroring how the C constants are
- * organized. Each scalar/color field is optional: an absent or wrong-typed
- * field leaves the compiled-in default untouched, so a partial scenefx table
- * is valid and only overrides what it names. The shadow.ignore_list string
+/* ─── appearance / decoration config loaders ───────────────────────────────
+ * Opacity, shadow, corner-radius and blur are read from four optional
+ * top-level tables on the bonsaiwm config: opacity, shadow, corner_radius,
+ * and blur. Each scalar/color field is optional: an absent or wrong-typed
+ * field leaves the compiled-in default untouched, so a partial table is
+ * valid and only overrides what it names. The shadow.ignore_list string
  * array is rebuilt wholesale (like rules[]) on every reload. */
 
 /* read an integer field from the table on top of the stack. Absent or
@@ -444,7 +444,7 @@ static void lua_get_color_field(lua_State *L, const char *key, float out[4]) {
   lua_getfield(L, -1, key);
   if (lua_isstring(L, -1)) {
     if (hex_to_rgba(lua_tostring(L, -1), out) < 0)
-      wlr_log(WLR_ERROR, "invalid color for scenefx.%s: %s", key,
+      wlr_log(WLR_ERROR, "invalid color for %s: %s", key,
               lua_tostring(L, -1));
   }
   lua_pop(L, 1);
@@ -475,8 +475,8 @@ static bool lua_get_subtable(lua_State *L, const char *key) {
   return true;
 }
 
-/* read bonsaiwm.scenefx.shadow.ignore_list (a string array) into the
- * heap-allocated shadow_ignore_list. Caller must have freed any prior list
+/* read bonsaiwm.shadow.ignore_list (a string array) into the heap-allocated
+ * shadow_ignore_list. Caller must have freed any prior list
  * (shadow_ignore_list_free). Non-string entries are skipped. An empty or
  * absent list yields NULL + count 0; in_shadow_ignore_list iterates by count
  * so NULL is safe. */
@@ -495,20 +495,17 @@ static void shadow_ignore_list_load_from_lua(void) {
   shadow_ignore_list_count = valid;
 }
 
-/* read the whole bonsaiwm.scenefx table and populate the C globals. Absent
- * sub-tables or fields keep their compiled-in defaults, so any subset is a
- * valid override. The shadow_ignore_list is rebuilt wholesale. */
-static void scenefx_load_from_lua(void) {
+/* read the four optional top-level decoration tables from bonsaiwm (opacity,
+ * shadow, corner_radius, blur) and populate the C globals. Absent tables or
+ * fields keep their compiled-in defaults, so any subset is a valid override.
+ * The shadow.ignore_list is rebuilt wholesale. */
+static void decorations_load_from_lua(void) {
   lua_getglobal(L, "bonsaiwm");
-  lua_getfield(L, -1, "scenefx");
-  if (!lua_istable(L, -1)) {
-    wlr_log(WLR_INFO,
-            "no scenefx table in config.lua, using compiled-in defaults");
-    lua_pop(L, 2);
-    return;
-  }
+
+  bool found_any = false;
 
   if (lua_get_subtable(L, "opacity")) {
+    found_any = true;
     lua_get_flag_field(L, "enabled", &opacity);
     lua_get_float_field(L, "active", &opacity_active);
     lua_get_float_field(L, "inactive", &opacity_inactive);
@@ -516,15 +513,13 @@ static void scenefx_load_from_lua(void) {
   }
 
   if (lua_get_subtable(L, "shadow")) {
+    found_any = true;
     lua_get_flag_field(L, "enabled", &shadow);
     lua_get_flag_field(L, "only_floating", &shadow_only_floating);
     lua_get_color_field(L, "color", shadow_color);
     lua_get_color_field(L, "color_focus", shadow_color_focus);
     lua_get_int_field(L, "blur_sigma", &shadow_blur_sigma);
     lua_get_int_field(L, "blur_sigma_focus", &shadow_blur_sigma_focus);
-    /* ignore_list is rebuilt on every reload; caller freed the prior one.
-     * Pop ignore_list (table or nil) then pop the shadow sub-table, so both
-     * branches leave the stack balanced at [..., scenefx]. */
     lua_getfield(L, -1, "ignore_list");
     if (lua_istable(L, -1))
       shadow_ignore_list_load_from_lua();
@@ -533,6 +528,7 @@ static void scenefx_load_from_lua(void) {
   }
 
   if (lua_get_subtable(L, "corner_radius")) {
+    found_any = true;
     lua_get_int_field(L, "radius", &corner_radius);
     lua_get_flag_field(L, "only_floating", &corner_radius_only_floating);
     lua_get_flag_field(L, "no_radius_when_single", &no_radius_when_single);
@@ -540,6 +536,7 @@ static void scenefx_load_from_lua(void) {
   }
 
   if (lua_get_subtable(L, "blur")) {
+    found_any = true;
     lua_get_flag_field(L, "enabled", &blur);
     lua_get_flag_field(L, "xray", &blur_xray);
     lua_get_flag_field(L, "ignore_transparent", &blur_ignore_transparent);
@@ -552,7 +549,12 @@ static void scenefx_load_from_lua(void) {
     lua_pop(L, 1);
   }
 
-  lua_pop(L, 2);
+  if (!found_any)
+    wlr_log(WLR_INFO,
+            "no opacity/shadow/corner_radius/blur tables in config.lua, "
+            "using compiled-in decoration defaults");
+
+  lua_pop(L, 1);
 }
 
 static void keys_free(void) {
@@ -879,7 +881,7 @@ void load_config() {
   xkb_rules_load_from_lua();
   rules_load_from_lua();
   layouts_load_from_lua();
-  scenefx_load_from_lua();
+  decorations_load_from_lua();
   keys_load();
   reload_monitor_layouts();
   reload_keyboard();

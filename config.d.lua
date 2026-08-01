@@ -165,17 +165,6 @@
 --- 	num_passes = 3,
 --- }
 
----@class bonsaiwm.Scenefx
----Per-client opacity (dimming unfocused windows). Omit the whole sub-table to
----keep compiled-in defaults.
----@field opacity? bonsaiwm.ScenefxOpacity
----Drop shadows behind clients.
----@field shadow? bonsaiwm.ScenefxShadow
----Rounded corners on client borders and surfaces.
----@field corner_radius? bonsaiwm.ScenefxCornerRadius
----Backdrop blur behind clients.
----@field blur? bonsaiwm.ScenefxBlur
-
 ---@class bonsaiwm
 ---Enables tiling gaps when nonzero.
 ---@field enablegaps integer
@@ -212,13 +201,18 @@
 ---@field urgentcolor string
 ---Backdrop color shown behind a fullscreen client. Hex string.
 ---@field fullscreen_bg string
----SceneFX visual effects: rounded corners, drop shadows, backdrop blur and
----per-client opacity. Grouped into four optional sub-tables (`opacity`,
----`shadow`, `corner_radius`, `blur`); any subset is a valid override and
----omitted fields keep the compiled-in defaults. Rebuilt on every config
----reload (Mod-Shift-R): value tweaks apply live to already-mapped windows,
----structural flag toggles take full effect on windows created after the reload.
----@field scenefx? bonsaiwm.Scenefx
+---Visual effects: per-client opacity, drop shadows, rounded corners, and
+---backdrop blur. Grouped into four optional tables; any subset is a valid
+---override, and omitted fields keep the compiled-in defaults. Applied live
+---on config reload (Mod-Shift-R): value tweaks and structural flag toggles
+---take effect on already-mapped windows without a restart.
+---@field opacity? bonsaiwm.ScenefxOpacity
+---Drop shadows behind clients. See `bonsaiwm.ScenefxShadow`.
+---@field shadow? bonsaiwm.ScenefxShadow
+---Rounded corners on client borders and surfaces. See `bonsaiwm.ScenefxCornerRadius`.
+---@field corner_radius? bonsaiwm.ScenefxCornerRadius
+---Backdrop blur behind clients. See `bonsaiwm.ScenefxBlur`.
+---@field blur? bonsaiwm.ScenefxBlur
 ---Window rules. Rebuilt from this table on every config reload (Mod-Shift-R).
 ---May be empty or omitted; in that case no rules apply and clients keep their
 ---default tags/monitor. At least one example is usually present.

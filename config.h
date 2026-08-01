@@ -165,7 +165,8 @@ extern float focuscolor[];
 extern float urgentcolor[];
 extern float fullscreen_bg[];
 
-/* scenefx appearance */
+/* appearance / decoration globals (populated from bonsaiwm.opacity,
+   bonsaiwm.shadow, bonsaiwm.corner_radius, bonsaiwm.blur) */
 extern int opacity;
 extern float opacity_inactive;
 extern float opacity_active;
@@ -225,9 +226,9 @@ extern void reload_monitor_layouts(void);
 extern void reload_keyboard(void);
 /* re-push blur_data to the live scene graph after a config reload. blur_data
  * is otherwise only applied once at scene creation, so without this a lua
- * change to bonsaiwm.scenefx.blur params would need a full restart. */
+ * change to bonsaiwm.blur params would need a full restart. */
 extern void reload_blur(void);
-/* re-apply scenefx decorations (corner radius, shadow color, blur, opacity)
+/* re-apply decorations (corner radius, shadow color, blur, opacity)
  * to all existing clients after a config reload, so value tweaks take effect
  * on already-mapped windows without re-creating them. */
 extern void reload_decorations(void);

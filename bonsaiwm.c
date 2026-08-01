@@ -2588,7 +2588,7 @@ void reload_keyboard(void) {
 
 /* re-push blur_data to the live scene after a config reload. blur_data is
  * otherwise only applied once at scene creation (see main()), so without this
- * a lua change to bonsaiwm.scenefx.blur params would need a full restart to
+ * a lua change to bonsaiwm.blur params would need a full restart to
  * take effect. Safe to call before the scene exists (first startup runs
  * load_config before main builds the scene) — the NULL guard handles that. */
 void reload_blur(void) {
@@ -2599,7 +2599,7 @@ void reload_blur(void) {
                           blur_data.contrast, blur_data.saturation);
 }
 
-/* re-apply scenefx decorations to every mapped client after a config reload,
+/* re-apply decorations to every mapped client after a config reload,
  * so value tweaks (corner radii, shadow colors/blur sigma, blur, opacity) and
  * structural master-flag toggles (shadow/corner_radius/blur on-off) take
  * effect on already-mapped windows without re-creating them. */
