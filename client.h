@@ -142,10 +142,8 @@ static inline void client_get_clip(Client *c, struct wlr_box *clip) {
   }
 #endif
 
-  if (corner_radius > 0) {
-    clip->x = c->surface.xdg->geometry.x;
-    clip->y = c->surface.xdg->geometry.y;
-  }
+  clip->x = c->surface.xdg->geometry.x;
+  clip->y = c->surface.xdg->geometry.y;
 }
 
 static inline void client_get_geometry(Client *c, struct wlr_box *geom) {
