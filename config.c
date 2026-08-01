@@ -19,12 +19,12 @@
 const int bypass_surface_visibility =
     0; /* 1 means idle inhibitors will disable idle tracking even if its
           surface isn't visible  */
-float rootcolor[] = COLOR(0x222222ff);
-float bordercolor[] = COLOR(0x444444ff);
-float focuscolor[] = COLOR(0x005577ff);
-float urgentcolor[] = COLOR(0xff0000ff);
-float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
-                         1.0f}; /* You can also use glsl colors */
+float background[] = COLOR(0x222222ff);
+float border_color[] = COLOR(0x444444ff);
+float border_color_focus[] = COLOR(0x005577ff);
+float border_color_urgent[] = COLOR(0xff0000ff);
+float fullscreen_background[] = {0.0f, 0.0f, 0.0f,
+                                 1.0f}; /* You can also use glsl colors */
 
 /* scenefx appearance */
 int opacity = 0; /* flag to enable opacity */
@@ -89,11 +89,11 @@ static const struct {
     {"borderpx", NULL, &config.borderpx, NULL},
     {"repeat_rate", &config.repeat_rate, NULL, NULL},
     {"repeat_delay", &config.repeat_delay, NULL, NULL},
-    {"rootcolor", NULL, NULL, rootcolor},
-    {"bordercolor", NULL, NULL, bordercolor},
-    {"focuscolor", NULL, NULL, focuscolor},
-    {"urgentcolor", NULL, NULL, urgentcolor},
-    {"fullscreen_bg", NULL, NULL, fullscreen_bg},
+    {"background", NULL, NULL, background},
+    {"border_color", NULL, NULL, border_color},
+    {"border_color_focus", NULL, NULL, border_color_focus},
+    {"border_color_urgent", NULL, NULL, border_color_urgent},
+    {"fullscreen_background", NULL, NULL, fullscreen_background},
 };
 
 /* window rules: empty by default, populated from config.lua in load_config() */

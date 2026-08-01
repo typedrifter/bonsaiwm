@@ -1184,7 +1184,7 @@ void createmon(struct wl_listener *listener, void *data) {
    *
    */
   /* updatemons() will resize and set correct position */
-  m->fullscreen_bg = wlr_scene_rect_create(layers[LyrFS], 0, 0, fullscreen_bg);
+  m->fullscreen_bg = wlr_scene_rect_create(layers[LyrFS], 0, 0, fullscreen_background);
   wlr_scene_node_set_enabled(&m->fullscreen_bg->node, 0);
 
   m->blur_layer = wlr_scene_optimized_blur_create(&scene->tree, 0, 0);
@@ -1496,7 +1496,7 @@ void focusclient(Client *c, int lift) {
     /* Don't change border color if there is an exclusive focus or we are
      * handling a drag operation */
     if (!exclusive_focus && !seat->drag) {
-      client_set_border_color(c, focuscolor);
+      client_set_border_color(c, border_color_focus);
 
       update_client_focus_decorations(c, 1, 0);
     }
@@ -1506,7 +1506,7 @@ void focusclient(Client *c, int lift) {
   if (old && (!c || client_surface(c) != old)) {
     /* If an overlay is focused, don't focus or activate the client,
      * but only update its position in fstack to render its border with
-     * focuscolor and focus it after the overlay is closed. */
+     * border_color_focus and focus it after the overlay is closed. */
     if (old_client_type == LayerShell &&
         wlr_scene_node_coords(&old_l->scene->node, &unused_lx, &unused_ly) &&
         old_l->layer_surface->current.layer >= ZWLR_LAYER_SHELL_V1_LAYER_TOP) {
@@ -1517,7 +1517,7 @@ void focusclient(Client *c, int lift) {
        * issues with winecfg and probably other clients */
     } else if (old_c && !client_is_unmanaged(old_c) &&
                (!c || !client_wants_focus(c))) {
-      client_set_border_color(old_c, bordercolor);
+      client_set_border_color(old_c, border_color);
 
       update_client_focus_decorations(old_c, 0, 0);
 
@@ -1844,7 +1844,7 @@ void mapnotify(struct wl_listener *listener, void *data) {
 
   for (i = 0; i < 4; i++) {
     c->border[i] = wlr_scene_rect_create(
-        c->scene, 0, 0, c->isurgent ? urgentcolor : bordercolor);
+        c->scene, 0, 0, c->isurgent ? border_color_urgent : border_color);
     c->border[i]->node.data = c;
   }
 
@@ -1853,7 +1853,7 @@ void mapnotify(struct wl_listener *listener, void *data) {
 
   if (corner_radius > 0) {
     c->round_border = wlr_scene_rect_create(
-        c->scene, 0, 0, c->isurgent ? urgentcolor : bordercolor);
+        c->scene, 0, 0, c->isurgent ? border_color_urgent : border_color);
     c->round_border->node.data = c;
     wlr_scene_node_lower_to_bottom(&c->round_border->node);
 
@@ -2632,8 +2632,8 @@ void reload_decorations(void) {
         radius = 0;
       c->round_border = wlr_scene_rect_create(
           c->scene, 0, 0,
-          c->isurgent ? urgentcolor
-                      : focustop(c->mon) == c ? focuscolor : bordercolor);
+          c->isurgent ? border_color_urgent
+                      : focustop(c->mon) == c ? border_color_focus : border_color);
       c->round_border->node.data = c;
       wlr_scene_node_lower_to_bottom(&c->round_border->node);
       wlr_scene_node_set_position(&c->round_border->node, 0, 0);
@@ -2651,8 +2651,8 @@ void reload_decorations(void) {
     } else if (corner_radius == 0 && c->round_border) {
       wlr_scene_node_destroy(&c->round_border->node);
       c->round_border = NULL;
-      client_set_border_color(c, c->isurgent ? urgentcolor
-                          : focustop(c->mon) == c ? focuscolor : bordercolor);
+      client_set_border_color(c, c->isurgent ? border_color_urgent
+                          : focustop(c->mon) == c ? border_color_focus : border_color);
     }
 
     apply_client_decorations(c);
@@ -2744,7 +2744,7 @@ void setup(void) {
 
   /* Initialize the scene graph used to lay out windows */
   scene = wlr_scene_create();
-  root_bg = wlr_scene_rect_create(&scene->tree, 0, 0, rootcolor);
+  root_bg = wlr_scene_rect_create(&scene->tree, 0, 0, background);
   for (i = 0; i < NUM_LAYERS; i++)
     layers[i] = wlr_scene_tree_create(&scene->tree);
   drag_icon = wlr_scene_tree_create(&scene->tree);
@@ -3264,7 +3264,7 @@ void urgent(struct wl_listener *listener, void *data) {
   printstatus();
 
   if (client_surface(c)->mapped) {
-    client_set_border_color(c, urgentcolor);
+    client_set_border_color(c, border_color_urgent);
 
     update_client_focus_decorations(c, 1, 1);
   }
@@ -3648,7 +3648,7 @@ void update_client_focus_decorations(Client *c, int focused, int urgent) {
   if (corner_radius > 0 && c->round_border) {
     wlr_scene_rect_set_color(
         c->round_border,
-        urgent ? urgentcolor : (focused ? focuscolor : bordercolor));
+        urgent ? border_color_urgent : (focused ? border_color_focus : border_color));
   }
   if (shadow && c->shadow) {
     client_set_shadow_blur_sigma(
@@ -3749,7 +3749,7 @@ void sethints(struct wl_listener *listener, void *data) {
   printstatus();
 
   if (c->isurgent && surface && surface->mapped) {
-    client_set_border_color(c, urgentcolor);
+    client_set_border_color(c, border_color_urgent);
 
     update_client_focus_decorations(c, 1, 1);
   }

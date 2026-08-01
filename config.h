@@ -159,11 +159,11 @@ extern Config config;
 
 /* appearance */
 extern const int bypass_surface_visibility;
-extern float rootcolor[];
-extern float bordercolor[];
-extern float focuscolor[];
-extern float urgentcolor[];
-extern float fullscreen_bg[];
+extern float background[];
+extern float border_color[];
+extern float border_color_focus[];
+extern float border_color_urgent[];
+extern float fullscreen_background[];
 
 /* appearance / decoration globals (populated from bonsaiwm.opacity,
    bonsaiwm.shadow, bonsaiwm.corner_radius, bonsaiwm.blur) */

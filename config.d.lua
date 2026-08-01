@@ -192,15 +192,15 @@
 ---use xkbcommon defaults (typically "evdev"/"pc104"/"us"/""/"").
 ---@field xkb_rules bonsaiwm.XkbRules
 ---Root (background) color as a hex string, e.g. "#1a1b26" or "#1a1b26ff".
----@field rootcolor string
+---@field background string
 ---Unfocused-client border color. Hex string.
----@field bordercolor string
+---@field border_color string
 ---Focused-client border color. Hex string.
----@field focuscolor string
+---@field border_color_focus string
 ---Urgent-client border color. Hex string.
----@field urgentcolor string
+---@field border_color_urgent string
 ---Backdrop color shown behind a fullscreen client. Hex string.
----@field fullscreen_bg string
+---@field fullscreen_background string
 ---Visual effects: per-client opacity, drop shadows, rounded corners, and
 ---backdrop blur. Grouped into four optional tables; any subset is a valid
 ---override, and omitted fields keep the compiled-in defaults. Applied live
