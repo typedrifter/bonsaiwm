@@ -571,7 +571,7 @@ static void decorations_load_from_lua(void) {
   }
 
   if (!found_any)
-    wlr_log(WLR_INFO,
+    wlr_log(WLR_DEBUG,
             "no opacity/shadow/corner_radius/blur tables in config.lua, "
             "using compiled-in decoration defaults");
 
