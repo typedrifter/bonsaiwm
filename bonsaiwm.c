@@ -3402,19 +3402,21 @@ static struct wlr_surface *client_surface_from_buffer(
   return surface;
 }
 
+static struct wlr_surface *iter_xdg_get_surface(
+    struct wlr_scene_buffer *buffer, void *user_data, Client **c) {
+  *c = user_data;
+  return client_surface_from_buffer(buffer, user_data);
+}
+
 void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
                             void *user_data) {
-  Client *c = user_data;
-  struct wlr_surface *surface =
-      client_surface_from_buffer(buffer, user_data);
-
-  if (!surface) {
+  Client *c;
+  struct wlr_surface *surface = iter_xdg_get_surface(buffer, user_data, &c);
+  if (!surface)
     return;
-  }
 
-  if (opacity) {
+  if (opacity)
     wlr_scene_buffer_set_opacity(buffer, c->opacity);
-  }
 
   update_buffer_corner_radius(c, buffer);
 
@@ -3429,13 +3431,10 @@ void iter_xdg_scene_buffers(struct wlr_scene_buffer *buffer, int sx, int sy,
 
 void iter_xdg_scene_buffers_blur(struct wlr_scene_buffer *buffer, int sx,
                                  int sy, void *user_data) {
-  Client *c = user_data;
-  struct wlr_surface *surface =
-      client_surface_from_buffer(buffer, user_data);
-
-  if (!surface) {
+  Client *c;
+  struct wlr_surface *surface = iter_xdg_get_surface(buffer, user_data, &c);
+  if (!surface)
     return;
-  }
 
   if (blur) {
     int blur_optimized = !c->isfloating || blur_xray;
@@ -3450,29 +3449,22 @@ void iter_xdg_scene_buffers_blur(struct wlr_scene_buffer *buffer, int sx,
 
 void iter_xdg_scene_buffers_opacity(struct wlr_scene_buffer *buffer, int sx,
                                     int sy, void *user_data) {
-  Client *c = user_data;
-  struct wlr_surface *surface =
-      client_surface_from_buffer(buffer, user_data);
-
-  if (!surface) {
+  Client *c;
+  struct wlr_surface *surface = iter_xdg_get_surface(buffer, user_data, &c);
+  if (!surface)
     return;
-  }
 
-  if (opacity) {
+  if (opacity)
     wlr_scene_buffer_set_opacity(buffer, c->opacity);
-  }
 }
 
 void iter_xdg_scene_buffers_corner_radius(struct wlr_scene_buffer *buffer,
                                           int sx, int sy,
                                           void *user_data) {
-  Client *c = user_data;
-  struct wlr_surface *surface =
-      client_surface_from_buffer(buffer, user_data);
-
-  if (!surface) {
+  Client *c;
+  struct wlr_surface *surface = iter_xdg_get_surface(buffer, user_data, &c);
+  if (!surface)
     return;
-  }
 
   update_buffer_corner_radius(c, buffer);
 }
