@@ -3,6 +3,123 @@
 -- Type definitions for the `bonsaiwm` Lua config table.
 --
 
+---@class bonsaiwm.Gap
+---Enables tiling gaps when set to a truthy value.
+---@field enabled boolean|integer
+---When truthy, outer gaps are hidden when only one tiled client is visible.
+---@field smart boolean|integer
+---Outer horizontal gap (pixels) between clients and the screen edge.
+---@field outer_h integer
+---Outer vertical gap (pixels) between clients and the screen edge.
+---@field outer_v integer
+---Inner horizontal gap (pixels) between adjacent clients.
+---@field inner_h integer
+---Inner vertical gap (pixels) between adjacent clients.
+---@field inner_v integer
+
+---@class bonsaiwm.Border
+---Border width in pixels.
+---@field width integer
+---When true, hide border when only one tiled client is visible. Also accepts `1`/`0`.
+---@field smart boolean|integer
+---Color of the unfocused-client border, as a hex string.
+---@field color string
+---Color of the focused-client border, as a hex string.
+---@field color_focus string
+---Color of the urgent-client border, as a hex string.
+---@field color_urgent string
+---@example
+--- bonsaiwm.border = {
+--- 	width = 2,
+--- 	color = "#414868ff",
+--- 	color_focus = "#7aa2f7ff",
+--- 	color_urgent = "#f7768eff",
+--- }
+
+---@class bonsaiwm.DecorationOpacity
+---Master switch for per-client opacity. Also accepts `1`/`0`.
+---@field enabled boolean|integer
+---Opacity of the focused client (0.0–1.0).
+---@field active number
+---Opacity of unfocused clients (0.0–1.0).
+---@field inactive number
+
+---@class bonsaiwm.DecorationShadow
+---Master switch for drop shadows. Also accepts `1`/`0`.
+---@field enabled boolean|integer
+---Shadow color for unfocused clients, as `"#RRGGBB"` or `"#RRGGBBAA"`.
+---@field color string
+---Shadow color for the focused client, as a hex string.
+---@field color_focus string
+---When true, only floating clients get a shadow. Also accepts `1`/`0`.
+---@field only_floating boolean|integer
+---Shadow blur radius (pixels) for unfocused clients.
+---@field blur_sigma integer
+---Shadow blur radius (pixels) for the focused client.
+---@field blur_sigma_focus integer
+---App-ids that never get a shadow (substring match against app_id/class,
+---e.g. `{ "firefox", "discord" }`). Empty = shadow everything. Rebuilt on
+---every config reload.
+---@field ignore_list string[]
+
+---@class bonsaiwm.DecorationCornerRadius
+---Corner radius in pixels applied to both the border and the surface content
+---(0 = square corners).
+---@field radius integer
+---When true, only floating clients get rounded corners. Also accepts `1`/`0`.
+---@field only_floating boolean|integer
+---When true, square corners when only one tiling client is visible. Also accepts `1`/`0`.
+---@field smart boolean|integer
+
+---@class bonsaiwm.DecorationBlur
+---Master switch for backdrop blur. Also accepts `1`/`0`.
+---@field enabled boolean|integer
+---When true, transparent fullscreen/floating windows show the background
+---through the blur. Also accepts `1`/`0`.
+---@field xray boolean|integer
+---When true, transparent regions are not blurred. Also accepts `1`/`0`.
+---@field ignore_transparent boolean|integer
+---Blur kernel radius (pixels).
+---@field radius integer
+---Number of blur passes.
+---@field num_passes integer
+---Blur noise amount (0.0–1.0).
+---@field noise number
+---Brightness multiplier applied through the blur.
+---@field brightness number
+---Contrast multiplier applied through the blur.
+---@field contrast number
+---Saturation multiplier applied through the blur.
+---@field saturation number
+
+---@class bonsaiwm.Decoration
+---Per-client opacity. See `bonsaiwm.DecorationOpacity`.
+---@field opacity? bonsaiwm.DecorationOpacity
+---Drop shadows behind clients. See `bonsaiwm.DecorationShadow`.
+---@field shadow? bonsaiwm.DecorationShadow
+---Rounded corners on client borders and surfaces. See `bonsaiwm.DecorationCornerRadius`.
+---@field corner_radius? bonsaiwm.DecorationCornerRadius
+---Backdrop blur behind clients. See `bonsaiwm.DecorationBlur`.
+---@field blur? bonsaiwm.DecorationBlur
+
+---@class bonsaiwm.XkbRules
+---XKB rules path, usually `"evdev"` (the default). Nil = xkbcommon default.
+---@field rules? string
+---Keyboard model, usually `"pc104"` (the default). Nil = xkbcommon default.
+---@field model? string
+---Keyboard layout(s), e.g. `"us"`, `"fr"`, `"de"`. Multiple layouts can be
+---comma-separated, e.g. `"us,fr"`. Nil = `"us"` (xkbcommon default).
+---@field layout? string
+---Layout variant, e.g. `"dvorak"`, `"colemak"`. Nil = no variant.
+---@field variant? string
+---XKB options, e.g. `"ctrl:nocaps"` (CapsLock as Ctrl), `"compose:menu"`.
+---Multiple options comma-separated. Nil = no options.
+---@field options? string
+---@example
+--- bonsaiwm.xkb_rules = {
+--- 	options = "ctrl:nocaps",
+--- }
+
 ---@class bonsaiwm.Rule
 ---Application identifier: app_id (Wayland xdg-toplevel) or class (X11/XWayland).
 ---Matched as a **substring** against the client's app_id/class.
@@ -24,6 +141,19 @@
 --- bonsaiwm.rules = {
 --- 	{ id = "gimp", isfloating = 1, tags = 0, monitor = -1 },
 --- 	{ id = "firefox", tags = 9, monitor = -1 },
+--- }
+
+---@class bonsaiwm.Layout
+---Symbol shown for this layout in the bar/status line, e.g. `"[]"`, `"[M]"`, `"><>"`.
+---@field symbol string
+---Which arrange function to use. Indices into the C `arrangefn[]` table:
+---`0` = float, `1` = tile, `2` = monocle. Out-of-range values fall back to tile.
+---@field arrange integer
+---@example
+--- bonsaiwm.layouts = {
+--- 	{ symbol = "Float", arrange = 0 },
+--- 	{ symbol = "Tiling", arrange = 1 },
+--- 	{ symbol = "Monocle", arrange = 2 },
 --- }
 
 ---@class bonsaiwm.Keymap
@@ -66,54 +196,18 @@
 --- 	{ mod = "Alt", key = "p", action = function() os.execute("playerctl play-pause") end },
 --- }
 
----@class bonsaiwm.Layout
----Symbol shown for this layout in the bar/status line, e.g. `"[]"`, `"[M]"`, `"><>"`.
----@field symbol string
----Which arrange function to use. Indices into the C `arrangefn[]` table:
----`0` = float, `1` = tile, `2` = monocle. Out-of-range values fall back to tile.
----@field arrange integer
----@example
---- bonsaiwm.layouts = {
---- 	{ symbol = "Float", arrange = 0 },
---- 	{ symbol = "Tiling", arrange = 1 },
---- 	{ symbol = "Monocle", arrange = 2 },
---- }
-
----@class bonsaiwm.XkbRules
----XKB rules path, usually `"evdev"` (the default). Nil = xkbcommon default.
----@field rules? string
----Keyboard model, usually `"pc104"` (the default). Nil = xkbcommon default.
----@field model? string
----Keyboard layout(s), e.g. `"us"`, `"fr"`, `"de"`. Multiple layouts can be
----comma-separated, e.g. `"us,fr"`. Nil = `"us"` (xkbcommon default).
----@field layout? string
----Layout variant, e.g. `"dvorak"`, `"colemak"`. Nil = no variant.
----@field variant? string
----XKB options, e.g. `"ctrl:nocaps"` (CapsLock as Ctrl), `"compose:menu"`.
----Multiple options comma-separated. Nil = no options.
----@field options? string
----@example
---- bonsaiwm.xkb_rules = {
---- 	options = "ctrl:nocaps",
---- }
-
 ---@class bonsaiwm
----Enables tiling gaps when nonzero.
----@field enablegaps integer
----When nonzero, outer gaps are hidden if a window is the only one on the tag.
----@field smartgaps integer
----Outer horizontal gap (pixels) between clients and the screen edge.
----@field gappoh integer
----Outer vertical gap (pixels) between clients and the screen edge.
----@field gappov integer
----Inner horizontal gap (pixels) between adjacent clients.
----@field gappih integer
----Inner vertical gap (pixels) between adjacent clients.
----@field gappiv integer
+---Gap settings. See `bonsaiwm.Gap`.
+---@field gap? bonsaiwm.Gap
+---Root (background) color as a hex string, e.g. "#1a1b26" or "#1a1b26ff".
+---@field background string
+---Backdrop color shown behind a fullscreen client. Hex string.
+---@field fullscreen_background string
+---Border width and colors. Every field is optional; omitted fields keep
+---compiled-in defaults.
+---@field border? bonsaiwm.Border
 ---When nonzero, focus follows the pointer (focus the window under the cursor).
----@field sloppyfocus integer
----Border thickness around clients (pixels).
----@field borderpx integer
+---@field sloppy_focus boolean|integer
 ---Keyboard repeat rate (keys per second).
 ---@field repeat_rate integer
 ---Keyboard repeat delay (ms) before a held key starts repeating.
@@ -123,16 +217,10 @@
 ---it to the live keyboard group. All fields optional; omitted or nil fields
 ---use xkbcommon defaults (typically "evdev"/"pc104"/"us"/""/"").
 ---@field xkb_rules bonsaiwm.XkbRules
----Root (background) color as a hex string, e.g. "#1a1b26" or "#1a1b26ff".
----@field rootcolor string
----Unfocused-client border color. Hex string.
----@field bordercolor string
----Focused-client border color. Hex string.
----@field focuscolor string
----Urgent-client border color. Hex string.
----@field urgentcolor string
----Backdrop color shown behind a fullscreen client. Hex string.
----@field fullscreen_bg string
+---Visual effects: per-client opacity, drop shadows, rounded corners, and
+---backdrop blur. Each sub-table is optional; omitted fields within keep the
+---compiled-in defaults. Applied live on config reload (Mod-Shift-R).
+---@field decoration? bonsaiwm.Decoration
 ---Window rules. Rebuilt from this table on every config reload (Mod-Shift-R).
 ---May be empty or omitted; in that case no rules apply and clients keep their
 ---default tags/monitor. At least one example is usually present.

@@ -62,12 +62,16 @@ Layout list cycled with
 .It Li keymaps
 Key bindings
 .Pq mod , key , action , arg .
-.It Li enablegaps , smartgaps , gappoh , gappov , gappih , gappiv
-Gap and smart-gap settings.
-.It Li sloppyfocus , borderpx , repeat_rate , repeat_delay
-Input and border settings.
-.It Li rootcolor , bordercolor , focuscolor , urgentcolor , fullscreen_bg
+.It Li gap
+Gap settings table (enabled, smart, inner_h, inner_v, outer_h, outer_v).
+.It Li sloppy_focus , repeat_rate , repeat_delay
+Input settings.
+.It Li background , fullscreen_background
 Colors as hex strings.
+.It Li border
+Border width and colors table (width, smart, color, color_focus, color_urgent).
+.It Li decoration
+Visual effects table (opacity, shadow, corner_radius, blur).
 .El
 For the authoritative type definitions see the
 .Pa config.d.lua

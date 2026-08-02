@@ -19,12 +19,45 @@
 const int bypass_surface_visibility =
     0; /* 1 means idle inhibitors will disable idle tracking even if its
           surface isn't visible  */
-float rootcolor[] = COLOR(0x222222ff);
-float bordercolor[] = COLOR(0x444444ff);
-float focuscolor[] = COLOR(0x005577ff);
-float urgentcolor[] = COLOR(0xff0000ff);
-float fullscreen_bg[] = {0.0f, 0.0f, 0.0f,
-                         1.0f}; /* You can also use glsl colors */
+float background[] = COLOR(0x222222ff);
+float border_color[] = COLOR(0x444444ff);
+float border_color_focus[] = COLOR(0x005577ff);
+float border_color_urgent[] = COLOR(0xff0000ff);
+float fullscreen_background[] = {0.0f, 0.0f, 0.0f,
+                                 1.0f}; /* You can also use glsl colors */
+
+/* scenefx appearance */
+int opacity = 0; /* flag to enable opacity */
+float opacity_inactive = 0.5f;
+float opacity_active = 1.0f;
+
+int shadow = 0;               /* flag to enable shadow */
+int shadow_only_floating = 0; /* only apply shadow to floating windows */
+float shadow_color[4] = COLOR(0x00000066);
+float shadow_color_focus[4] = COLOR(0x00000099);
+int shadow_blur_sigma = 20;
+int shadow_blur_sigma_focus = 40;
+char **shadow_ignore_list = NULL; /* list of app-id to ignore */
+size_t shadow_ignore_list_count = 0;
+
+int corner_radius = 5; /* 0 disables corner_radius */
+int corner_radius_only_floating =
+    0; /* only apply corner_radius to floating windows */
+int no_radius_when_single = 1; /* 0 disables no_radius_when_single */
+int border_smart = 0; /* 1 removes border when only one tiled client */
+
+int blur = 1;      /* flag to enable blur */
+int blur_xray = 0; /* flag to make transparent fs and floating windows
+                            display your background */
+int blur_ignore_transparent = 1;
+struct blur_data blur_data = {
+    .radius = 5,
+    .num_passes = 3,
+    .noise = (float)0.02,
+    .brightness = (float)0.9,
+    .contrast = (float)0.9,
+    .saturation = (float)1.1,
+};
 
 Config config = {
     .enablegaps = 1,  /* 1 = gaps enabled by default */
@@ -47,21 +80,11 @@ static const struct {
   unsigned int *as_uint;
   float *as_color;
 } config_schema[] = {
-    {"enablegaps", &config.enablegaps, NULL, NULL},
-    {"smartgaps", &config.smartgaps, NULL, NULL},
-    {"gappoh", NULL, &config.gappoh, NULL},
-    {"gappov", NULL, &config.gappov, NULL},
-    {"gappih", NULL, &config.gappih, NULL},
-    {"gappiv", NULL, &config.gappiv, NULL},
-    {"sloppyfocus", &config.sloppyfocus, NULL, NULL},
-    {"borderpx", NULL, &config.borderpx, NULL},
+    {"sloppy_focus", &config.sloppyfocus, NULL, NULL},
     {"repeat_rate", &config.repeat_rate, NULL, NULL},
     {"repeat_delay", &config.repeat_delay, NULL, NULL},
-    {"rootcolor", NULL, NULL, rootcolor},
-    {"bordercolor", NULL, NULL, bordercolor},
-    {"focuscolor", NULL, NULL, focuscolor},
-    {"urgentcolor", NULL, NULL, urgentcolor},
-    {"fullscreen_bg", NULL, NULL, fullscreen_bg},
+    {"background", NULL, NULL, background},
+    {"fullscreen_background", NULL, NULL, fullscreen_background},
 };
 
 /* window rules: empty by default, populated from config.lua in load_config() */
@@ -226,6 +249,18 @@ static void layouts_free(void) {
   layouts_count = 0;
 }
 
+/* free the heap-allocated, NULL-terminated shadow_ignore_list array of
+ * strdup'd app-id strings. rebuilt on every config reload from
+ * bonsaiwm.decoration.shadow.ignore_list. */
+static void shadow_ignore_list_free(void) {
+  for (size_t i = 0; i < shadow_ignore_list_count; i++) {
+    free(shadow_ignore_list[i]);
+  }
+  free(shadow_ignore_list);
+  shadow_ignore_list = NULL;
+  shadow_ignore_list_count = 0;
+}
+
 /* free the five strdup'd RMLVO strings in xkb_rules. the fields are
  * const char * (as declared by xkb_rule_names) but we own the heap
  * copies and must free them on reload. */
@@ -366,6 +401,227 @@ static void layouts_load_from_lua(void) {
     lyt->arrange = arrange;
     lua_pop(L, 1);
   }
+  lua_pop(L, 2);
+}
+
+/* ─── appearance / decoration config loaders ───────────────────────────────
+ * Opacity, shadow, corner-radius and blur are read from four optional
+ * sub-tables of the bonsaiwm.decoration table: opacity, shadow,
+ * corner_radius, and blur. Each scalar/color field is optional: an absent or
+ * wrong-typed field leaves the compiled-in default untouched, so a partial
+ * table is valid and only overrides what it names. The shadow.ignore_list
+ * string array is rebuilt wholesale (like rules[]) on every reload. */
+
+/* read an integer field from the table on top of the stack. Absent or
+ * non-integer leaves *out unchanged (keeps the compiled-in default). */
+static void lua_get_int_field(lua_State *L, const char *key, int *out) {
+  lua_getfield(L, -1, key);
+  if (lua_isinteger(L, -1))
+    *out = (int)lua_tointeger(L, -1);
+  lua_pop(L, 1);
+}
+
+/* read a float field. Absent or non-number leaves *out unchanged. */
+static void lua_get_float_field(lua_State *L, const char *key, float *out) {
+  lua_getfield(L, -1, key);
+  if (lua_isnumber(L, -1))
+    *out = (float)lua_tonumber(L, -1);
+  lua_pop(L, 1);
+}
+
+/* read a color field ("#RRGGBB" or "#RRGGBBAA"). Absent or non-string leaves
+ * out unchanged; a malformed string is logged and also left unchanged. */
+static void lua_get_color_field(lua_State *L, const char *key, float out[4]) {
+  lua_getfield(L, -1, key);
+  if (lua_isstring(L, -1)) {
+    if (hex_to_rgba(lua_tostring(L, -1), out) < 0)
+      wlr_log(WLR_ERROR, "invalid color for %s: %s", key,
+              lua_tostring(L, -1));
+  }
+  lua_pop(L, 1);
+}
+
+/* read a boolean-or-integer flag field. Accepts lua true/false or 0/1 so the
+ * config can write `enabled = true` for clarity while staying compatible with
+ * the integer-flag convention used elsewhere in the config. Absent or
+ * wrong-typed leaves *out unchanged. */
+static void lua_get_flag_field(lua_State *L, const char *key, int *out) {
+  lua_getfield(L, -1, key);
+  if (lua_isboolean(L, -1))
+    *out = lua_toboolean(L, -1) ? 1 : 0;
+  else if (lua_isinteger(L, -1))
+    *out = (int)lua_tointeger(L, -1) ? 1 : 0;
+  lua_pop(L, 1);
+}
+
+/* read a named sub-table of the table on top of the stack. On success pushes
+ * the sub-table and returns true; on absent/non-table pops the nil and
+ * returns false (the caller keeps compiled-in defaults for the whole group). */
+static bool lua_get_subtable(lua_State *L, const char *key) {
+  lua_getfield(L, -1, key);
+  if (!lua_istable(L, -1)) {
+    lua_pop(L, 1);
+    return false;
+  }
+  return true;
+}
+
+/* read bonsaiwm.decoration.shadow.ignore_list (a string array) into the
+ * heap-allocated shadow_ignore_list. Caller must have freed any prior list
+ * (shadow_ignore_list_free). Non-string entries are skipped. An empty or
+ * absent list yields NULL + count 0; in_shadow_ignore_list iterates by count
+ * so NULL is safe. */
+static void shadow_ignore_list_load_from_lua(void) {
+  size_t n = lua_rawlen(L, -1);
+  if (n == 0)
+    return;
+  shadow_ignore_list = ecalloc(n, sizeof(char *));
+  size_t valid = 0;
+  for (size_t i = 0; i < n; i++) {
+    lua_rawgeti(L, -1, (lua_Integer)(i + 1));
+    if (lua_isstring(L, -1))
+      shadow_ignore_list[valid++] = strdup(lua_tostring(L, -1));
+    lua_pop(L, 1);
+  }
+  shadow_ignore_list_count = valid;
+}
+
+/* ─── gap config loader ────────────────────────────────────────────────────
+ * Read bonsaiwm.gap.{enabled, smart, inner_h, inner_v, outer_h, outer_v}
+ * into the Config struct. Every field is optional; absent fields keep the
+ * compiled-in default. */
+static void gap_load_from_lua(void) {
+  lua_getglobal(L, "bonsaiwm");
+  if (!lua_get_subtable(L, "gap")) {
+    lua_pop(L, 1);
+    return;
+  }
+
+  lua_get_flag_field(L, "enabled", &config.enablegaps);
+  lua_get_flag_field(L, "smart", &config.smartgaps);
+
+  /* unsigned gap fields: read as int, clamp negative to 0 */
+  int v = 0;
+  lua_getfield(L, -1, "inner_h");
+  if (lua_isinteger(L, -1)) {
+    v = (int)lua_tointeger(L, -1);
+    config.gappih = (v < 0) ? 0 : (unsigned)v;
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, -1, "inner_v");
+  if (lua_isinteger(L, -1)) {
+    v = (int)lua_tointeger(L, -1);
+    config.gappiv = (v < 0) ? 0 : (unsigned)v;
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, -1, "outer_h");
+  if (lua_isinteger(L, -1)) {
+    v = (int)lua_tointeger(L, -1);
+    config.gappoh = (v < 0) ? 0 : (unsigned)v;
+  }
+  lua_pop(L, 1);
+
+  lua_getfield(L, -1, "outer_v");
+  if (lua_isinteger(L, -1)) {
+    v = (int)lua_tointeger(L, -1);
+    config.gappov = (v < 0) ? 0 : (unsigned)v;
+  }
+  lua_pop(L, 1);
+
+  lua_pop(L, 1);
+}
+
+/* ─── border config loader ─────────────────────────────────────────────────
+ * Read bonsaiwm.border.{width, color, color_focus, color_urgent} as a flat
+ * table. Every field is optional; absent or wrong-typed fields leave the
+ * compiled-in default untouched. */
+static void borders_load_from_lua(void) {
+  lua_getglobal(L, "bonsaiwm");
+  if (!lua_get_subtable(L, "border")) {
+    lua_pop(L, 1);
+    return;
+  }
+
+  lua_getfield(L, -1, "width");
+  if (lua_isinteger(L, -1)) {
+    int v = (int)lua_tointeger(L, -1);
+    config.borderpx = (v < 0) ? 0 : (unsigned)v;
+  }
+  lua_pop(L, 1);
+
+  lua_get_flag_field(L, "smart", &border_smart);
+  lua_get_color_field(L, "color", border_color);
+  lua_get_color_field(L, "color_focus", border_color_focus);
+  lua_get_color_field(L, "color_urgent", border_color_urgent);
+
+  lua_pop(L, 2);
+}
+
+/* read the four optional top-level decoration tables from bonsaiwm (opacity,
+ * shadow, corner_radius, blur) and populate the C globals. Absent tables or
+ * fields keep their compiled-in defaults, so any subset is a valid override.
+ * The shadow.ignore_list is rebuilt wholesale. */
+static void decorations_load_from_lua(void) {
+  lua_getglobal(L, "bonsaiwm");
+  if (!lua_get_subtable(L, "decoration")) {
+    lua_pop(L, 1);
+    return;
+  }
+
+  bool found_any = false;
+
+  if (lua_get_subtable(L, "opacity")) {
+    found_any = true;
+    lua_get_flag_field(L, "enabled", &opacity);
+    lua_get_float_field(L, "active", &opacity_active);
+    lua_get_float_field(L, "inactive", &opacity_inactive);
+    lua_pop(L, 1);
+  }
+
+  if (lua_get_subtable(L, "shadow")) {
+    found_any = true;
+    lua_get_flag_field(L, "enabled", &shadow);
+    lua_get_flag_field(L, "only_floating", &shadow_only_floating);
+    lua_get_color_field(L, "color", shadow_color);
+    lua_get_color_field(L, "color_focus", shadow_color_focus);
+    lua_get_int_field(L, "blur_sigma", &shadow_blur_sigma);
+    lua_get_int_field(L, "blur_sigma_focus", &shadow_blur_sigma_focus);
+    lua_getfield(L, -1, "ignore_list");
+    if (lua_istable(L, -1))
+      shadow_ignore_list_load_from_lua();
+    lua_pop(L, 1);
+    lua_pop(L, 1);
+  }
+
+  if (lua_get_subtable(L, "corner_radius")) {
+    found_any = true;
+    lua_get_int_field(L, "radius", &corner_radius);
+    lua_get_flag_field(L, "only_floating", &corner_radius_only_floating);
+    lua_get_flag_field(L, "smart", &no_radius_when_single);
+    lua_pop(L, 1);
+  }
+
+  if (lua_get_subtable(L, "blur")) {
+    found_any = true;
+    lua_get_flag_field(L, "enabled", &blur);
+    lua_get_flag_field(L, "xray", &blur_xray);
+    lua_get_flag_field(L, "ignore_transparent", &blur_ignore_transparent);
+    lua_get_int_field(L, "radius", &blur_data.radius);
+    lua_get_int_field(L, "num_passes", &blur_data.num_passes);
+    lua_get_float_field(L, "noise", &blur_data.noise);
+    lua_get_float_field(L, "brightness", &blur_data.brightness);
+    lua_get_float_field(L, "contrast", &blur_data.contrast);
+    lua_get_float_field(L, "saturation", &blur_data.saturation);
+    lua_pop(L, 1);
+  }
+
+  if (!found_any)
+    wlr_log(WLR_DEBUG,
+            "no opacity/shadow/corner_radius/blur tables in config.lua, "
+            "using compiled-in decoration defaults");
+
   lua_pop(L, 2);
 }
 
@@ -644,6 +900,7 @@ void load_config() {
   rules_free();
   keys_free();
   xkb_rules_free();
+  shadow_ignore_list_free();
   if (L) {
     wlr_log(WLR_INFO, "restarting lua runtime");
     lua_close(L);
@@ -657,9 +914,8 @@ void load_config() {
     wlr_log(WLR_INFO, "loading lua config from %s", path);
     lua_load_config(path);
   } else {
-    wlr_log(WLR_INFO,
-             "no config.lua found in $XDG_CONFIG_HOME/bonsaiwm or "
-             "~/.config/bonsaiwm; using builtin defaults");
+    wlr_log(WLR_INFO, "no config.lua found in $XDG_CONFIG_HOME/bonsaiwm or "
+                      "~/.config/bonsaiwm; using builtin defaults");
   }
 
   wlr_log(WLR_DEBUG, "lua config loaded, applying values");
@@ -671,13 +927,12 @@ void load_config() {
       if (config_schema[i].as_int)
         *config_schema[i].as_int = v;
       if (config_schema[i].as_uint) {
-        /* unsigned fields (borderpx, gaps) cannot be negative; a
+        /* unsigned fields (gaps) cannot be negative; a
          * negative lua value would silently wrap to a huge unsigned
          * via the cast below, producing broken layout geometry. Clamp
          * to zero instead. */
         if (v < 0) {
-          wlr_log(WLR_ERROR,
-                  "config: %s = %d is negative, clamping to 0",
+          wlr_log(WLR_ERROR, "config: %s = %d is negative, clamping to 0",
                   config_schema[i].lua_key, v);
           v = 0;
         }
@@ -691,10 +946,15 @@ void load_config() {
     lua_pop(L, 1);
   }
   lua_pop(L, 1);
+  gap_load_from_lua();
+  borders_load_from_lua();
   xkb_rules_load_from_lua();
   rules_load_from_lua();
   layouts_load_from_lua();
+  decorations_load_from_lua();
   keys_load();
   reload_monitor_layouts();
   reload_keyboard();
+  reload_blur();
+  reload_decorations();
 }

@@ -6,6 +6,7 @@
 #include <libinput.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <scenefx/types/fx/blur_data.h>
 #include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_output.h>
 #include <xkbcommon/xkbcommon.h>
@@ -158,11 +159,33 @@ extern Config config;
 
 /* appearance */
 extern const int bypass_surface_visibility;
-extern float rootcolor[];
-extern float bordercolor[];
-extern float focuscolor[];
-extern float urgentcolor[];
-extern float fullscreen_bg[];
+extern float background[];
+extern float border_color[];
+extern float border_color_focus[];
+extern float border_color_urgent[];
+extern float fullscreen_background[];
+
+/* appearance / decoration globals (populated from
+   bonsaiwm.decoration.{opacity, shadow, corner_radius, blur}) */
+extern int opacity;
+extern float opacity_inactive;
+extern float opacity_active;
+extern int shadow;
+extern int shadow_only_floating;
+extern float shadow_color[4];
+extern float shadow_color_focus[4];
+extern int shadow_blur_sigma;
+extern int shadow_blur_sigma_focus;
+extern char **shadow_ignore_list;
+extern size_t shadow_ignore_list_count;
+extern int corner_radius;
+extern int corner_radius_only_floating;
+extern int no_radius_when_single;
+extern int border_smart;
+extern int blur;
+extern int blur_xray;
+extern int blur_ignore_transparent;
+extern struct blur_data blur_data;
 
 /* window rules (heap-allocated, rebuilt from config.lua on every load) */
 extern Rule *rules;
@@ -202,6 +225,14 @@ extern const size_t buttons_count;
 
 extern void reload_monitor_layouts(void);
 extern void reload_keyboard(void);
+/* re-push blur_data to the live scene graph after a config reload. blur_data
+ * is otherwise only applied once at scene creation, so without this a lua
+ * change to bonsaiwm.decoration.blur params would need a full restart. */
+extern void reload_blur(void);
+/* re-apply decorations (corner radius, shadow color, blur, opacity)
+ * to all existing clients after a config reload, so value tweaks take effect
+ * on already-mapped windows without re-creating them. */
+extern void reload_decorations(void);
 
 void load_config();
 

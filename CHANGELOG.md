@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added rounded corners, drop shadows, backdrop blur, and per-client opacity
+  using SceneFX. Configurable with Lua.
 - The `tag` and `toggletag` keymap actions now accept `arg = 0` to mean "all
   tags" (matching `view`/`toggleview`), so a client can be moved to every tag
   at once. The default `config.lua` binds `Alt+Shift+0` to move the focused
