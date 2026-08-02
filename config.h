@@ -165,8 +165,8 @@ extern float border_color_focus[];
 extern float border_color_urgent[];
 extern float fullscreen_background[];
 
-/* appearance / decoration globals (populated from bonsaiwm.opacity,
-   bonsaiwm.shadow, bonsaiwm.corner_radius, bonsaiwm.blur) */
+/* appearance / decoration globals (populated from
+   bonsaiwm.decoration.{opacity, shadow, corner_radius, blur}) */
 extern int opacity;
 extern float opacity_inactive;
 extern float opacity_active;
@@ -227,7 +227,7 @@ extern void reload_monitor_layouts(void);
 extern void reload_keyboard(void);
 /* re-push blur_data to the live scene graph after a config reload. blur_data
  * is otherwise only applied once at scene creation, so without this a lua
- * change to bonsaiwm.blur params would need a full restart. */
+ * change to bonsaiwm.decoration.blur params would need a full restart. */
 extern void reload_blur(void);
 /* re-apply decorations (corner radius, shadow color, blur, opacity)
  * to all existing clients after a config reload, so value tweaks take effect

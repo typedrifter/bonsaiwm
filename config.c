@@ -251,7 +251,7 @@ static void layouts_free(void) {
 
 /* free the heap-allocated, NULL-terminated shadow_ignore_list array of
  * strdup'd app-id strings. rebuilt on every config reload from
- * bonsaiwm.scenefx.shadow.ignore_list. */
+ * bonsaiwm.decoration.shadow.ignore_list. */
 static void shadow_ignore_list_free(void) {
   for (size_t i = 0; i < shadow_ignore_list_count; i++) {
     free(shadow_ignore_list[i]);
@@ -406,11 +406,11 @@ static void layouts_load_from_lua(void) {
 
 /* ─── appearance / decoration config loaders ───────────────────────────────
  * Opacity, shadow, corner-radius and blur are read from four optional
- * top-level tables on the bonsaiwm config: opacity, shadow, corner_radius,
- * and blur. Each scalar/color field is optional: an absent or wrong-typed
- * field leaves the compiled-in default untouched, so a partial table is
- * valid and only overrides what it names. The shadow.ignore_list string
- * array is rebuilt wholesale (like rules[]) on every reload. */
+ * sub-tables of the bonsaiwm.decoration table: opacity, shadow,
+ * corner_radius, and blur. Each scalar/color field is optional: an absent or
+ * wrong-typed field leaves the compiled-in default untouched, so a partial
+ * table is valid and only overrides what it names. The shadow.ignore_list
+ * string array is rebuilt wholesale (like rules[]) on every reload. */
 
 /* read an integer field from the table on top of the stack. Absent or
  * non-integer leaves *out unchanged (keeps the compiled-in default). */
@@ -466,8 +466,8 @@ static bool lua_get_subtable(lua_State *L, const char *key) {
   return true;
 }
 
-/* read bonsaiwm.shadow.ignore_list (a string array) into the heap-allocated
- * shadow_ignore_list. Caller must have freed any prior list
+/* read bonsaiwm.decoration.shadow.ignore_list (a string array) into the
+ * heap-allocated shadow_ignore_list. Caller must have freed any prior list
  * (shadow_ignore_list_free). Non-string entries are skipped. An empty or
  * absent list yields NULL + count 0; in_shadow_ignore_list iterates by count
  * so NULL is safe. */
