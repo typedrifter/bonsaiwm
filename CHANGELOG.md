@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `ext-workspace-v1` protocol support: each tag of every monitor is
+  exposed as an ext-workspace handle so clients such as Waybar's
+  `ext/workspaces` module can enumerate, activate and deactivate tags.
+  The protocol implementation is vendored from wlroots (0.20.2), since
+  wlroots 0.19 does not ship it yet. The integration glue is original
+  BonsaiWM code.
 - Added rounded corners, drop shadows, backdrop blur, and per-client opacity
   using SceneFX. Configurable with Lua.
 - The `tag` and `toggletag` keymap actions now accept `arg = 0` to mean "all

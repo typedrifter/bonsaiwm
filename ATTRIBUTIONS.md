@@ -61,6 +61,23 @@ Wayland compositor) and the wlroots library are used throughout.
 - License: MIT — see [`LICENSE.sway`](./LICENSE.sway)
 - © 2016–2017 Drew DeVault
 
+### wlroots — ext-workspace-v1
+
+The ext-workspace-v1 protocol implementation is vendored from wlroots because
+BonsaiWM targets wlroots 0.19, which does not yet ship it. The vendored files
+(`ext-protocol/wlr_ext_workspace_v1.c` and `.h`) are taken verbatim from the
+wlroots 0.20.2 tree; the `.c` only includes the vendored header by relative
+path, and `meson.build` adds `-DWLR_PRIVATE=` to the compiler flags exactly as
+wlroots' own build does. These files are a temporary measure: they can be
+deleted on the wlroots 0.20 migration (once scenefx 0.5 is stable), keeping
+only the protocol XML generation in `protocols/meson.build`. The integration
+glue in `ext-protocol/ext-workspace.h` is BonsaiWM-specific code that drives
+the workspace handles from BonsaiWM's tag state.
+
+- Repository: <https://gitlab.freedesktop.org/wlroots/wlroots>
+- Protocol: <https://wayland.app/protocols/ext-workspace-v1>
+- License: MIT — see [`LICENSE.wlroots`](./LICENSE.wlroots)
+
 ### SceneFX
 
 SceneFX is a wlroots fork that extends the scene-graph API with rounded
@@ -74,5 +91,6 @@ replacement for wlroots' renderer and `wlr_scene` headers.
 ## Inspiration
 
 - [MangoWM] — a compact, Lua-driven Wayland compositor that inspired the
-  design of BonsaiWM's configuration system.
+  design of BonsaiWM's configuration system and its use of wlroots'
+  ext-workspace-v1 API to drive a tag-based status bar.
 - [vanitygaps] — the dwm patch that inspired BonsaiWM's gaps implementation.
