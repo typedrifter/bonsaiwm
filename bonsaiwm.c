@@ -68,6 +68,7 @@
 #include <wlr/util/log.h>
 #include <wlr/util/region.h>
 #include <xkbcommon/xkbcommon.h>
+#include "ext-protocol/wlr_ext_workspace_v1.h"
 #ifdef XWAYLAND
 #include <wlr/xwayland.h>
 #include <xcb/xcb.h>
@@ -190,6 +191,8 @@ struct Monitor {
   struct wlr_output *wlr_output;
   struct wlr_scene_output *scene_output;
   struct wlr_scene_rect *fullscreen_bg; /* See createmon() for info */
+  struct wlr_ext_workspace_group_handle_v1 *ext_group;
+  struct wlr_ext_workspace_handle_v1 *ext_workspaces[TAGCOUNT];
   struct wl_listener frame;
   struct wl_listener destroy;
   struct wl_listener request_state;
@@ -482,6 +485,7 @@ static struct wlr_xwayland *xwayland;
 
 /* attempt to encapsulate suck into one file */
 #include "client.h"
+#include "ext-protocol/ext-workspace.h"
 
 /* Per-tag layout state, ported from the dwl pertag patch:
  * https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/pertag
@@ -807,6 +811,10 @@ void cleanupmon(struct wl_listener *listener, void *data) {
   wl_list_remove(&m->request_state.link);
   if (m->lock_surface)
     destroylocksurface(&m->destroy_lock_surface, NULL);
+
+  /* clean ext-workspaces group */
+  workspaces_destroy(m);
+
   m->wlr_output->data = NULL;
   wlr_output_layout_remove(output_layout, m->wlr_output);
   wlr_scene_output_destroy(m->scene_output);
@@ -825,6 +833,7 @@ void cleanuplisteners(void) {
   wl_list_remove(&cursor_frame.link);
   wl_list_remove(&cursor_motion.link);
   wl_list_remove(&cursor_motion_absolute.link);
+  wl_list_remove(&ext_manager_commit_listener.link);
   wl_list_remove(&gpu_reset.link);
   wl_list_remove(&new_idle_inhibitor.link);
   wl_list_remove(&layout_change.link);
@@ -1171,6 +1180,9 @@ void createmon(struct wl_listener *listener, void *data) {
   wlr_output_state_finish(&state);
 
   wl_list_insert(&mons, &m->link);
+
+  workspaces_create(m);
+
   printstatus();
 
   m->tagstate = ecalloc(1, sizeof(TagState));
@@ -2217,6 +2229,7 @@ void printstatus(void) {
     printf("%s tags %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 "\n",
            m->wlr_output->name, occ, m->tagset[m->seltags], sel, urg);
     printf("%s layout %s\n", m->wlr_output->name, m->ltsymbol);
+    ext_workspace_printstatus(m);
   }
   fflush(stdout);
 }
@@ -2945,6 +2958,8 @@ void setup(void) {
   output_mgr = wlr_output_manager_v1_create(dpy);
   wl_signal_add(&output_mgr->events.apply, &output_mgr_apply);
   wl_signal_add(&output_mgr->events.test, &output_mgr_test);
+
+  workspaces_init();
 
   /* Make sure XWayland clients don't connect to the parent X server,
    * e.g when running in the x11 backend or the wayland backend and the
