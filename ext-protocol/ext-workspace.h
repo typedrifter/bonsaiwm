@@ -59,7 +59,7 @@ static void handle_ext_commit(struct wl_listener *listener, void *data) {
       handle = request->deactivate.workspace;
       if (handle && find_workspace(handle, &m, &tag)) {
         arg.ui = 1u << (tag - 1);
-        toggleview_on(m, &arg);
+        view_off(m, &arg);
       }
       break;
     default:

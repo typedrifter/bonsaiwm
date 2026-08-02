@@ -351,6 +351,7 @@ static void updatemons(struct wl_listener *listener, void *data);
 static void updatetitle(struct wl_listener *listener, void *data);
 static void urgent(struct wl_listener *listener, void *data);
 void view(const Arg *arg);
+static void view_off(Monitor *m, const Arg *arg);
 static void view_on(Monitor *m, const Arg *arg);
 static void virtualkeyboard(struct wl_listener *listener, void *data);
 static void virtualpointer(struct wl_listener *listener, void *data);
@@ -3304,6 +3305,30 @@ void urgent(struct wl_listener *listener, void *data) {
 }
 
 void view(const Arg *arg) { view_on(selmon, arg); }
+
+static void view_off(Monitor *m, const Arg *arg) {
+  uint32_t newtagset;
+  if (!m)
+    return;
+  newtagset = m->tagset[m->seltags] & ~(arg->ui & TAGMASK);
+  if (!newtagset || newtagset == m->tagset[m->seltags])
+    return;
+
+  /* test if the user did not select the same tag (curtag == ALL_TAGS means all
+   * tags, so the tag is always considered changed). */
+  if (m->tagstate->curtag == ALL_TAGS ||
+      !(newtagset & 1 << (m->tagstate->curtag - 1))) {
+    m->tagstate->prevtag = m->tagstate->curtag;
+    m->tagstate->curtag = firsttag_from_bitmask(newtagset);
+  }
+
+  tagstate_restore(m);
+
+  m->tagset[m->seltags] = newtagset;
+  focusclient(focustop(m), 1);
+  arrange(m);
+  printstatus();
+}
 
 static void view_on(Monitor *m, const Arg *arg) {
   if (!m || (arg->ui & TAGMASK) == m->tagset[m->seltags])
