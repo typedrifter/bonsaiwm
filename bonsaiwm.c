@@ -68,6 +68,7 @@
 #include <wlr/util/log.h>
 #include <wlr/util/region.h>
 #include <xkbcommon/xkbcommon.h>
+#include "ext-protocol/wlr_ext_workspace_v1.h"
 #ifdef XWAYLAND
 #include <wlr/xwayland.h>
 #include <xcb/xcb.h>
@@ -190,6 +191,8 @@ struct Monitor {
   struct wlr_output *wlr_output;
   struct wlr_scene_output *scene_output;
   struct wlr_scene_rect *fullscreen_bg; /* See createmon() for info */
+  struct wlr_ext_workspace_group_handle_v1 *ext_group;
+  struct wlr_ext_workspace_handle_v1 *ext_workspaces[TAGCOUNT];
   struct wl_listener frame;
   struct wl_listener destroy;
   struct wl_listener request_state;
@@ -335,6 +338,7 @@ void togglefullscreen(const Arg *arg);
 void togglegaps(const Arg *arg);
 void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
+static void toggleview_on(Monitor *m, const Arg *arg);
 static void unlocksession(struct wl_listener *listener, void *data);
 static void tagstate_restore(Monitor *m);
 static size_t firsttag_from_bitmask(uint32_t mask);
@@ -347,6 +351,8 @@ static void updatemons(struct wl_listener *listener, void *data);
 static void updatetitle(struct wl_listener *listener, void *data);
 static void urgent(struct wl_listener *listener, void *data);
 void view(const Arg *arg);
+static void view_off(Monitor *m, const Arg *arg);
+static void view_on(Monitor *m, const Arg *arg);
 static void virtualkeyboard(struct wl_listener *listener, void *data);
 static void virtualpointer(struct wl_listener *listener, void *data);
 static Monitor *xytomon(double x, double y);
@@ -480,6 +486,7 @@ static struct wlr_xwayland *xwayland;
 
 /* attempt to encapsulate suck into one file */
 #include "client.h"
+#include "ext-protocol/ext-workspace.h"
 
 /* Per-tag layout state, ported from the dwl pertag patch:
  * https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/pertag
@@ -805,6 +812,10 @@ void cleanupmon(struct wl_listener *listener, void *data) {
   wl_list_remove(&m->request_state.link);
   if (m->lock_surface)
     destroylocksurface(&m->destroy_lock_surface, NULL);
+
+  /* clean ext-workspaces group */
+  workspaces_destroy(m);
+
   m->wlr_output->data = NULL;
   wlr_output_layout_remove(output_layout, m->wlr_output);
   wlr_scene_output_destroy(m->scene_output);
@@ -823,6 +834,7 @@ void cleanuplisteners(void) {
   wl_list_remove(&cursor_frame.link);
   wl_list_remove(&cursor_motion.link);
   wl_list_remove(&cursor_motion_absolute.link);
+  wl_list_remove(&ext_manager_commit_listener.link);
   wl_list_remove(&gpu_reset.link);
   wl_list_remove(&new_idle_inhibitor.link);
   wl_list_remove(&layout_change.link);
@@ -1169,6 +1181,9 @@ void createmon(struct wl_listener *listener, void *data) {
   wlr_output_state_finish(&state);
 
   wl_list_insert(&mons, &m->link);
+
+  workspaces_create(m);
+
   printstatus();
 
   m->tagstate = ecalloc(1, sizeof(TagState));
@@ -1477,8 +1492,12 @@ void focusclient(Client *c, int lift) {
   if (c && lift)
     wlr_scene_node_raise_to_top(&c->scene->node);
 
-  if (c && client_surface(c) == old)
+  if (c && client_surface(c) == old) {
+    /* Nothing to change focus-wise, but c->mon/c->tags may have moved
+     * (e.g. setmon after a drag), so keep the status bar fresh. */
+    printstatus();
     return;
+  }
 
   if ((old_client_type = toplevel_from_wlr_surface(old, &old_c, &old_l)) ==
       XDGShell) {
@@ -2215,6 +2234,7 @@ void printstatus(void) {
     printf("%s tags %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 "\n",
            m->wlr_output->name, occ, m->tagset[m->seltags], sel, urg);
     printf("%s layout %s\n", m->wlr_output->name, m->ltsymbol);
+    ext_workspace_printstatus(m, occ, urg);
   }
   fflush(stdout);
 }
@@ -2944,6 +2964,8 @@ void setup(void) {
   wl_signal_add(&output_mgr->events.apply, &output_mgr_apply);
   wl_signal_add(&output_mgr->events.test, &output_mgr_test);
 
+  workspaces_init();
+
   /* Make sure XWayland clients don't connect to the parent X server,
    * e.g when running in the x11 backend or the wayland backend and the
    * compositor has Xwayland support */
@@ -3083,25 +3105,26 @@ void toggletag(const Arg *arg) {
   printstatus();
 }
 
-void toggleview(const Arg *arg) {
+void toggleview(const Arg *arg) { toggleview_on(selmon, arg); }
+
+static void toggleview_on(Monitor *m, const Arg *arg) {
   uint32_t newtagset;
-  if (!(newtagset =
-            selmon ? selmon->tagset[selmon->seltags] ^ (arg->ui & TAGMASK) : 0))
+  if (!(newtagset = m ? m->tagset[m->seltags] ^ (arg->ui & TAGMASK) : 0))
     return;
 
   /* test if the user did not select the same tag (curtag == ALL_TAGS means all
    * tags, so the tag is always considered changed). */
-  if (selmon->tagstate->curtag == ALL_TAGS ||
-      !(newtagset & 1 << (selmon->tagstate->curtag - 1))) {
-    selmon->tagstate->prevtag = selmon->tagstate->curtag;
-    selmon->tagstate->curtag = firsttag_from_bitmask(newtagset);
+  if (m->tagstate->curtag == ALL_TAGS ||
+      !(newtagset & 1 << (m->tagstate->curtag - 1))) {
+    m->tagstate->prevtag = m->tagstate->curtag;
+    m->tagstate->curtag = firsttag_from_bitmask(newtagset);
   }
 
-  tagstate_restore(selmon);
+  tagstate_restore(m);
 
-  selmon->tagset[selmon->seltags] = newtagset;
-  focusclient(focustop(selmon), 1);
-  arrange(selmon);
+  m->tagset[m->seltags] = newtagset;
+  focusclient(focustop(m), 1);
+  arrange(m);
   printstatus();
 }
 
@@ -3281,22 +3304,48 @@ void urgent(struct wl_listener *listener, void *data) {
   }
 }
 
-void view(const Arg *arg) {
-  if (!selmon || (arg->ui & TAGMASK) == selmon->tagset[selmon->seltags])
+void view(const Arg *arg) { view_on(selmon, arg); }
+
+static void view_off(Monitor *m, const Arg *arg) {
+  uint32_t newtagset;
+  if (!m)
     return;
-  selmon->seltags ^= 1; /* toggle sel tagset */
-  selmon->tagset[selmon->seltags] = arg->ui & TAGMASK;
-  selmon->tagstate->prevtag = selmon->tagstate->curtag;
+  newtagset = m->tagset[m->seltags] & ~(arg->ui & TAGMASK);
+  if (!newtagset || newtagset == m->tagset[m->seltags])
+    return;
+
+  /* test if the user did not select the same tag (curtag == ALL_TAGS means all
+   * tags, so the tag is always considered changed). */
+  if (m->tagstate->curtag == ALL_TAGS ||
+      !(newtagset & 1 << (m->tagstate->curtag - 1))) {
+    m->tagstate->prevtag = m->tagstate->curtag;
+    m->tagstate->curtag = firsttag_from_bitmask(newtagset);
+  }
+
+  tagstate_restore(m);
+
+  m->tagset[m->seltags] = newtagset;
+  focusclient(focustop(m), 1);
+  arrange(m);
+  printstatus();
+}
+
+static void view_on(Monitor *m, const Arg *arg) {
+  if (!m || (arg->ui & TAGMASK) == m->tagset[m->seltags])
+    return;
+  m->seltags ^= 1; /* toggle sel tagset */
+  m->tagset[m->seltags] = arg->ui & TAGMASK;
+  m->tagstate->prevtag = m->tagstate->curtag;
 
   if (arg->ui == (unsigned int)TAGMASK)
-    selmon->tagstate->curtag = ALL_TAGS;
+    m->tagstate->curtag = ALL_TAGS;
   else
-    selmon->tagstate->curtag = firsttag_from_bitmask(arg->ui & TAGMASK);
+    m->tagstate->curtag = firsttag_from_bitmask(arg->ui & TAGMASK);
 
-  tagstate_restore(selmon);
+  tagstate_restore(m);
 
-  focusclient(focustop(selmon), 1);
-  arrange(selmon);
+  focusclient(focustop(m), 1);
+  arrange(m);
   printstatus();
 }
 

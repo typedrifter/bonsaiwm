@@ -20,11 +20,21 @@ wayland_scanner_server = generator(
   arguments: ['server-header', '@INPUT@', '@OUTPUT@'],
 )
 
+# generator for the private implementation (.c) of a protocol.
+# Only needed when the protocol is not provided by wlroots itself
+# (ext-workspace-v1 is implemented here because wlroots 0.19 lacks it).
+wayland_scanner_code = generator(
+  wayland_scanner,
+  output: '@BASENAME@-protocol.c',
+  arguments: ['private-code', '@INPUT@', '@OUTPUT@'],
+)
+
 wayland_xmls = {
   # System protocols — installed by wayland-protocols package
   'cursor-shape-v1': wl_protocol_dir / 'staging/cursor-shape/cursor-shape-v1.xml',
   'pointer-constraints-unstable-v1': wl_protocol_dir / 'unstable/pointer-constraints/pointer-constraints-unstable-v1.xml',
   'xdg-shell': wl_protocol_dir / 'stable/xdg-shell/xdg-shell.xml',
+  'ext-workspace-v1': wl_protocol_dir / 'staging/ext-workspace/ext-workspace-v1.xml',
   # Local protocols — shipped with bonsaiwm
   'wlr-layer-shell-unstable-v1': 'wlr-layer-shell-unstable-v1.xml',
   'wlr-output-power-management-unstable-v1': 'wlr-output-power-management-unstable-v1.xml',
@@ -41,6 +51,10 @@ wayland_sources += wayland_scanner_enum.process(
 # server-header modes
 wayland_sources += wayland_scanner_server.process(
   wayland_xmls['xdg-shell'],
+  wayland_xmls['ext-workspace-v1'],
   wayland_xmls['wlr-layer-shell-unstable-v1'],
   wayland_xmls['wlr-output-power-management-unstable-v1'],
 )
+
+# private-code modes (protocols not shipped by wlroots)
+wayland_sources += wayland_scanner_code.process(wayland_xmls['ext-workspace-v1'])

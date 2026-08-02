@@ -47,6 +47,9 @@ endif
 # ── Compiler flags ───────────────────────────────────────────────────────────
 c_args = [
   '-DWLR_USE_UNSTABLE',
+  # Needed only for the vendored wlr_ext_workspace_v1.c; wlroots 0.20
+  # defines it itself.
+  '-DWLR_PRIVATE=',
   '-D_POSIX_C_SOURCE=200809L',
   '-DVERSION="@0@(@1@)"'.format(meson.project_version(), commit_hash),
   '-Wno-unused-parameter',
@@ -69,11 +72,15 @@ if get_option('asan')
 endif
 
 # ── Source files ──────────────────────────────────────────────────────────────
+# wlr_ext_workspace_v1.c is vendored verbatim from wlroots 0.20.2 because
+# wlroots 0.19 (pinned by scenefx 0.4) lacks ext-workspace-v1. Drop it on the
+# wlroots 0.20 migration.
 sources = files(
   'bonsaiwm.c',
   'config.c',
   'util.c',
   'lua.c',
+  'ext-protocol/wlr_ext_workspace_v1.c',
 )
 
 # ── Executable ────────────────────────────────────────────────────────────────
