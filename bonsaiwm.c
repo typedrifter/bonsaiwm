@@ -2319,9 +2319,12 @@ void resize(Client *c, struct wlr_box geo, int interact) {
                               border_smart_eff);
 
   /* this is a no-op if size hasn't changed */
-  c->resize =
-      client_set_size(c, c->geom.width - 2 * c->bw, c->geom.height - 2 * c->bw);
+  c->resize = client_set_size(c, c->geom.width - 2 * border_smart_eff,
+                              c->geom.height - 2 * border_smart_eff);
+  unsigned int saved_bw = c->bw;
+  c->bw = border_smart_eff;
   client_get_clip(c, &clip);
+  c->bw = saved_bw;
   wlr_scene_subsurface_tree_set_clip(&c->scene_surface->node, &clip);
 
   if (corner_radius > 0 && c->round_border) {
