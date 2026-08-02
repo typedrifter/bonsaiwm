@@ -8,6 +8,7 @@ BonsaiWM is a work in progress. Here's the high-level direction:
 | ✓      | Gaps               | inner/outer gaps with smart gap support |  |
 | ✓      | SceneFX            | rounded corners and visual effects |  |
 | ✓      | ext-workspace-v1   | expose tags to Waybar/bar clients |  |
+|        | Hotplug handling    | properly tear down workspaces when a monitor is disabled (kanshi/wlopm) so no zombie tags remain |  |
 |        | Rounded corners    | configurable border radius |  |
 |        | Animations         | open/close slide + fade effects |  |
 |        | wlroots 0.20       | migrate once scenefx 0.5 is stable (corners/NVIDIA issues); drops vendored ext-workspace-v1 |  |
