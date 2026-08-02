@@ -21,6 +21,21 @@ See [`config.d.lua`](./config.d.lua) for the full `bonsaiwm` global type definit
 
 Lua is for configuration only: setting options, declaring window rules, picking layouts, and binding keys. You can bind a key to a lua function, but the callback runs in a bare stdlib VM and cannot touch compositor state (clients, tags, monitors) for the moment. Shell out with `os.execute` if you need to.
 
+## Status bar
+
+BonsaiWM speaks [ext-workspace-v1], so any bar that supports it can display your tags and switch between them:
+
+```json
+"modules-right": ["ext/workspaces"],
+"ext/workspaces": {
+  "format": "{name}",
+  "on-click": "activate",
+  "ignore-hidden": false
+}
+```
+
+`ignore-hidden: false` also shows empty tags, giving the classic nine-button dwm look.
+
 ## Roadmap
 
 See [the roadmap](./ROADMAP.md) for what's planned.
@@ -36,5 +51,6 @@ BonsaiWM began by extending dwl, which itself started from the TinyWL example pr
 Huge thanks to the dwl developers and community for their work, which made BonsaiWM possible.
 
 [dwl]: https://codeberg.org/dwl/dwl
+[ext-workspace-v1]: https://wayland.app/protocols/ext-workspace-v1
 [MangoWM]: https://github.com/mangowm/mango
 [Wayland]: https://wayland.freedesktop.org/
