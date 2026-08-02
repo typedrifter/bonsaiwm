@@ -2229,7 +2229,7 @@ void printstatus(void) {
     printf("%s tags %" PRIu32 " %" PRIu32 " %" PRIu32 " %" PRIu32 "\n",
            m->wlr_output->name, occ, m->tagset[m->seltags], sel, urg);
     printf("%s layout %s\n", m->wlr_output->name, m->ltsymbol);
-    ext_workspace_printstatus(m);
+    ext_workspace_printstatus(m, occ, urg);
   }
   fflush(stdout);
 }

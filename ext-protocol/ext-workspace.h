@@ -95,24 +95,17 @@ void workspaces_destroy(Monitor *m) {
   wlr_ext_workspace_group_handle_v1_destroy(m->ext_group);
 }
 
-/* Push a monitor's current tag state to its workspace handles. */
-void ext_workspace_printstatus(Monitor *m) {
+/* Push a monitor's current tag state to its workspace handles.
+ * occ/urg are computed once per monitor by printstatus (one client walk). */
+void ext_workspace_printstatus(Monitor *m, uint32_t occ, uint32_t urg) {
   uint32_t i;
   for (i = 1; i <= TAGCOUNT; i++) {
     struct wlr_ext_workspace_handle_v1 *ws = m->ext_workspaces[i - 1];
-    Client *c;
-    int active, urgent, occupied;
+    int active, occupied, urgent;
 
     active = !!(m->tagset[m->seltags] & (1u << (i - 1)) & TAGMASK);
-    urgent = occupied = 0;
-    wl_list_for_each(c, &clients, link)
-      if (c->mon == m && c->tags & (1u << (i - 1)) & TAGMASK) {
-        if (c->isurgent) {
-          urgent = 1;
-          break;
-        }
-        occupied = 1;
-      }
+    occupied = !!(occ & (1u << (i - 1)));
+    urgent = !!(urg & (1u << (i - 1)));
 
     wlr_ext_workspace_handle_v1_set_hidden(ws,
                                            !(active || occupied || urgent));
