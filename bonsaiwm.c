@@ -1491,8 +1491,12 @@ void focusclient(Client *c, int lift) {
   if (c && lift)
     wlr_scene_node_raise_to_top(&c->scene->node);
 
-  if (c && client_surface(c) == old)
+  if (c && client_surface(c) == old) {
+    /* Nothing to change focus-wise, but c->mon/c->tags may have moved
+     * (e.g. setmon after a drag), so keep the status bar fresh. */
+    printstatus();
     return;
+  }
 
   if ((old_client_type = toplevel_from_wlr_surface(old, &old_c, &old_l)) ==
       XDGShell) {
