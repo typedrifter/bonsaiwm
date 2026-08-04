@@ -327,6 +327,14 @@ static void setgaps(int oh, int ov, int ih, int iv);
 static void setmon(Client *c, Monitor *m, uint32_t newtags);
 static void setpsel(struct wl_listener *listener, void *data);
 static void setsel(struct wl_listener *listener, void *data);
+static void init_foundation(void);
+static void init_render(void);
+static void init_protocols(void);
+static void init_output(void);
+static void init_shells(void);
+static void init_aux(void);
+static void init_input(void);
+static void init_xwayland(void);
 static void setup(void);
 void spawn(const Arg *arg);
 static void startdrag(struct wl_listener *listener, void *data);
@@ -2751,8 +2759,8 @@ void setsel(struct wl_listener *listener, void *data) {
   wlr_seat_set_selection(seat, event->source, event->serial);
 }
 
-void setup(void) {
-  int drm_fd, i, sig[] = {SIGCHLD, SIGINT, SIGTERM, SIGPIPE};
+static void init_foundation(void) {
+  int i, sig[] = {SIGCHLD, SIGINT, SIGTERM, SIGPIPE};
   struct sigaction sa = {.sa_flags = SA_RESTART, .sa_handler = handlesig};
   sigemptyset(&sa.sa_mask);
 
@@ -2772,6 +2780,10 @@ void setup(void) {
    * if an X11 server is running. */
   if (!(backend = wlr_backend_autocreate(event_loop, &session)))
     die("couldn't create backend");
+}
+
+static void init_render(void) {
+  int drm_fd, i;
 
   /* Initialize the scene graph used to lay out windows */
   scene = wlr_scene_create();
@@ -2818,7 +2830,9 @@ void setup(void) {
    * screen */
   if (!(alloc = wlr_allocator_autocreate(backend, drw)))
     die("couldn't create allocator");
+}
 
+static void init_protocols(void) {
   /* This creates some hands-off wlroots interfaces. The compositor is
    * necessary for clients to allocate surfaces and the data device manager
    * handles the clipboard. Each of these wlroots interfaces has room for you
@@ -2848,7 +2862,9 @@ void setup(void) {
 
   power_mgr = wlr_output_power_manager_v1_create(dpy);
   wl_signal_add(&power_mgr->events.set_mode, &output_power_mgr_set_mode);
+}
 
+static void init_output(void) {
   /* Creates an output layout, which is a wlroots utility for working with an
    * arrangement of screens in a physical layout. */
   output_layout = wlr_output_layout_create(dpy);
@@ -2861,6 +2877,14 @@ void setup(void) {
   wl_list_init(&mons);
   wl_signal_add(&backend->events.new_output, &new_output);
 
+  output_mgr = wlr_output_manager_v1_create(dpy);
+  wl_signal_add(&output_mgr->events.apply, &output_mgr_apply);
+  wl_signal_add(&output_mgr->events.test, &output_mgr_test);
+
+  workspaces_init();
+}
+
+static void init_shells(void) {
   /* Set up our client lists, the xdg-shell and the layer-shell. The xdg-shell
    * is a Wayland protocol which is used for application windows. For more
    * detail on shells, refer to the article:
@@ -2876,7 +2900,9 @@ void setup(void) {
 
   layer_shell = wlr_layer_shell_v1_create(dpy, 3);
   wl_signal_add(&layer_shell->events.new_surface, &new_layer_surface);
+}
 
+static void init_aux(void) {
   idle_notifier = wlr_idle_notifier_v1_create(dpy);
 
   idle_inhibit_mgr = wlr_idle_inhibit_v1_create(dpy);
@@ -2901,7 +2927,9 @@ void setup(void) {
                 &new_pointer_constraint);
 
   relative_pointer_mgr = wlr_relative_pointer_manager_v1_create(dpy);
+}
 
+static void init_input(void) {
   /*
    * Creates a cursor, which is a wlroots utility for tracking the cursor
    * image shown on screen.
@@ -2959,13 +2987,9 @@ void setup(void) {
 
   kb_group = createkeyboardgroup();
   wl_list_init(&kb_group->destroy.link);
+}
 
-  output_mgr = wlr_output_manager_v1_create(dpy);
-  wl_signal_add(&output_mgr->events.apply, &output_mgr_apply);
-  wl_signal_add(&output_mgr->events.test, &output_mgr_test);
-
-  workspaces_init();
-
+static void init_xwayland(void) {
   /* Make sure XWayland clients don't connect to the parent X server,
    * e.g when running in the x11 backend or the wayland backend and the
    * compositor has Xwayland support */
@@ -2985,6 +3009,17 @@ void setup(void) {
             "failed to setup XWayland X server, continuing without it\n");
   }
 #endif
+}
+
+void setup(void) {
+  init_foundation();
+  init_render();
+  init_protocols();
+  init_output();
+  init_shells();
+  init_aux();
+  init_input();
+  init_xwayland();
 }
 
 void spawn(const Arg *arg) {
