@@ -201,18 +201,14 @@ struct Monitor {
   struct wlr_box m;         /* monitor area, layout-relative */
   struct wlr_box w;         /* window area, layout-relative */
   struct wl_list layers[4]; /* LayerSurface.link */
-  int lt[2];                /* indices into layouts[] */
-  TagState *tagstate;
+  TagState *tagstate;       /* sole source of layout state (nmaster, mfact, ...) */
   int gappih;               /* horizontal gap between windows */
   int gappiv;               /* vertical gap between windows */
   int gappoh;               /* horizontal outer gaps */
   int gappov;               /* vertical outer gaps */
   unsigned int seltags;
-  unsigned int sellt;
   uint32_t tagset[2];
-  float mfact;
   int gamma_lut_changed;
-  int nmaster;
   char ltsymbol[16];
   int asleep;
   struct wlr_scene_optimized_blur *blur_layer;
@@ -348,7 +344,6 @@ void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
 static void toggleview_on(Monitor *m, const Arg *arg);
 static void unlocksession(struct wl_listener *listener, void *data);
-static void tagstate_restore(Monitor *m);
 static size_t firsttag_from_bitmask(uint32_t mask);
 static void tagstate_init(TagState *ts, int nmaster, float mfact, int lt0,
                           int lt1, int sellt);
@@ -547,6 +542,24 @@ static void tagstate_clamp_layouts(TagState *ts, size_t layouts_count) {
   }
 }
 
+/* Read-only accessors for the current tag's layout state. TagState is the
+ * single source of truth; the Monitor no longer caches per-tag values. */
+static inline int tagstate_nmaster(Monitor *m) {
+  return m->tagstate->nmasters[m->tagstate->curtag];
+}
+static inline float tagstate_mfact(Monitor *m) {
+  return m->tagstate->mfacts[m->tagstate->curtag];
+}
+static inline unsigned int tagstate_sellt(Monitor *m) {
+  return m->tagstate->sellts[m->tagstate->curtag];
+}
+static inline int tagstate_lt(Monitor *m, unsigned int slot) {
+  return m->tagstate->ltidxs[m->tagstate->curtag][slot];
+}
+static inline int tagstate_layout(Monitor *m) {
+  return tagstate_lt(m, tagstate_sellt(m));
+}
+
 /* function implementations */
 void applybounds(Client *c, struct wlr_box *bbox) {
   /* set minimum possible */
@@ -609,9 +622,9 @@ void arrange(Monitor *m) {
 
   wlr_scene_node_set_enabled(&m->blur_layer->node, blur);
 
-  strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol, LENGTH(m->ltsymbol));
+  strncpy(m->ltsymbol, layouts[tagstate_layout(m)].symbol, LENGTH(m->ltsymbol));
 
-  void (*arr)(Monitor *) = arrangefn[layouts[m->lt[m->sellt]].arrange];
+  void (*arr)(Monitor *) = arrangefn[layouts[tagstate_layout(m)].arrange];
 
   /* We move all clients (except fullscreen and unmanaged) to LyrTile while
    * in floating layout to avoid "real" floating clients be always on top */
@@ -1155,17 +1168,19 @@ void createmon(struct wl_listener *listener, void *data) {
   m->gappov = config.gappov;
 
   wlr_output_state_init(&state);
+  m->tagstate = ecalloc(1, sizeof(TagState));
+  m->tagstate->curtag = m->tagstate->prevtag = 1;
   /* Initialize monitor state using configured rules */
   m->tagset[0] = m->tagset[1] = 1;
   for (r = monrules; r < monrules + monrules_count; r++) {
     if (!r->name || strstr(wlr_output->name, r->name)) {
+      int lt0, lt1;
       m->m.x = r->x;
       m->m.y = r->y;
-      m->mfact = r->mfact;
-      m->nmaster = r->nmaster;
-      m->lt[0] = r->lt;
-      m->lt[1] = (layouts_count > 1 && r->lt != LtFloat) ? LtFloat : LtTile;
-      strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol,
+      lt0 = r->lt;
+      lt1 = (layouts_count > 1 && r->lt != LtFloat) ? LtFloat : LtTile;
+      tagstate_init(m->tagstate, r->nmaster, r->mfact, lt0, lt1, 0);
+      strncpy(m->ltsymbol, layouts[tagstate_layout(m)].symbol,
               LENGTH(m->ltsymbol));
       wlr_output_state_set_scale(&state, r->scale);
       wlr_output_state_set_transform(&state, r->rr);
@@ -1193,11 +1208,6 @@ void createmon(struct wl_listener *listener, void *data) {
   workspaces_create(m);
 
   printstatus();
-
-  m->tagstate = ecalloc(1, sizeof(TagState));
-  m->tagstate->curtag = m->tagstate->prevtag = 1;
-  tagstate_init(m->tagstate, m->nmaster, m->mfact, m->lt[0], m->lt[1],
-                m->sellt);
 
   /* The xdg-protocol specifies:
    *
@@ -1652,19 +1662,11 @@ void handlesig(int signo) {
     quit(NULL);
 }
 
-static void tagstate_restore(Monitor *m) {
-  m->nmaster = m->tagstate->nmasters[m->tagstate->curtag];
-  m->mfact = m->tagstate->mfacts[m->tagstate->curtag];
-  m->sellt = m->tagstate->sellts[m->tagstate->curtag];
-  m->lt[m->sellt] = m->tagstate->ltidxs[m->tagstate->curtag][m->sellt];
-  m->lt[m->sellt ^ 1] = m->tagstate->ltidxs[m->tagstate->curtag][m->sellt ^ 1];
-}
-
 void incnmaster(const Arg *arg) {
   if (!arg || !selmon)
     return;
-  selmon->nmaster = selmon->tagstate->nmasters[selmon->tagstate->curtag] =
-      MAX(selmon->nmaster + arg->i, 0);
+  selmon->tagstate->nmasters[selmon->tagstate->curtag] =
+      MAX(tagstate_nmaster(selmon) + arg->i, 0);
   arrange(selmon);
 }
 
@@ -2480,7 +2482,7 @@ void setfloating(Client *c, int floating) {
 
   /* If in floating layout do not change the client's layer */
   if (!c->mon || !client_surface(c)->mapped ||
-      !arrangefn[layouts[c->mon->lt[c->mon->sellt]].arrange])
+      !arrangefn[layouts[tagstate_layout(c->mon)].arrange])
     return;
   wlr_scene_node_reparent(
       &c->scene->node, layers[c->isfullscreen || (p && p->isfullscreen) ? LyrFS
@@ -2516,15 +2518,20 @@ void setfullscreen(Client *c, int fullscreen) {
 }
 
 void setlayout(const Arg *arg) {
+  TagState *ts;
+  unsigned int slot;
+
   if (!selmon)
     return;
+  ts = selmon->tagstate;
   /* arg->i < 0: just toggle between lt[0] and lt[1] */
-  if (!arg || arg->i < 0 || arg->i != selmon->lt[selmon->sellt])
-    selmon->sellt = selmon->tagstate->sellts[selmon->tagstate->curtag] ^= 1;
+  if (!arg || arg->i < 0 || arg->i != tagstate_layout(selmon))
+    slot = ts->sellts[ts->curtag] ^= 1;
+  else
+    slot = ts->sellts[ts->curtag];
   if (arg && arg->i >= 0 && (size_t)arg->i < layouts_count)
-    selmon->lt[selmon->sellt] =
-        selmon->tagstate->ltidxs[selmon->tagstate->curtag][selmon->sellt] = arg->i;
-  strncpy(selmon->ltsymbol, layouts[selmon->lt[selmon->sellt]].symbol,
+    ts->ltidxs[ts->curtag][slot] = arg->i;
+  strncpy(selmon->ltsymbol, layouts[ts->ltidxs[ts->curtag][slot]].symbol,
           LENGTH(selmon->ltsymbol));
   arrange(selmon);
   printstatus();
@@ -2540,38 +2547,21 @@ void reload_monitor_layouts(void) {
     return;
   }
   wl_list_for_each(m, &mons, link) {
-    int old0 = m->lt[0], old1 = m->lt[1], oldsellt = m->lt[m->sellt];
+    int old0 = tagstate_lt(m, 0), old1 = tagstate_lt(m, 1);
+    unsigned int oldsellt = tagstate_sellt(m);
     wlr_log(WLR_DEBUG, "reload_monitor_layouts: monitor %s lt=[%d,%d] sellt=%u",
-            m->wlr_output->name, m->lt[0], m->lt[1], m->sellt);
-    if ((size_t)m->lt[0] >= layouts_count) {
-      wlr_log(WLR_DEBUG,
-              "reload_monitor_layouts: %s lt[0]=%d out of range, clamping to 0",
-              m->wlr_output->name, m->lt[0]);
-      m->lt[0] = 0;
-    }
-    if ((size_t)m->lt[1] >= layouts_count) {
-      wlr_log(WLR_DEBUG,
-              "reload_monitor_layouts: %s lt[1]=%d out of range, clamping to 0",
-              m->wlr_output->name, m->lt[1]);
-      m->lt[1] = 0;
-    }
-    if ((size_t)m->lt[m->sellt] >= layouts_count) {
-      wlr_log(WLR_DEBUG,
-              "reload_monitor_layouts: %s lt[sellt=%u]=%d out of range, "
-              "resetting sellt to 0",
-              m->wlr_output->name, m->sellt, oldsellt);
-      m->sellt = 0;
-    }
-    /* clamp tagstate layout indices too (config reload may have fewer layouts) */
+            m->wlr_output->name, old0, old1, oldsellt);
     tagstate_clamp_layouts(m->tagstate, layouts_count);
-    if (old0 == m->lt[0] && old1 == m->lt[1] && oldsellt == m->lt[m->sellt])
+    if (old0 == tagstate_lt(m, 0) && old1 == tagstate_lt(m, 1) &&
+        oldsellt == tagstate_sellt(m))
       wlr_log(WLR_DEBUG,
               "reload_monitor_layouts: %s layouts already valid, no change",
               m->wlr_output->name);
     else
       wlr_log(WLR_DEBUG,
               "reload_monitor_layouts: %s layouts fixed -> lt=[%d,%d] sellt=%u",
-              m->wlr_output->name, m->lt[0], m->lt[1], m->sellt);
+              m->wlr_output->name, tagstate_lt(m, 0), tagstate_lt(m, 1),
+              tagstate_sellt(m));
     /* re-push gap values from the (possibly reloaded) config struct into
      * per-monitor state. gappoh/gappov/gappih/gappiv are copied into
      * m->gapp* only in createmon() otherwise, so without this a live
@@ -2581,7 +2571,8 @@ void reload_monitor_layouts(void) {
     m->gappov = config.gappov;
     m->gappih = config.gappih;
     m->gappiv = config.gappiv;
-    strncpy(m->ltsymbol, layouts[m->lt[m->sellt]].symbol, LENGTH(m->ltsymbol));
+    strncpy(m->ltsymbol, layouts[tagstate_layout(m)].symbol,
+            LENGTH(m->ltsymbol));
     arrange(m);
   }
 }
@@ -2707,12 +2698,12 @@ void reload_decorations(void) {
 void setmfact(const Arg *arg) {
   float f;
 
-  if (!arg || !selmon || !arrangefn[layouts[selmon->lt[selmon->sellt]].arrange])
+  if (!arg || !selmon || !arrangefn[layouts[tagstate_layout(selmon)].arrange])
     return;
-  f = arg->f < 1.0f ? arg->f + selmon->mfact : arg->f - 1.0f;
+  f = arg->f < 1.0f ? arg->f + tagstate_mfact(selmon) : arg->f - 1.0f;
   if (f < 0.1 || f > 0.9)
     return;
-  selmon->mfact = selmon->tagstate->mfacts[selmon->tagstate->curtag] = f;
+  selmon->tagstate->mfacts[selmon->tagstate->curtag] = f;
   arrange(selmon);
 }
 
@@ -3074,8 +3065,10 @@ void tile(Monitor *m) {
   }
 
   /* master width: include inner gap in calculation */
-  if (n > m->nmaster)
-    mw = m->nmaster ? (int)roundf((m->w.width + m->gappiv * ie) * m->mfact) : 0;
+  if (n > tagstate_nmaster(m))
+    mw = tagstate_nmaster(m)
+             ? (int)roundf((m->w.width + m->gappiv * ie) * tagstate_mfact(m))
+             : 0;
   else
     mw = m->w.width - 2 * m->gappov * oe + m->gappiv * ie;
   i = 0;
@@ -3085,10 +3078,10 @@ void tile(Monitor *m) {
   wl_list_for_each(c, &clients, link) {
     if (!VISIBLEON(c, m) || c->isfloating || c->isfullscreen)
       continue;
-    if (i < m->nmaster) {
+    if (i < tagstate_nmaster(m)) {
       /* master windows */
 
-      r = MIN(n, m->nmaster) - i; /* remaining master windows */
+      r = MIN(n, tagstate_nmaster(m)) - i; /* remaining master windows */
       h = (m->w.height - my - m->gappoh * oe - m->gappih * ie * (r - 1)) / r;
 
       resize(c,
@@ -3154,8 +3147,6 @@ static void toggleview_on(Monitor *m, const Arg *arg) {
     m->tagstate->prevtag = m->tagstate->curtag;
     m->tagstate->curtag = firsttag_from_bitmask(newtagset);
   }
-
-  tagstate_restore(m);
 
   m->tagset[m->seltags] = newtagset;
   focusclient(focustop(m), 1);
@@ -3357,8 +3348,6 @@ static void view_off(Monitor *m, const Arg *arg) {
     m->tagstate->curtag = firsttag_from_bitmask(newtagset);
   }
 
-  tagstate_restore(m);
-
   m->tagset[m->seltags] = newtagset;
   focusclient(focustop(m), 1);
   arrange(m);
@@ -3376,8 +3365,6 @@ static void view_on(Monitor *m, const Arg *arg) {
     m->tagstate->curtag = ALL_TAGS;
   else
     m->tagstate->curtag = firsttag_from_bitmask(arg->ui & TAGMASK);
-
-  tagstate_restore(m);
 
   focusclient(focustop(m), 1);
   arrange(m);
@@ -3448,7 +3435,7 @@ void zoom(const Arg *arg) {
   Client *c, *sel = focustop(selmon);
 
   if (!sel || !selmon ||
-      !arrangefn[layouts[selmon->lt[selmon->sellt]].arrange] || sel->isfloating)
+      !arrangefn[layouts[tagstate_layout(selmon)].arrange] || sel->isfloating)
     return;
 
   /* Search for the first tiled window that is not sel, marking sel as
@@ -3791,7 +3778,7 @@ void configurex11(struct wl_listener *listener, void *data) {
     return;
   }
   if ((c->isfloating && c != grabc) ||
-      !arrangefn[layouts[c->mon->lt[c->mon->sellt]].arrange]) {
+      !arrangefn[layouts[tagstate_layout(c->mon)].arrange]) {
     resize(c,
            (struct wlr_box){.x = event->x - c->bw,
                             .y = event->y - c->bw,
