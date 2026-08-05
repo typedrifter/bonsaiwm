@@ -54,6 +54,7 @@ static void handle_ext_commit(struct wl_listener *listener, void *data) {
           layout_view_set(m, tags);
           focusclient(focustop(m), 1);
           arrange(m);
+          arrange_effects();
           printstatus();
         }
       }
@@ -67,6 +68,7 @@ static void handle_ext_commit(struct wl_listener *listener, void *data) {
           layout_view_remove(m, mask);
           focusclient(focustop(m), 1);
           arrange(m);
+          arrange_effects();
           printstatus();
         }
       }

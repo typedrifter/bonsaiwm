@@ -144,7 +144,8 @@ typedef struct {
 
 /* function declarations */
 static void applyrules(Client *c);
-static void arrange(Monitor *m);
+int arrange(Monitor *m);
+static void arrange_effects(void);
 static void arrangelayer(Monitor *m, struct wl_list *list,
                          struct wlr_box *usable_area, int exclusive);
 static void arrangelayers(Monitor *m);
@@ -433,11 +434,16 @@ void applyrules(Client *c) {
   setmon(c, mon, newtags);
 }
 
-void arrange(Monitor *m) {
+static void arrange_effects(void) {
+  motionnotify(0, NULL, 0, 0, 0, 0);
+  checkidleinhibitor(NULL);
+}
+
+int arrange(Monitor *m) {
   Client *c;
 
   if (!m->wlr_output->enabled)
-    return;
+    return 0;
 
   wl_list_for_each(c, layout_tiling_order(), link) {
     if (c->mon == m) {
@@ -469,8 +475,7 @@ void arrange(Monitor *m) {
 
   if (arr)
     arr(m);
-  motionnotify(0, NULL, 0, 0, 0, 0);
-  checkidleinhibitor(NULL);
+  return arr != NULL;
 }
 
 void arrangelayer(Monitor *m, struct wl_list *list, struct wlr_box *usable_area,
@@ -512,6 +517,7 @@ void arrangelayers(Monitor *m) {
   if (!wlr_box_equal(&usable_area, &m->w)) {
     m->w = usable_area;
     arrange(m);
+    arrange_effects();
   }
 
   /* Arrange non-exclusive surfaces from top->bottom */
@@ -1496,17 +1502,20 @@ void incnmaster(const Arg *arg) {
     return;
   layout_incnmaster(selmon, arg->i);
   arrange(selmon);
+  arrange_effects();
 }
 
 /* toggle gaps on/off (Super+0) */
 void togglegaps(const Arg *arg) {
   config.enablegaps = !config.enablegaps;
   arrange(selmon);
+  arrange_effects();
 }
 
 void setgaps(int oh, int ov, int ih, int iv) {
   layout_gaps_set(selmon, oh, ov, ih, iv);
   arrange(selmon);
+  arrange_effects();
 }
 
 void incgaps(const Arg *arg) {
@@ -2358,6 +2367,7 @@ void setlayout(const Arg *arg) {
   strncpy(selmon->ltsymbol, layouts[tagstate_lt(selmon, slot)].symbol,
           LENGTH(selmon->ltsymbol));
   arrange(selmon);
+  arrange_effects();
   printstatus();
 }
 
@@ -2390,6 +2400,7 @@ void reload_monitor_layouts(void) {
     strncpy(m->ltsymbol, layouts[tagstate_layout(m)].symbol,
             LENGTH(m->ltsymbol));
     arrange(m);
+    arrange_effects();
   }
 }
 
@@ -2521,6 +2532,7 @@ void setmfact(const Arg *arg) {
     return;
   layout_setmfact(selmon, f);
   arrange(selmon);
+  arrange_effects();
 }
 
 void setmon(Client *c, Monitor *m, uint32_t newtags) {
@@ -2534,6 +2546,7 @@ void setmon(Client *c, Monitor *m, uint32_t newtags) {
   /* Scene graph sends surface leave/enter events on move and resize */
   if (oldmon)
     arrange(oldmon);
+  arrange_effects();
   if (m) {
     /* Make sure window actually overlaps with the monitor */
     resize(c, c->geom, 0);
@@ -2855,6 +2868,7 @@ void tag(const Arg *arg) {
   sel->tags = arg->ui & TAGMASK;
   focusclient(focustop(selmon), 1);
   arrange(selmon);
+  arrange_effects();
   printstatus();
 }
 
@@ -2900,6 +2914,7 @@ void toggletag(const Arg *arg) {
   sel->tags = newtags;
   focusclient(focustop(selmon), 1);
   arrange(selmon);
+  arrange_effects();
   printstatus();
 }
 
@@ -2910,6 +2925,7 @@ void toggleview(const Arg *arg) {
   layout_view_toggle(selmon, arg->ui & TAGMASK);
   focusclient(focustop(selmon), 1);
   arrange(selmon);
+  arrange_effects();
   printstatus();
 }
 
@@ -3027,6 +3043,7 @@ void updatemons(struct wl_listener *listener, void *data) {
     arrangelayers(m);
     /* Don't move clients to the left output when plugging monitors */
     arrange(m);
+    arrange_effects();
     /* make sure fullscreen clients have the right size */
     if ((c = focustop(m)) && c->isfullscreen)
       resize(c, m->m, 0);
@@ -3096,6 +3113,7 @@ void view(const Arg *arg) {
   layout_view_set(selmon, tags);
   focusclient(focustop(selmon), 1);
   arrange(selmon);
+  arrange_effects();
   printstatus();
 }
 
@@ -3188,6 +3206,7 @@ void zoom(const Arg *arg) {
 
   focusclient(sel, 1);
   arrange(selmon);
+  arrange_effects();
 }
 
 static struct wlr_surface *client_surface_from_buffer(
@@ -3505,6 +3524,7 @@ void configurex11(struct wl_listener *listener, void *data) {
            0);
   } else {
     arrange(c->mon);
+    arrange_effects();
   }
 }
 
