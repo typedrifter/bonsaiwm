@@ -76,14 +76,15 @@
 #endif
 
 #include "config.h"
+#include "bonsaiwm.h"
+#include "layout.h"
 #include "util.h"
 
 /* macros */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 #define CLEANMASK(mask) (mask & ~WLR_MODIFIER_CAPS)
-#define VISIBLEON(C, M)                                                        \
-  ((M) && (C)->mon == (M) && ((C)->tags & (M)->tagset[(M)->seltags]))
+#define VISIBLEON(C, M) layout_visible((C), (M))
 #define LENGTH(X) (sizeof X / sizeof X[0])
 #define LISTEN(E, L, H) wl_signal_add((E), ((L)->notify = (H), (L)))
 #define LISTEN_STATIC(E, H)                                                    \
@@ -93,68 +94,9 @@
     wl_signal_add((E), _l);                                                    \
   } while (0)
 
-/* enums */
-enum { XDGShell, LayerShell, X11 }; /* client types */
-enum {
-  LyrBg,
-  LyrBlur,
-  LyrBottom,
-  LyrTile,
-  LyrFloat,
-  LyrTop,
-  LyrFS,
-  LyrOverlay,
-  LyrBlock,
-  NUM_LAYERS
-}; /* scene layers */
+/* enums (client types + scene layers) live in bonsaiwm.h */
 
-typedef struct TagState TagState;
-typedef struct Monitor Monitor;
-typedef struct {
-  /* Must keep this field first */
-  unsigned int type; /* XDGShell or X11* */
-
-  Monitor *mon;
-  struct wlr_scene_tree *scene;
-  struct wlr_scene_rect *border[4]; /* top, bottom, left, right */
-  struct wlr_scene_tree *scene_surface;
-  struct wl_list link;
-  struct wl_list flink;
-  struct wlr_box geom;   /* layout-relative, includes border */
-  struct wlr_box prev;   /* layout-relative, includes border */
-  struct wlr_box bounds; /* only width and height are used */
-  union {
-    struct wlr_xdg_surface *xdg;
-    struct wlr_xwayland_surface *xwayland;
-  } surface;
-  struct wlr_xdg_toplevel_decoration_v1 *decoration;
-  struct wl_listener commit;
-  struct wl_listener map;
-  struct wl_listener maximize;
-  struct wl_listener unmap;
-  struct wl_listener destroy;
-  struct wl_listener set_title;
-  struct wl_listener fullscreen;
-  struct wl_listener set_decoration_mode;
-  struct wl_listener destroy_decoration;
-#ifdef XWAYLAND
-  struct wl_listener activate;
-  struct wl_listener associate;
-  struct wl_listener dissociate;
-  struct wl_listener configure;
-  struct wl_listener set_hints;
-#endif
-  unsigned int bw;
-  uint32_t tags;
-  int isfloating, isurgent, isfullscreen;
-  uint32_t resize; /* configure serial of a pending resize */
-
-  float opacity;
-  int corner_radius;
-  struct wlr_scene_shadow *shadow;
-  int has_shadow_enabled;
-  struct wlr_scene_rect *round_border;
-} Client;
+/* Client, Monitor, TagState moved to bonsaiwm.h */
 
 typedef struct {
   struct wlr_keyboard_group *wlr_group;
@@ -186,34 +128,6 @@ typedef struct {
   struct wl_listener surface_commit;
 } LayerSurface;
 
-struct Monitor {
-  struct wl_list link;
-  struct wlr_output *wlr_output;
-  struct wlr_scene_output *scene_output;
-  struct wlr_scene_rect *fullscreen_bg; /* See createmon() for info */
-  struct wlr_ext_workspace_group_handle_v1 *ext_group;
-  struct wlr_ext_workspace_handle_v1 *ext_workspaces[TAGCOUNT];
-  struct wl_listener frame;
-  struct wl_listener destroy;
-  struct wl_listener request_state;
-  struct wl_listener destroy_lock_surface;
-  struct wlr_session_lock_surface_v1 *lock_surface;
-  struct wlr_box m;         /* monitor area, layout-relative */
-  struct wlr_box w;         /* window area, layout-relative */
-  struct wl_list layers[4]; /* LayerSurface.link */
-  TagState *tagstate;       /* sole source of layout state (nmaster, mfact, ...) */
-  int gappih;               /* horizontal gap between windows */
-  int gappiv;               /* vertical gap between windows */
-  int gappoh;               /* horizontal outer gaps */
-  int gappov;               /* vertical outer gaps */
-  unsigned int seltags;
-  uint32_t tagset[2];
-  int gamma_lut_changed;
-  char ltsymbol[16];
-  int asleep;
-  struct wlr_scene_optimized_blur *blur_layer;
-};
-
 typedef struct {
   struct wlr_pointer_constraint_v1 *constraint;
   struct wl_listener destroy;
@@ -229,7 +143,6 @@ typedef struct {
 } SessionLock;
 
 /* function declarations */
-static void applybounds(Client *c, struct wlr_box *bbox);
 static void applyrules(Client *c);
 static void arrange(Monitor *m);
 static void arrangelayer(Monitor *m, struct wl_list *list,
@@ -311,7 +224,6 @@ static void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requeststartdrag(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
 static void resize(Client *c, struct wlr_box geo, int interact);
-static int visible_tiling_clients(Monitor *m);
 static void run(char *startup_cmd);
 static void setcursor(struct wl_listener *listener, void *data);
 static void setcursorshape(struct wl_listener *listener, void *data);
@@ -344,7 +256,6 @@ void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
 static void toggleview_on(Monitor *m, const Arg *arg);
 static void unlocksession(struct wl_listener *listener, void *data);
-static size_t firsttag_from_bitmask(uint32_t mask);
 static void tagstate_init(TagState *ts, int nmaster, float mfact, int lt0,
                           int lt1, int sellt);
 static void tagstate_clamp_layouts(TagState *ts, size_t layouts_count);
@@ -406,8 +317,7 @@ static struct wlr_session *session;
 static struct wlr_xdg_shell *xdg_shell;
 static struct wlr_xdg_activation_v1 *activation;
 static struct wlr_xdg_decoration_manager_v1 *xdg_decoration_mgr;
-static struct wl_list clients; /* tiling order */
-static struct wl_list fstack;  /* focus order */
+static struct wl_list fstack; /* focus order */
 static struct wlr_idle_notifier_v1 *idle_notifier;
 static struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
 static struct wlr_layer_shell_v1 *layer_shell;
@@ -491,27 +401,8 @@ static struct wlr_xwayland *xwayland;
 #include "client.h"
 #include "ext-protocol/ext-workspace.h"
 
-/* Per-tag layout state, ported from the dwl pertag patch:
- * https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/pertag
- * Layouts are stored as indices into layouts[] (upstream uses pointers). */
-struct TagState {
-  unsigned int curtag, prevtag;           /* current and previous tag */
-  int nmasters[TAGCOUNT + 1];             /* number of windows in master area */
-  float mfacts[TAGCOUNT + 1];             /* mfacts per tag */
-  unsigned int sellts[TAGCOUNT + 1];      /* selected layouts */
-  int ltidxs[TAGCOUNT + 1][2];            /* matrix of tags and layouts indexes */
-};
-
-/* Return the 1-based index of the lowest set bit in mask.
- * This turns a tag bitmask (e.g. 1<<2) into a tag number (e.g. 3) so the
- * per-tag state arrays know which slot to read/write. The callers already
- * guarantee mask is non-zero, because an empty tagset is never a valid view. */
-static size_t firsttag_from_bitmask(uint32_t mask) {
-  size_t i = 0;
-  while (!(mask & (1u << i)))
-    i++;
-  return i + 1;
-}
+/* Per-tag layout state, TagState, moved to bonsaiwm.h; the tagstate_*
+ * accessors and layout_firsttag live in layout.h. */
 
 /* Seed every per-tag slot with the same layout values.
  * When a monitor is created we have one default layout; all tags start from it
@@ -542,40 +433,7 @@ static void tagstate_clamp_layouts(TagState *ts, size_t layouts_count) {
   }
 }
 
-/* Read-only accessors for the current tag's layout state. TagState is the
- * single source of truth; the Monitor no longer caches per-tag values. */
-static inline int tagstate_nmaster(Monitor *m) {
-  return m->tagstate->nmasters[m->tagstate->curtag];
-}
-static inline float tagstate_mfact(Monitor *m) {
-  return m->tagstate->mfacts[m->tagstate->curtag];
-}
-static inline unsigned int tagstate_sellt(Monitor *m) {
-  return m->tagstate->sellts[m->tagstate->curtag];
-}
-static inline int tagstate_lt(Monitor *m, unsigned int slot) {
-  return m->tagstate->ltidxs[m->tagstate->curtag][slot];
-}
-static inline int tagstate_layout(Monitor *m) {
-  return tagstate_lt(m, tagstate_sellt(m));
-}
-
 /* function implementations */
-void applybounds(Client *c, struct wlr_box *bbox) {
-  /* set minimum possible */
-  c->geom.width = MAX(1 + 2 * (int)c->bw, c->geom.width);
-  c->geom.height = MAX(1 + 2 * (int)c->bw, c->geom.height);
-
-  if (c->geom.x >= bbox->x + bbox->width)
-    c->geom.x = bbox->x + bbox->width - c->geom.width;
-  if (c->geom.y >= bbox->y + bbox->height)
-    c->geom.y = bbox->y + bbox->height - c->geom.height;
-  if (c->geom.x + c->geom.width <= bbox->x)
-    c->geom.x = bbox->x;
-  if (c->geom.y + c->geom.height <= bbox->y)
-    c->geom.y = bbox->y;
-}
-
 void applyrules(Client *c) {
   /* rule matching */
   const char *appid, *title;
@@ -610,7 +468,7 @@ void arrange(Monitor *m) {
   if (!m->wlr_output->enabled)
     return;
 
-  wl_list_for_each(c, &clients, link) {
+  wl_list_for_each(c, layout_tiling_order(), link) {
     if (c->mon == m) {
       wlr_scene_node_set_enabled(&c->scene->node, VISIBLEON(c, m));
       client_set_suspended(c, !VISIBLEON(c, m));
@@ -628,7 +486,7 @@ void arrange(Monitor *m) {
 
   /* We move all clients (except fullscreen and unmanaged) to LyrTile while
    * in floating layout to avoid "real" floating clients be always on top */
-  wl_list_for_each(c, &clients, link) {
+  wl_list_for_each(c, layout_tiling_order(), link) {
     if (c->mon != m || c->scene->node.parent == layers[LyrFS])
       continue;
 
@@ -901,7 +759,7 @@ void closemon(Monitor *m) {
       selmon = NULL;
   }
 
-  wl_list_for_each(c, &clients, link) {
+  wl_list_for_each(c, layout_tiling_order(), link) {
     if (c->isfloating && c->geom.x > m->m.width)
       resize(c,
              (struct wlr_box){.x = c->geom.x - m->w.width,
@@ -1597,14 +1455,14 @@ void focusstack(const Arg *arg) {
     return;
   if (arg->i > 0) {
     wl_list_for_each(c, &sel->link, link) {
-      if (&c->link == &clients)
+      if (&c->link == layout_tiling_order())
         continue; /* wrap past the sentinel node */
       if (VISIBLEON(c, selmon))
         break; /* found it */
     }
   } else {
     wl_list_for_each_reverse(c, &sel->link, link) {
-      if (&c->link == &clients)
+      if (&c->link == layout_tiling_order())
         continue; /* wrap past the sentinel node */
       if (VISIBLEON(c, selmon))
         break; /* found it */
@@ -1904,8 +1762,8 @@ void mapnotify(struct wl_listener *listener, void *data) {
   c->geom.width += 2 * c->bw;
   c->geom.height += 2 * c->bw;
 
-  /* Insert this client into client lists. */
-  wl_list_insert(clients.prev, &c->link);
+  /* Insert this client into the tiling order and focus order. */
+  layout_insert(c);
   wl_list_insert(&fstack, &c->flink);
 
   /* Set initial monitor, tags, floating status, and focus:
@@ -1924,7 +1782,7 @@ void mapnotify(struct wl_listener *listener, void *data) {
 
 unset_fullscreen:
   m = c->mon ? c->mon : xytomon(c->geom.x, c->geom.y);
-  wl_list_for_each(w, &clients, link) {
+  wl_list_for_each(w, layout_tiling_order(), link) {
     if (w != c && w != p && w->isfullscreen && m == w->mon &&
         (w->tags & c->tags))
       setfullscreen(w, 0);
@@ -1948,19 +1806,21 @@ void maximizenotify(struct wl_listener *listener, void *data) {
 }
 
 void monocle(Monitor *m) {
-  Client *c;
-  int n = 0;
+  /* Compute the placements purely in the layout module, then apply each to
+   * the scene via resize(). The status symbol and z-order raise are scene
+   * side effects that stay here. */
+  size_t n = layout_tiling_count(m);
+  struct Placement *p = n ? ecalloc(n, sizeof(*p)) : NULL;
+  size_t got = p ? layout_place(m, LAYOUT_MONOCLE, NULL, p, n) : 0;
 
-  wl_list_for_each(c, &clients, link) {
-    if (!VISIBLEON(c, m) || c->isfloating || c->isfullscreen)
-      continue;
-    resize(c, m->w, 0);
-    n++;
-  }
-  if (n)
-    snprintf(m->ltsymbol, LENGTH(m->ltsymbol), "[%d]", n);
-  if ((c = focustop(m)))
+  for (size_t i = 0; i < got; i++)
+    resize(p[i].client, p[i].box, 0);
+  if (got)
+    snprintf(m->ltsymbol, LENGTH(m->ltsymbol), "[%u]", (unsigned)got);
+  Client *c = focustop(m);
+  if (c)
     wlr_scene_node_raise_to_top(&c->scene->node);
+  free(p);
 }
 
 void motionabsolute(struct wl_listener *listener, void *data) {
@@ -2216,7 +2076,7 @@ void printstatus(void) {
 
   wl_list_for_each(m, &mons, link) {
     occ = urg = 0;
-    wl_list_for_each(c, &clients, link) {
+    wl_list_for_each(c, layout_tiling_order(), link) {
       if (c->mon != m)
         continue;
       occ |= c->tags;
@@ -2277,7 +2137,7 @@ void rendermon(struct wl_listener *listener, void *data) {
 
   /* Render if no XDG clients have an outstanding resize and are visible on
    * this monitor. */
-  wl_list_for_each(c, &clients, link) {
+  wl_list_for_each(c, layout_tiling_order(), link) {
     if (c->resize && !c->isfloating && client_is_rendered_on_mon(c, m) &&
         !client_is_stopped(c))
       goto skip;
@@ -2327,11 +2187,11 @@ void resize(Client *c, struct wlr_box geo, int interact) {
 
   client_set_bounds(c, geo.width, geo.height);
   c->geom = geo;
-  applybounds(c, bbox);
+  layout_bounds(&c->geom, bbox, c->bw);
 
   /* Update scene-graph, including borders */
   unsigned int border_smart_eff =
-      (border_smart && visible_tiling_clients(c->mon) == 1) ? 0 : c->bw;
+      (border_smart && layout_tiling_count(c->mon) == 1) ? 0 : c->bw;
   wlr_scene_node_set_position(&c->scene->node, c->geom.x, c->geom.y);
   wlr_scene_node_set_position(&c->scene_surface->node, border_smart_eff,
                               border_smart_eff);
@@ -2635,7 +2495,7 @@ void reload_blur(void) {
  * effect on already-mapped windows without re-creating them. */
 void reload_decorations(void) {
   Client *c;
-  wl_list_for_each(c, &clients, link) {
+  wl_list_for_each(c, layout_tiling_order(), link) {
     c->corner_radius = corner_radius;
 
     if (client_is_unmanaged(c))
@@ -2882,7 +2742,7 @@ static void init_shells(void) {
    *
    * https://drewdevault.com/2018/07/29/Wayland-shells.html
    */
-  wl_list_init(&clients);
+  layout_init();
   wl_list_init(&fstack);
 
   xdg_shell = wlr_xdg_shell_create(dpy, 6);
@@ -3049,63 +2909,17 @@ void tagmon(const Arg *arg) {
 }
 
 void tile(Monitor *m) {
-  unsigned int mw, my, ty, h, r, oe = config.enablegaps, ie = config.enablegaps;
-  int i, n = 0;
-  Client *c;
+  /* Compute the placements purely in the layout module, then apply each to
+   * the scene via resize(). */
+  struct layout_opts opts = {.enablegaps = config.enablegaps,
+                             .smartgaps = config.smartgaps};
+  size_t n = layout_tiling_count(m);
+  struct Placement *p = n ? ecalloc(n, sizeof(*p)) : NULL;
+  size_t got = p ? layout_place(m, LAYOUT_TILE, &opts, p, n) : 0;
 
-  wl_list_for_each(c, &clients, link) if (VISIBLEON(c, m) && !c->isfloating &&
-                                          !c->isfullscreen) n++;
-  if (n == 0)
-    return;
-
-  // no gaps smartgaps is enable and only one tiled window
-  if (config.smartgaps == n) {
-    oe = 0;
-    ie = 0; // TODO: check if correct
-  }
-
-  /* master width: include inner gap in calculation */
-  if (n > tagstate_nmaster(m))
-    mw = tagstate_nmaster(m)
-             ? (int)roundf((m->w.width + m->gappiv * ie) * tagstate_mfact(m))
-             : 0;
-  else
-    mw = m->w.width - 2 * m->gappov * oe + m->gappiv * ie;
-  i = 0;
-  // start below outer gap
-  my = ty = m->gappoh * oe;
-
-  wl_list_for_each(c, &clients, link) {
-    if (!VISIBLEON(c, m) || c->isfloating || c->isfullscreen)
-      continue;
-    if (i < tagstate_nmaster(m)) {
-      /* master windows */
-
-      r = MIN(n, tagstate_nmaster(m)) - i; /* remaining master windows */
-      h = (m->w.height - my - m->gappoh * oe - m->gappih * ie * (r - 1)) / r;
-
-      resize(c,
-             (struct wlr_box){.x = m->w.x + m->gappov * oe,
-                              .y = m->w.y + my,
-                              .width = mw - m->gappiv * ie,
-                              .height = h},
-             0);
-      my += c->geom.height + m->gappih * ie;
-
-    } else {
-      /* stack windows */
-      r = n - i; /* remaining stack windows */
-      h = (m->w.height - ty - m->gappoh * oe - m->gappih * ie * (r - 1)) / r;
-      resize(c,
-             (struct wlr_box){.x = m->w.x + mw + m->gappov * oe,
-                              .y = m->w.y + ty,
-                              .width = m->w.width - mw - 2 * m->gappov * oe,
-                              .height = h},
-             0);
-      ty += c->geom.height + m->gappih * ie;
-    }
-    i++;
-  }
+  for (size_t i = 0; i < got; i++)
+    resize(p[i].client, p[i].box, 0);
+  free(p);
 }
 
 void togglefloating(const Arg *arg) {
@@ -3145,7 +2959,7 @@ static void toggleview_on(Monitor *m, const Arg *arg) {
   if (m->tagstate->curtag == ALL_TAGS ||
       !(newtagset & 1 << (m->tagstate->curtag - 1))) {
     m->tagstate->prevtag = m->tagstate->curtag;
-    m->tagstate->curtag = firsttag_from_bitmask(newtagset);
+    m->tagstate->curtag = layout_firsttag(newtagset);
   }
 
   m->tagset[m->seltags] = newtagset;
@@ -3187,7 +3001,7 @@ void unmapnotify(struct wl_listener *listener, void *data) {
       focusclient(focustop(selmon), 1);
     }
   } else {
-    wl_list_remove(&c->link);
+    layout_remove(c);
     setmon(c, NULL, 0);
     wl_list_remove(&c->flink);
   }
@@ -3285,7 +3099,7 @@ void updatemons(struct wl_listener *listener, void *data) {
   }
 
   if (selmon && selmon->wlr_output->enabled) {
-    wl_list_for_each(c, &clients, link) {
+    wl_list_for_each(c, layout_tiling_order(), link) {
       if (!c->mon && client_surface(c)->mapped)
         setmon(c, selmon, c->tags);
     }
@@ -3345,7 +3159,7 @@ static void view_off(Monitor *m, const Arg *arg) {
   if (m->tagstate->curtag == ALL_TAGS ||
       !(newtagset & 1 << (m->tagstate->curtag - 1))) {
     m->tagstate->prevtag = m->tagstate->curtag;
-    m->tagstate->curtag = firsttag_from_bitmask(newtagset);
+    m->tagstate->curtag = layout_firsttag(newtagset);
   }
 
   m->tagset[m->seltags] = newtagset;
@@ -3364,7 +3178,7 @@ static void view_on(Monitor *m, const Arg *arg) {
   if (arg->ui == (unsigned int)TAGMASK)
     m->tagstate->curtag = ALL_TAGS;
   else
-    m->tagstate->curtag = firsttag_from_bitmask(arg->ui & TAGMASK);
+    m->tagstate->curtag = layout_firsttag(arg->ui & TAGMASK);
 
   focusclient(focustop(m), 1);
   arrange(m);
@@ -3440,7 +3254,7 @@ void zoom(const Arg *arg) {
 
   /* Search for the first tiled window that is not sel, marking sel as
    * NULL if we pass it along the way */
-  wl_list_for_each(c, &clients, link) {
+  wl_list_for_each(c, layout_tiling_order(), link) {
     if (VISIBLEON(c, selmon) && !c->isfloating) {
       if (c != sel)
         break;
@@ -3449,15 +3263,14 @@ void zoom(const Arg *arg) {
   }
 
   /* Return if no other tiled window was found */
-  if (&c->link == &clients)
+  if (&c->link == layout_tiling_order())
     return;
 
   /* If we passed sel, move c to the front; otherwise, move sel to the
    * front */
   if (!sel)
     sel = c;
-  wl_list_remove(&sel->link);
-  wl_list_insert(&clients, &sel->link);
+  layout_promote(sel);
 
   focusclient(sel, 1);
   arrange(selmon);
@@ -3601,21 +3414,12 @@ int in_shadow_ignore_list(const char *str) {
   return 0;
 }
 
-static int visible_tiling_clients(Monitor *m) {
-  int n = 0;
-  Client *c;
-  wl_list_for_each(c, &clients, link)
-    if (VISIBLEON(c, m) && !c->isfloating && !c->isfullscreen)
-      n++;
-  return n;
-}
-
 static enum corner_location set_client_corner_location(Client *c) {
   enum corner_location loc = CORNER_LOCATION_ALL;
   if (!c->mon) {
     return loc;
   }
-  if (no_radius_when_single && visible_tiling_clients(c->mon) == 1)
+  if (no_radius_when_single && layout_tiling_count(c->mon) == 1)
     return CORNER_LOCATION_NONE;
   if (c->geom.x + corner_radius <= c->mon->m.x) {
     loc &= ~CORNER_LOCATION_LEFT;
