@@ -9,6 +9,7 @@
 #include <wayland-util.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_session_lock_v1.h>
+#include <wlr/types/wlr_layer_shell_v1.h>
 #include <wlr/types/wlr_xdg_decoration_v1.h>
 #include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/box.h>
@@ -126,5 +127,22 @@ struct Monitor {
   int asleep;
   struct wlr_scene_optimized_blur *blur_layer;
 };
+
+/* Layer surface wrapper: per-layer_surface tracking for the compositor.
+ * Moved here from bonsaiwm.c so client.h (and other modules) can reference
+ * it through toplevel_from_wlr_surface. */
+typedef struct {
+  unsigned int type; /* LayerShell */
+  Monitor *mon;
+  struct wlr_scene_tree *scene;
+  struct wlr_scene_tree *popups;
+  struct wlr_scene_layer_surface_v1 *scene_layer;
+  struct wl_list link;
+  int mapped;
+  struct wlr_layer_surface_v1 *layer_surface;
+  struct wl_listener destroy;
+  struct wl_listener unmap;
+  struct wl_listener surface_commit;
+} LayerSurface;
 
 #endif /* BONSAIWM_H */
