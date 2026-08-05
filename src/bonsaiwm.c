@@ -82,6 +82,7 @@
 #include "decorations.h"
 #include "focus.h"
 #include "layer_shell.h"
+#include "monitor.h"
 #include "session_lock.h"
 
 /* enums (client types + scene layers) live in bonsaiwm.h */
@@ -94,16 +95,13 @@ static void axisnotify(struct wl_listener *listener, void *data);
 static void buttonpress(struct wl_listener *listener, void *data);
 void chvt(const Arg *arg);
 static void cleanup(void);
-static void cleanupmon(struct wl_listener *listener, void *data);
 static void cleanuplisteners(void);
-static void closemon(Monitor *m);
 static void commitnotify(struct wl_listener *listener, void *data);
 static void commitpopup(struct wl_listener *listener, void *data);
 static void createdecoration(struct wl_listener *listener, void *data);
 static void createidleinhibitor(struct wl_listener *listener, void *data);
 static void createkeyboard(struct wlr_keyboard *keyboard);
 static KeyboardGroup *createkeyboardgroup(void);
-static void createmon(struct wl_listener *listener, void *data);
 static void createnotify(struct wl_listener *listener, void *data);
 static void createpointer(struct wlr_pointer *pointer);
 static void createpointerconstraint(struct wl_listener *listener, void *data);
@@ -139,20 +137,13 @@ void motionnotify(uint32_t time, struct wlr_input_device *device,
                   double sy_unaccel);
 static void motionrelative(struct wl_listener *listener, void *data);
 void moveresize(const Arg *arg);
-static void outputmgrapply(struct wl_listener *listener, void *data);
-static void outputmgrapplyortest(struct wlr_output_configuration_v1 *config,
-                                 int test);
-static void outputmgrtest(struct wl_listener *listener, void *data);
 static void pointerfocus(Client *c, struct wlr_surface *surface, double sx,
                          double sy, uint32_t time);
 void printstatus(void);
-static void powermgrsetmode(struct wl_listener *listener, void *data);
 void quit(const Arg *arg);
-static void rendermon(struct wl_listener *listener, void *data);
 static void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requeststartdrag(struct wl_listener *listener, void *data);
-static void requestmonstate(struct wl_listener *listener, void *data);
-static void resize(Client *c, struct wlr_box geo, int interact);
+void resize(Client *c, struct wlr_box geo, int interact);
 static void run(char *startup_cmd);
 static void setcursor(struct wl_listener *listener, void *data);
 static void setcursorshape(struct wl_listener *listener, void *data);
@@ -161,7 +152,7 @@ static void setfullscreen(Client *c, int fullscreen);
 void setlayout(const Arg *arg);
 void setmfact(const Arg *arg);
 static void setgaps(int oh, int ov, int ih, int iv);
-static void setmon(Client *c, Monitor *m, uint32_t newtags);
+void setmon(Client *c, Monitor *m, uint32_t newtags);
 static void setpsel(struct wl_listener *listener, void *data);
 static void setsel(struct wl_listener *listener, void *data);
 static void init_foundation(void);
@@ -184,7 +175,6 @@ void togglegaps(const Arg *arg);
 void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
 static void unmapnotify(struct wl_listener *listener, void *data);
-static void updatemons(struct wl_listener *listener, void *data);
 static void updatetitle(struct wl_listener *listener, void *data);
 static void urgent(struct wl_listener *listener, void *data);
 void view(const Arg *arg);
@@ -202,35 +192,32 @@ int locked;
 void *exclusive_focus;
 struct wl_display *dpy;
 static struct wl_event_loop *event_loop;
-static struct wlr_backend *backend;
+struct wlr_backend *backend;
 struct wlr_scene *scene;
 struct wlr_scene_tree *layers[NUM_LAYERS];
 static struct wlr_scene_tree *drag_icon;
-static struct wlr_renderer *drw;
-static struct wlr_allocator *alloc;
-static struct wlr_compositor *compositor;
+struct wlr_renderer *drw;
+struct wlr_allocator *alloc;
+struct wlr_compositor *compositor;
 static struct wlr_session *session;
 
-static struct wlr_xdg_shell *xdg_shell;
+struct wlr_xdg_shell *xdg_shell;
 static struct wlr_xdg_activation_v1 *activation;
 static struct wlr_xdg_decoration_manager_v1 *xdg_decoration_mgr;
 struct wl_list fstack; /* focus order */
 struct wlr_idle_notifier_v1 *idle_notifier;
 struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
-static struct wlr_output_manager_v1 *output_mgr;
 static struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
 static struct wlr_virtual_pointer_manager_v1 *virtual_pointer_mgr;
 static struct wlr_cursor_shape_manager_v1 *cursor_shape_mgr;
-static struct wlr_output_power_manager_v1 *power_mgr;
-
 static struct wlr_pointer_constraints_v1 *pointer_constraints;
 static struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
 static struct wlr_pointer_constraint_v1 *active_constraint;
 
-static struct wlr_cursor *cursor;
+struct wlr_cursor *cursor;
 static struct wlr_xcursor_manager *cursor_mgr;
 
-static struct wlr_scene_rect *root_bg;
+struct wlr_scene_rect *root_bg;
 
 struct wlr_seat *seat;
 static KeyboardGroup *kb_group;
@@ -250,21 +237,15 @@ static struct wl_listener cursor_frame = {.notify = cursorframe};
 static struct wl_listener cursor_motion = {.notify = motionrelative};
 static struct wl_listener cursor_motion_absolute = {.notify = motionabsolute};
 static struct wl_listener gpu_reset = {.notify = gpureset};
-static struct wl_listener layout_change = {.notify = updatemons};
 static struct wl_listener new_idle_inhibitor = {.notify = createidleinhibitor};
 static struct wl_listener new_input_device = {.notify = inputdevice};
 static struct wl_listener new_virtual_keyboard = {.notify = virtualkeyboard};
 static struct wl_listener new_virtual_pointer = {.notify = virtualpointer};
 static struct wl_listener new_pointer_constraint = {
     .notify = createpointerconstraint};
-static struct wl_listener new_output = {.notify = createmon};
 static struct wl_listener new_xdg_toplevel = {.notify = createnotify};
 static struct wl_listener new_xdg_popup = {.notify = createpopup};
 static struct wl_listener new_xdg_decoration = {.notify = createdecoration};
-static struct wl_listener output_mgr_apply = {.notify = outputmgrapply};
-static struct wl_listener output_mgr_test = {.notify = outputmgrtest};
-static struct wl_listener output_power_mgr_set_mode = {.notify =
-                                                           powermgrsetmode};
 static struct wl_listener request_activate = {.notify = urgent};
 static struct wl_listener request_cursor = {.notify = setcursor};
 static struct wl_listener request_set_psel = {.notify = setpsel};
@@ -463,39 +444,6 @@ void cleanup(void) {
   wlr_scene_node_destroy(&scene->tree.node);
 }
 
-void cleanupmon(struct wl_listener *listener, void *data) {
-  Monitor *m = wl_container_of(listener, m, destroy);
-  LayerSurface *l, *tmp;
-  size_t i;
-
-  /* m->layers[i] are intentionally not unlinked */
-  for (i = 0; i < LENGTH(m->layers); i++) {
-    wl_list_for_each_safe(l, tmp, &m->layers[i], link)
-        wlr_layer_surface_v1_destroy(l->layer_surface);
-  }
-
-  wl_list_remove(&m->destroy.link);
-  wl_list_remove(&m->frame.link);
-  wl_list_remove(&m->link);
-  wl_list_remove(&m->request_state.link);
-  if (m->lock_surface)
-    destroylocksurface(&m->destroy_lock_surface, NULL);
-
-  /* clean ext-workspaces group */
-  workspaces_destroy(m);
-
-  m->wlr_output->data = NULL;
-  wlr_output_layout_remove(output_layout, m->wlr_output);
-  wlr_scene_output_destroy(m->scene_output);
-
-  free(m->tagstate);
-  closemon(m);
-  wlr_scene_node_destroy(&m->blur_layer->node);
-  wlr_scene_node_destroy(&m->fullscreen_bg->node);
-
-  free(m);
-}
-
 void cleanuplisteners(void) {
   wl_list_remove(&cursor_axis.link);
   wl_list_remove(&cursor_button.link);
@@ -505,19 +453,15 @@ void cleanuplisteners(void) {
   wl_list_remove(&ext_manager_commit_listener.link);
   wl_list_remove(&gpu_reset.link);
   wl_list_remove(&new_idle_inhibitor.link);
-  wl_list_remove(&layout_change.link);
   wl_list_remove(&new_input_device.link);
   wl_list_remove(&new_virtual_keyboard.link);
   wl_list_remove(&new_virtual_pointer.link);
   wl_list_remove(&new_pointer_constraint.link);
-  wl_list_remove(&new_output.link);
   wl_list_remove(&new_xdg_toplevel.link);
   wl_list_remove(&new_xdg_decoration.link);
   wl_list_remove(&new_xdg_popup.link);
   layer_shell_cleanup();
-  wl_list_remove(&output_mgr_apply.link);
-  wl_list_remove(&output_mgr_test.link);
-  wl_list_remove(&output_power_mgr_set_mode.link);
+  monitor_cleanup();
   wl_list_remove(&request_activate.link);
   wl_list_remove(&request_cursor.link);
   wl_list_remove(&request_set_psel.link);
@@ -530,37 +474,6 @@ void cleanuplisteners(void) {
   wl_list_remove(&new_xwayland_surface.link);
   wl_list_remove(&xwayland_ready.link);
 #endif
-}
-
-void closemon(Monitor *m) {
-  /* update selmon if needed and
-   * move closed monitor's clients to the focused one */
-  Client *c;
-  int i = 0, nmons = wl_list_length(&mons);
-  if (!nmons) {
-    selmon = NULL;
-  } else if (m == selmon) {
-    do /* don't switch to disabled mons */
-      selmon = wl_container_of(mons.next, selmon, link);
-    while (!selmon->wlr_output->enabled && i++ < nmons);
-
-    if (!selmon->wlr_output->enabled)
-      selmon = NULL;
-  }
-
-  wl_list_for_each(c, layout_tiling_order(), link) {
-    if (c->isfloating && c->geom.x > m->m.width)
-      resize(c,
-             (struct wlr_box){.x = c->geom.x - m->w.width,
-                              .y = c->geom.y,
-                              .width = c->geom.width,
-                              .height = c->geom.height},
-             0);
-    if (c->mon == m)
-      setmon(c, selmon, c->tags);
-  }
-  focusclient(focustop(selmon), 1);
-  printstatus();
 }
 
 void commitnotify(struct wl_listener *listener, void *data) {
@@ -685,101 +598,6 @@ KeyboardGroup *createkeyboardgroup(void) {
    */
   wlr_seat_set_keyboard(seat, &group->wlr_group->keyboard);
   return group;
-}
-
-void createmon(struct wl_listener *listener, void *data) {
-  /* This event is raised by the backend when a new output (aka a display or
-   * monitor) becomes available. */
-  struct wlr_output *wlr_output = data;
-  const MonitorRule *r;
-  size_t i;
-  struct wlr_output_state state;
-  Monitor *m;
-
-  if (!wlr_output_init_render(wlr_output, alloc, drw))
-    return;
-
-  m = wlr_output->data = ecalloc(1, sizeof(*m));
-  m->wlr_output = wlr_output;
-
-  for (i = 0; i < LENGTH(m->layers); i++)
-    wl_list_init(&m->layers[i]);
-
-  /* initialize gap values from config defaults */
-  m->gappih = config.gappih;
-  m->gappiv = config.gappiv;
-  m->gappoh = config.gappoh;
-  m->gappov = config.gappov;
-
-  wlr_output_state_init(&state);
-  m->tagstate = ecalloc(1, sizeof(TagState));
-  m->tagstate->curtag = m->tagstate->prevtag = 1;
-  /* Initialize monitor state using configured rules */
-  m->tagset[0] = m->tagset[1] = 1;
-  for (r = monrules; r < monrules + monrules_count; r++) {
-    if (!r->name || strstr(wlr_output->name, r->name)) {
-      int lt0, lt1;
-      m->m.x = r->x;
-      m->m.y = r->y;
-      lt0 = r->lt;
-      lt1 = (layouts_count > 1 && r->lt != LtFloat) ? LtFloat : LtTile;
-      layout_tagstate_init(m->tagstate, r->nmaster, r->mfact, lt0, lt1, 0);
-      strncpy(m->ltsymbol, layouts[tagstate_layout(m)].symbol,
-              LENGTH(m->ltsymbol));
-      wlr_output_state_set_scale(&state, r->scale);
-      wlr_output_state_set_transform(&state, r->rr);
-      break;
-    }
-  }
-
-  /* The mode is a tuple of (width, height, refresh rate), and each
-   * monitor supports only a specific set of modes. We just pick the
-   * monitor's preferred mode; a more sophisticated compositor would let
-   * the user configure it. */
-  wlr_output_state_set_mode(&state, wlr_output_preferred_mode(wlr_output));
-
-  /* Set up event listeners */
-  LISTEN(&wlr_output->events.frame, &m->frame, rendermon);
-  LISTEN(&wlr_output->events.destroy, &m->destroy, cleanupmon);
-  LISTEN(&wlr_output->events.request_state, &m->request_state, requestmonstate);
-
-  wlr_output_state_set_enabled(&state, 1);
-  wlr_output_commit_state(wlr_output, &state);
-  wlr_output_state_finish(&state);
-
-  wl_list_insert(&mons, &m->link);
-
-  workspaces_create(m);
-
-  printstatus();
-
-  /* The xdg-protocol specifies:
-   *
-   * If the fullscreened surface is not opaque, the compositor must make
-   * sure that other screen content not part of the same surface tree (made
-   * up of subsurfaces, popups or similarly coupled surfaces) are not
-   * visible below the fullscreened surface.
-   *
-   */
-  /* updatemons() will resize and set correct position */
-  m->fullscreen_bg = wlr_scene_rect_create(layers[LyrFS], 0, 0, fullscreen_background);
-  wlr_scene_node_set_enabled(&m->fullscreen_bg->node, 0);
-
-  m->blur_layer = wlr_scene_optimized_blur_create(&scene->tree, 0, 0);
-  wlr_scene_node_reparent(&m->blur_layer->node, layers[LyrBlur]);
-  wlr_scene_node_set_enabled(&m->blur_layer->node, 0);
-
-  /* Adds this to the output layout in the order it was configured.
-   *
-   * The output layout utility automatically adds a wl_output global to the
-   * display, which Wayland clients can see to find out information about the
-   * output (such as DPI, scale factor, manufacturer, etc).
-   */
-  m->scene_output = wlr_scene_output_create(scene, wlr_output);
-  if (m->m.x == -1 && m->m.y == -1)
-    wlr_output_layout_add_auto(output_layout, wlr_output);
-  else
-    wlr_output_layout_add(output_layout, wlr_output, m->m.x, m->m.y);
 }
 
 void createnotify(struct wl_listener *listener, void *data) {
@@ -1515,79 +1333,6 @@ void moveresize(const Arg *arg) {
   }
 }
 
-void outputmgrapply(struct wl_listener *listener, void *data) {
-  struct wlr_output_configuration_v1 *config = data;
-  outputmgrapplyortest(config, 0);
-}
-
-void outputmgrapplyortest(struct wlr_output_configuration_v1 *config,
-                          int test) {
-  /*
-   * Called when a client such as wlr-randr requests a change in output
-   * configuration. This is only one way that the layout can be changed,
-   * so any Monitor information should be updated by updatemons() after an
-   * output_layout.change event, not here.
-   */
-  struct wlr_output_configuration_head_v1 *config_head;
-  int ok = 1;
-
-  wl_list_for_each(config_head, &config->heads, link) {
-    struct wlr_output *wlr_output = config_head->state.output;
-    Monitor *m = wlr_output->data;
-    struct wlr_output_state state;
-
-    /* Ensure displays previously disabled by wlr-output-power-management-v1
-     * are properly handled*/
-    m->asleep = 0;
-
-    wlr_output_state_init(&state);
-    wlr_output_state_set_enabled(&state, config_head->state.enabled);
-    if (!config_head->state.enabled)
-      goto apply_or_test;
-
-    if (config_head->state.mode)
-      wlr_output_state_set_mode(&state, config_head->state.mode);
-    else
-      wlr_output_state_set_custom_mode(&state,
-                                       config_head->state.custom_mode.width,
-                                       config_head->state.custom_mode.height,
-                                       config_head->state.custom_mode.refresh);
-
-    wlr_output_state_set_transform(&state, config_head->state.transform);
-    wlr_output_state_set_scale(&state, config_head->state.scale);
-    wlr_output_state_set_adaptive_sync_enabled(
-        &state, config_head->state.adaptive_sync_enabled);
-
-  apply_or_test:
-    ok &= test ? wlr_output_test_state(wlr_output, &state)
-               : wlr_output_commit_state(wlr_output, &state);
-
-    /* Don't move monitors if position wouldn't change. This avoids
-     * wlroots marking the output as manually configured.
-     * wlr_output_layout_add does not like disabled outputs */
-    if (!test && wlr_output->enabled &&
-        (m->m.x != config_head->state.x || m->m.y != config_head->state.y))
-      wlr_output_layout_add(output_layout, wlr_output, config_head->state.x,
-                            config_head->state.y);
-
-    wlr_output_state_finish(&state);
-  }
-
-  if (ok)
-    wlr_output_configuration_v1_send_succeeded(config);
-  else
-    wlr_output_configuration_v1_send_failed(config);
-  wlr_output_configuration_v1_destroy(config);
-
-  /* https://codeberg.org/dwl/dwl/issues/577 */
-  updatemons(NULL, NULL);
-}
-
-void outputmgrtest(struct wl_listener *listener, void *data) {
-  struct wlr_output_configuration_v1 *config = data;
-  outputmgrapplyortest(config, 1);
-}
-
 void pointerfocus(Client *c, struct wlr_surface *surface, double sx, double sy,
                   uint32_t time) {
   struct timespec now;
@@ -1654,50 +1399,7 @@ void printstatus(void) {
   fflush(stdout);
 }
 
-void powermgrsetmode(struct wl_listener *listener, void *data) {
-  struct wlr_output_power_v1_set_mode_event *event = data;
-  struct wlr_output_state state = {0};
-  Monitor *m = event->output->data;
-
-  if (!m)
-    return;
-
-  m->gamma_lut_changed = 1; /* Reapply gamma LUT when re-enabling the output */
-  wlr_output_state_set_enabled(&state, event->mode);
-  wlr_output_commit_state(m->wlr_output, &state);
-
-  m->asleep = !event->mode;
-  updatemons(NULL, NULL);
-}
-
 void quit(const Arg *arg) { wl_display_terminate(dpy); }
-
-void rendermon(struct wl_listener *listener, void *data) {
-  /* This function is called every time an output is ready to display a frame,
-   * generally at the output's refresh rate (e.g. 60Hz). */
-  Monitor *m = wl_container_of(listener, m, frame);
-  Client *c;
-  struct wlr_output_state pending = {0};
-  struct timespec now;
-
-  /* Render if no XDG clients have an outstanding resize and are visible on
-   * this monitor. */
-  wl_list_for_each(c, layout_tiling_order(), link) {
-    if (c->resize && !c->isfloating && client_is_rendered_on_mon(c, m) &&
-        !client_is_stopped(c))
-      goto skip;
-  }
-
-  apply_output_scene_effects(&m->scene_output->scene->tree.node, NULL);
-
-  wlr_scene_output_commit(m->scene_output, NULL);
-
-skip:
-  /* Let clients know a frame has been rendered */
-  clock_gettime(CLOCK_MONOTONIC, &now);
-  wlr_scene_output_send_frame_done(m->scene_output, &now);
-  wlr_output_state_finish(&pending);
-}
 
 void requestdecorationmode(struct wl_listener *listener, void *data) {
   Client *c = wl_container_of(listener, c, set_decoration_mode);
@@ -1713,12 +1415,6 @@ void requeststartdrag(struct wl_listener *listener, void *data) {
     wlr_seat_start_pointer_drag(seat, event->drag, event->serial);
   else
     wlr_data_source_destroy(event->drag->source);
-}
-
-void requestmonstate(struct wl_listener *listener, void *data) {
-  struct wlr_output_event_request_state *event = data;
-  wlr_output_commit_state(event->output, event->state);
-  updatemons(NULL, NULL);
 }
 
 void resize(Client *c, struct wlr_box geo, int interact) {
@@ -2222,12 +1918,6 @@ static void init_render(void) {
 }
 
 static void init_protocols(void) {
-  /* This creates some hands-off wlroots interfaces. The compositor is
-   * necessary for clients to allocate surfaces and the data device manager
-   * handles the clipboard. Each of these wlroots interfaces has room for you
-   * to dig your fingers in and play with their behavior if you want. Note that
-   * the clients cannot set the selection directly without compositor approval,
-   * see the setsel() function. */
   compositor = wlr_compositor_create(dpy, 6, drw);
   wlr_subcompositor_create(dpy);
   wlr_data_device_manager_create(dpy);
@@ -2242,35 +1932,12 @@ static void init_protocols(void) {
   wlr_presentation_create(dpy, backend, 2);
   wlr_alpha_modifier_v1_create(dpy);
 
-  /* Initializes the interface used to implement urgency hints */
   activation = wlr_xdg_activation_v1_create(dpy);
   wl_signal_add(&activation->events.request_activate, &request_activate);
-
-  wlr_scene_set_gamma_control_manager_v1(
-      scene, wlr_gamma_control_manager_v1_create(dpy));
-
-  power_mgr = wlr_output_power_manager_v1_create(dpy);
-  wl_signal_add(&power_mgr->events.set_mode, &output_power_mgr_set_mode);
 }
 
 static void init_output(void) {
-  /* Creates an output layout, which is a wlroots utility for working with an
-   * arrangement of screens in a physical layout. */
-  output_layout = wlr_output_layout_create(dpy);
-  wl_signal_add(&output_layout->events.change, &layout_change);
-
-  wlr_xdg_output_manager_v1_create(dpy, output_layout);
-
-  /* Configure a listener to be notified when new outputs are available on the
-   * backend. */
-  wl_list_init(&mons);
-  wl_signal_add(&backend->events.new_output, &new_output);
-
-  output_mgr = wlr_output_manager_v1_create(dpy);
-  wl_signal_add(&output_mgr->events.apply, &output_mgr_apply);
-  wl_signal_add(&output_mgr->events.test, &output_mgr_test);
-
-  workspaces_init();
+  monitor_init();
 }
 
 static void init_shells(void) {
@@ -2515,117 +2182,6 @@ void unmapnotify(struct wl_listener *listener, void *data) {
   wlr_scene_node_destroy(&c->scene->node);
   printstatus();
   motionnotify(0, NULL, 0, 0, 0, 0);
-}
-
-void updatemons(struct wl_listener *listener, void *data) {
-  /*
-   * Called whenever the output layout changes: adding or removing a
-   * monitor, changing an output's mode or position, etc. This is where
-   * the change officially happens and we update geometry, window
-   * positions, focus, and the stored configuration in wlroots'
-   * output-manager implementation.
-   */
-  struct wlr_output_configuration_v1 *config =
-      wlr_output_configuration_v1_create();
-  Client *c;
-  struct wlr_output_configuration_head_v1 *config_head;
-  Monitor *m;
-
-  /* First remove from the layout the disabled monitors */
-  wl_list_for_each(m, &mons, link) {
-    if (m->wlr_output->enabled || m->asleep)
-      continue;
-    config_head =
-        wlr_output_configuration_head_v1_create(config, m->wlr_output);
-    config_head->state.enabled = 0;
-    /* Remove this output from the layout to avoid cursor enter inside it */
-    wlr_output_layout_remove(output_layout, m->wlr_output);
-    closemon(m);
-    m->m = m->w = (struct wlr_box){0};
-  }
-  /* Insert outputs that need to */
-  wl_list_for_each(m, &mons, link) {
-    if (m->wlr_output->enabled &&
-        !wlr_output_layout_get(output_layout, m->wlr_output))
-      wlr_output_layout_add_auto(output_layout, m->wlr_output);
-  }
-
-  /* Now that we update the output layout we can get its box */
-  wlr_output_layout_get_box(output_layout, NULL, &sgeom);
-
-  wlr_scene_node_set_position(&root_bg->node, sgeom.x, sgeom.y);
-  wlr_scene_rect_set_size(root_bg, sgeom.width, sgeom.height);
-
-  /* Make sure the clients are hidden when bonsaiwm is locked */
-  wlr_scene_node_set_position(&locked_bg->node, sgeom.x, sgeom.y);
-  wlr_scene_rect_set_size(locked_bg, sgeom.width, sgeom.height);
-
-  wl_list_for_each(m, &mons, link) {
-    if (!m->wlr_output->enabled)
-      continue;
-    config_head =
-        wlr_output_configuration_head_v1_create(config, m->wlr_output);
-
-    /* Get the effective monitor geometry to use for surfaces */
-    wlr_output_layout_get_box(output_layout, m->wlr_output, &m->m);
-    m->w = m->m;
-    wlr_scene_output_set_position(m->scene_output, m->m.x, m->m.y);
-
-    wlr_scene_node_set_position(&m->fullscreen_bg->node, m->m.x, m->m.y);
-    wlr_scene_rect_set_size(m->fullscreen_bg, m->m.width, m->m.height);
-
-    wlr_scene_node_set_position(&m->blur_layer->node, m->m.x, m->m.y);
-    wlr_scene_optimized_blur_set_size(m->blur_layer, m->m.width, m->m.height);
-
-    if (m->lock_surface) {
-      struct wlr_scene_tree *scene_tree = m->lock_surface->surface->data;
-      wlr_scene_node_set_position(&scene_tree->node, m->m.x, m->m.y);
-      wlr_session_lock_surface_v1_configure(m->lock_surface, m->m.width,
-                                            m->m.height);
-    }
-
-    /* Calculate the effective monitor geometry to use for clients */
-    arrangelayers(m);
-    /* Don't move clients to the left output when plugging monitors */
-    arrange(m);
-    arrange_effects();
-    /* make sure fullscreen clients have the right size */
-    if ((c = focustop(m)) && c->isfullscreen)
-      resize(c, m->m, 0);
-
-    /* Try to re-set the gamma LUT when updating monitors,
-     * it's only really needed when enabling a disabled output, but meh. */
-    m->gamma_lut_changed = 1;
-
-    config_head->state.x = m->m.x;
-    config_head->state.y = m->m.y;
-
-    if (!selmon) {
-      selmon = m;
-    }
-  }
-
-  if (selmon && selmon->wlr_output->enabled) {
-    wl_list_for_each(c, layout_tiling_order(), link) {
-      if (!c->mon && client_surface(c)->mapped)
-        setmon(c, selmon, c->tags);
-    }
-    focusclient(focustop(selmon), 1);
-    if (selmon->lock_surface) {
-      client_notify_enter(selmon->lock_surface->surface,
-                          wlr_seat_get_keyboard(seat));
-      client_activate_surface(selmon->lock_surface->surface, 1);
-    }
-  }
-
-  /* FIXME: figure out why the cursor image is at 0,0 after turning all
-   * the monitors on.
-   * Move the cursor image where it used to be. It does not generate a
-   * wl_pointer.motion event for the clients, it's only the image what it's
-   * at the wrong position after all. */
-  wlr_cursor_move(cursor, NULL, 0, 0);
-
-  wlr_output_manager_v1_set_configuration(output_mgr, config);
 }
 
 void updatetitle(struct wl_listener *listener, void *data) {

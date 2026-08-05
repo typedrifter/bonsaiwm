@@ -82,6 +82,7 @@ sources = files(
   'src/decorations.c',
   'src/focus.c',
   'src/layer_shell.c',
+  'src/monitor.c',
   'src/session_lock.c',
   'src/client.c',
   'src/util.c',
