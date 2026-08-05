@@ -81,6 +81,7 @@
 #include "util.h"
 #include "decorations.h"
 #include "focus.h"
+#include "session_lock.h"
 
 /* enums (client types + scene layers) live in bonsaiwm.h */
 
@@ -94,7 +95,6 @@ static void arrangelayers(Monitor *m);
 static void axisnotify(struct wl_listener *listener, void *data);
 static void buttonpress(struct wl_listener *listener, void *data);
 void chvt(const Arg *arg);
-static void checkidleinhibitor(struct wlr_surface *exclude);
 static void cleanup(void);
 static void cleanupmon(struct wl_listener *listener, void *data);
 static void cleanuplisteners(void);
@@ -107,7 +107,6 @@ static void createidleinhibitor(struct wl_listener *listener, void *data);
 static void createkeyboard(struct wlr_keyboard *keyboard);
 static KeyboardGroup *createkeyboardgroup(void);
 static void createlayersurface(struct wl_listener *listener, void *data);
-static void createlocksurface(struct wl_listener *listener, void *data);
 static void createmon(struct wl_listener *listener, void *data);
 static void createnotify(struct wl_listener *listener, void *data);
 static void createpointer(struct wlr_pointer *pointer);
@@ -121,11 +120,8 @@ static void destroydecoration(struct wl_listener *listener, void *data);
 static void destroydragicon(struct wl_listener *listener, void *data);
 static void destroyidleinhibitor(struct wl_listener *listener, void *data);
 static void destroylayersurfacenotify(struct wl_listener *listener, void *data);
-static void destroylock(SessionLock *lock, int unlocked);
-static void destroylocksurface(struct wl_listener *listener, void *data);
 static void destroynotify(struct wl_listener *listener, void *data);
 static void destroypointerconstraint(struct wl_listener *listener, void *data);
-static void destroysessionlock(struct wl_listener *listener, void *data);
 static void destroykeyboardgroup(struct wl_listener *listener, void *data);
 void focusclient(Client *c, int lift);
 static void fullscreennotify(struct wl_listener *listener, void *data);
@@ -139,14 +135,13 @@ static void keypress(struct wl_listener *listener, void *data);
 static void keypressmod(struct wl_listener *listener, void *data);
 static int keyrepeat(void *data);
 void killclient(const Arg *arg);
-static void locksession(struct wl_listener *listener, void *data);
 static void mapnotify(struct wl_listener *listener, void *data);
 static void maximizenotify(struct wl_listener *listener, void *data);
 void monocle(Monitor *m);
 static void motionabsolute(struct wl_listener *listener, void *data);
-static void motionnotify(uint32_t time, struct wlr_input_device *device,
-                         double sx, double sy, double sx_unaccel,
-                         double sy_unaccel);
+void motionnotify(uint32_t time, struct wlr_input_device *device,
+                  double sx, double sy, double sx_unaccel,
+                  double sy_unaccel);
 static void motionrelative(struct wl_listener *listener, void *data);
 void moveresize(const Arg *arg);
 static void outputmgrapply(struct wl_listener *listener, void *data);
@@ -193,7 +188,6 @@ void togglefullscreen(const Arg *arg);
 void togglegaps(const Arg *arg);
 void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
-static void unlocksession(struct wl_listener *listener, void *data);
 static void unmaplayersurfacenotify(struct wl_listener *listener, void *data);
 static void unmapnotify(struct wl_listener *listener, void *data);
 static void updatemons(struct wl_listener *listener, void *data);
@@ -210,13 +204,13 @@ void zoom(const Arg *arg);
 /* variables */
 static pid_t child_pid = -1;
 static int log_level = WLR_ERROR;
-static int locked;
-static void *exclusive_focus;
+int locked;
+void *exclusive_focus;
 struct wl_display *dpy;
 static struct wl_event_loop *event_loop;
 static struct wlr_backend *backend;
-static struct wlr_scene *scene;
-static struct wlr_scene_tree *layers[NUM_LAYERS];
+struct wlr_scene *scene;
+struct wlr_scene_tree *layers[NUM_LAYERS];
 static struct wlr_scene_tree *drag_icon;
 /* Map from ZWLR_LAYER_SHELL_* constants to Lyr* enum */
 static const int layermap[] = {LyrBg, LyrBottom, LyrTop, LyrOverlay};
@@ -229,8 +223,8 @@ static struct wlr_xdg_shell *xdg_shell;
 static struct wlr_xdg_activation_v1 *activation;
 static struct wlr_xdg_decoration_manager_v1 *xdg_decoration_mgr;
 struct wl_list fstack; /* focus order */
-static struct wlr_idle_notifier_v1 *idle_notifier;
-static struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
+struct wlr_idle_notifier_v1 *idle_notifier;
+struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
 static struct wlr_layer_shell_v1 *layer_shell;
 static struct wlr_output_manager_v1 *output_mgr;
 static struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
@@ -246,9 +240,6 @@ static struct wlr_cursor *cursor;
 static struct wlr_xcursor_manager *cursor_mgr;
 
 static struct wlr_scene_rect *root_bg;
-static struct wlr_session_lock_manager_v1 *session_lock_mgr;
-static struct wlr_scene_rect *locked_bg;
-static struct wlr_session_lock_v1 *cur_lock;
 
 struct wlr_seat *seat;
 static KeyboardGroup *kb_group;
@@ -257,7 +248,7 @@ static Client *grabc;
 static int grabcx, grabcy; /* client-relative */
 
 struct wlr_output_layout *output_layout;
-static struct wlr_box sgeom;
+struct wlr_box sgeom;
 struct wl_list mons;
 Monitor *selmon;
 
@@ -291,8 +282,6 @@ static struct wl_listener request_set_sel = {.notify = setsel};
 static struct wl_listener request_set_cursor_shape = {.notify = setcursorshape};
 static struct wl_listener request_start_drag = {.notify = requeststartdrag};
 static struct wl_listener start_drag = {.notify = startdrag};
-static struct wl_listener new_session_lock = {.notify = locksession};
-
 #ifdef XWAYLAND
 static void activatex11(struct wl_listener *listener, void *data);
 static void associatex11(struct wl_listener *listener, void *data);
@@ -521,25 +510,6 @@ void buttonpress(struct wl_listener *listener, void *data) {
 
 void chvt(const Arg *arg) { wlr_session_change_vt(session, arg->ui); }
 
-void checkidleinhibitor(struct wlr_surface *exclude) {
-  int inhibited = 0, unused_lx, unused_ly;
-  struct wlr_idle_inhibitor_v1 *inhibitor;
-  wl_list_for_each(inhibitor, &idle_inhibit_mgr->inhibitors, link) {
-    struct wlr_surface *surface =
-        wlr_surface_get_root_surface(inhibitor->surface);
-    struct wlr_scene_tree *tree = surface->data;
-    if (exclude != surface &&
-        (bypass_surface_visibility ||
-         (!tree ||
-          wlr_scene_node_coords(&tree->node, &unused_lx, &unused_ly)))) {
-      inhibited = 1;
-      break;
-    }
-  }
-
-  wlr_idle_notifier_v1_set_inhibited(idle_notifier, inhibited);
-}
-
 void cleanup(void) {
   cleanuplisteners();
 #ifdef XWAYLAND
@@ -627,7 +597,7 @@ void cleanuplisteners(void) {
   wl_list_remove(&request_set_cursor_shape.link);
   wl_list_remove(&request_start_drag.link);
   wl_list_remove(&start_drag.link);
-  wl_list_remove(&new_session_lock.link);
+  session_lock_cleanup();
 #ifdef XWAYLAND
   wl_list_remove(&new_xwayland_surface.link);
   wl_list_remove(&xwayland_ready.link);
@@ -872,24 +842,6 @@ void createlayersurface(struct wl_listener *listener, void *data) {
 
   wl_list_insert(&l->mon->layers[layer_surface->pending.layer], &l->link);
   wlr_surface_send_enter(surface, layer_surface->output);
-}
-
-void createlocksurface(struct wl_listener *listener, void *data) {
-  SessionLock *lock = wl_container_of(listener, lock, new_surface);
-  struct wlr_session_lock_surface_v1 *lock_surface = data;
-  Monitor *m = lock_surface->output->data;
-  struct wlr_scene_tree *scene_tree = lock_surface->surface->data =
-      wlr_scene_subsurface_tree_create(lock->scene, lock_surface->surface);
-  m->lock_surface = lock_surface;
-
-  wlr_scene_node_set_position(&scene_tree->node, m->m.x, m->m.y);
-  wlr_session_lock_surface_v1_configure(lock_surface, m->m.width, m->m.height);
-
-  LISTEN(&lock_surface->events.destroy, &m->destroy_lock_surface,
-         destroylocksurface);
-
-  if (m == selmon)
-    client_notify_enter(lock_surface->surface, wlr_seat_get_keyboard(seat));
 }
 
 void createmon(struct wl_listener *listener, void *data) {
@@ -1140,46 +1092,6 @@ void destroylayersurfacenotify(struct wl_listener *listener, void *data) {
   free(l);
 }
 
-void destroylock(SessionLock *lock, int unlock) {
-  wlr_seat_keyboard_notify_clear_focus(seat);
-  if ((locked = !unlock))
-    goto destroy;
-
-  wlr_scene_node_set_enabled(&locked_bg->node, 0);
-
-  focusclient(focustop(selmon), 0);
-  motionnotify(0, NULL, 0, 0, 0, 0);
-
-destroy:
-  wl_list_remove(&lock->new_surface.link);
-  wl_list_remove(&lock->unlock.link);
-  wl_list_remove(&lock->destroy.link);
-
-  wlr_scene_node_destroy(&lock->scene->node);
-  cur_lock = NULL;
-  free(lock);
-}
-
-void destroylocksurface(struct wl_listener *listener, void *data) {
-  Monitor *m = wl_container_of(listener, m, destroy_lock_surface);
-  struct wlr_session_lock_surface_v1 *surface, *lock_surface = m->lock_surface;
-
-  m->lock_surface = NULL;
-  wl_list_remove(&m->destroy_lock_surface.link);
-
-  if (lock_surface->surface != seat->keyboard_state.focused_surface)
-    return;
-
-  if (locked && cur_lock && !wl_list_empty(&cur_lock->surfaces)) {
-    surface = wl_container_of(cur_lock->surfaces.next, surface, link);
-    client_notify_enter(surface->surface, wlr_seat_get_keyboard(seat));
-  } else if (!locked) {
-    focusclient(focustop(selmon), 1);
-  } else {
-    wlr_seat_keyboard_clear_focus(seat);
-  }
-}
-
 void destroynotify(struct wl_listener *listener, void *data) {
   /* Called when the xdg_toplevel is destroyed. */
   Client *c = wl_container_of(listener, c, destroy);
@@ -1215,11 +1127,6 @@ void destroypointerconstraint(struct wl_listener *listener, void *data) {
 
   wl_list_remove(&pointer_constraint->destroy.link);
   free(pointer_constraint);
-}
-
-void destroysessionlock(struct wl_listener *listener, void *data) {
-  SessionLock *lock = wl_container_of(listener, lock, destroy);
-  destroylock(lock, 0);
 }
 
 void destroykeyboardgroup(struct wl_listener *listener, void *data) {
@@ -1503,29 +1410,6 @@ void killclient(const Arg *arg) {
   Client *sel = focustop(selmon);
   if (sel)
     client_send_close(sel);
-}
-
-void locksession(struct wl_listener *listener, void *data) {
-  struct wlr_session_lock_v1 *session_lock = data;
-  SessionLock *lock;
-  wlr_scene_node_set_enabled(&locked_bg->node, 1);
-  if (cur_lock) {
-    wlr_session_lock_v1_destroy(session_lock);
-    return;
-  }
-  lock = session_lock->data = ecalloc(1, sizeof(*lock));
-  focusclient(NULL, 0);
-
-  lock->scene = wlr_scene_tree_create(layers[LyrBlock]);
-  cur_lock = lock->lock = session_lock;
-  locked = 1;
-
-  LISTEN(&session_lock->events.new_surface, &lock->new_surface,
-         createlocksurface);
-  LISTEN(&session_lock->events.destroy, &lock->destroy, destroysessionlock);
-  LISTEN(&session_lock->events.unlock, &lock->unlock, unlocksession);
-
-  wlr_session_lock_v1_send_locked(session_lock);
 }
 
 void mapnotify(struct wl_listener *listener, void *data) {
@@ -2582,11 +2466,7 @@ static void init_aux(void) {
   idle_inhibit_mgr = wlr_idle_inhibit_v1_create(dpy);
   wl_signal_add(&idle_inhibit_mgr->events.new_inhibitor, &new_idle_inhibitor);
 
-  session_lock_mgr = wlr_session_lock_manager_v1_create(dpy);
-  wl_signal_add(&session_lock_mgr->events.new_lock, &new_session_lock);
-  locked_bg = wlr_scene_rect_create(layers[LyrBlock], sgeom.width, sgeom.height,
-                                    (float[4]){0.1f, 0.1f, 0.1f, 1.0f});
-  wlr_scene_node_set_enabled(&locked_bg->node, 0);
+  session_lock_init();
 
   /* Use decoration protocols to negotiate server-side decorations */
   wlr_server_decoration_manager_set_default_mode(
@@ -2781,11 +2661,6 @@ void toggleview(const Arg *arg) {
   arrange(selmon);
   arrange_effects();
   printstatus();
-}
-
-void unlocksession(struct wl_listener *listener, void *data) {
-  SessionLock *lock = wl_container_of(listener, lock, unlock);
-  destroylock(lock, 1);
 }
 
 void unmaplayersurfacenotify(struct wl_listener *listener, void *data) {
