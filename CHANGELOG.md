@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The monolithic `bonsaiwm.c` (3,199 lines / ~120 functions) has been split into dedicated modules: `input` (keyboard, pointer, cursor, virtual devices), `xdg_shell` (toplevel, popup, decoration lifecycle), `monitor` (output management, power), `layer_shell` (layer surfaces), and `session_lock` (lock screen lifecycle). Each module owns one wlroots protocol concern and is findable by filename.
+- Compilation unit count increased from 19 to 24. Clean build time remains effectively unchanged (before: 0.490s, after: 0.431s on the same machine). No runtime performance impact — pure code movement with identical call paths and data structures.
+
 ### Added
 
 - Added `ext-workspace-v1` protocol support: each tag of every monitor is
