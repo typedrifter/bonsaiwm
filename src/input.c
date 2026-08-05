@@ -46,10 +46,10 @@ extern KeyboardGroup *kb_group;
 static struct wlr_cursor_shape_manager_v1 *cursor_shape_mgr;
 static struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
 static struct wlr_virtual_pointer_manager_v1 *virtual_pointer_mgr;
-static struct wlr_pointer_constraints_v1 *pointer_constraints;
-static struct wlr_pointer_constraint_v1 *active_constraint;
-static struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
-static struct wlr_scene_tree *drag_icon;
+extern struct wlr_pointer_constraints_v1 *pointer_constraints;
+extern struct wlr_pointer_constraint_v1 *active_constraint;
+extern struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
+extern struct wlr_scene_tree *drag_icon;
 
 extern struct wlr_cursor *cursor;
 extern unsigned int cursor_mode;

@@ -99,7 +99,7 @@ static void createidleinhibitor(struct wl_listener *listener, void *data);
 void defaultgaps(const Arg *arg);
 static void destroyidleinhibitor(struct wl_listener *listener, void *data);
 void focusclient(Client *c, int lift);
-static void gpureset(struct wl_listener *listener, void *data);
+void gpureset(struct wl_listener *listener, void *data);
 static void handlesig(int signo);
 void incgaps(const Arg *arg);
 void incnmaster(const Arg *arg);
