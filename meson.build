@@ -85,6 +85,7 @@ sources = files(
   'src/monitor.c',
   'src/session_lock.c',
   'src/xdg_shell.c',
+  'src/input.c',
   'src/client.c',
   'src/util.c',
   'src/lua.c',
