@@ -16,8 +16,8 @@
 void motionnotify(uint32_t time, struct wlr_input_device *device, double dx,
                   double dy, double dx_unaccel, double dy_unaccel);
 
-static struct wlr_session_lock_manager_v1 *session_lock_mgr;
 struct wlr_scene_rect *locked_bg;
+static struct wlr_session_lock_manager_v1 *session_lock_mgr;
 static struct wlr_session_lock_v1 *cur_lock;
 
 static void locksession(struct wl_listener *listener, void *data);
