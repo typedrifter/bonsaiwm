@@ -17,6 +17,25 @@
 
 #include "config.h"
 #include "ext-protocol/wlr_ext_workspace_v1.h"
+#include "util.h"
+
+/* shared macros (used across modules) */
+#ifndef MAX
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+#endif
+#ifndef MIN
+#define MIN(A, B) ((A) < (B) ? (A) : (B))
+#endif
+#define CLEANMASK(mask) (mask & ~WLR_MODIFIER_CAPS)
+#define VISIBLEON(C, M) layout_visible((C), (M))
+#define LENGTH(X) (sizeof X / sizeof X[0])
+#define LISTEN(E, L, H) wl_signal_add((E), ((L)->notify = (H), (L)))
+#define LISTEN_STATIC(E, H)                                                    \
+  do {                                                                         \
+    struct wl_listener *_l = ecalloc(1, sizeof(*_l));                          \
+    _l->notify = (H);                                                          \
+    wl_signal_add((E), _l);                                                    \
+  } while (0)
 
 /* client types */
 enum { XDGShell, LayerShell, X11 };
@@ -37,6 +56,34 @@ enum {
 
 typedef struct TagState TagState;
 typedef struct Monitor Monitor;
+
+/* Keyboard group: aggregates multiple physical keyboards into one logical
+ * keyboard, used by the input module. */
+typedef struct {
+  struct wlr_keyboard_group *wlr_group;
+  int nsyms;
+  const xkb_keysym_t *keysyms;
+  uint32_t mods;
+  struct wl_event_source *key_repeat_source;
+  struct wl_listener modifiers;
+  struct wl_listener key;
+  struct wl_listener destroy;
+} KeyboardGroup;
+
+/* Pointer constraint wrapper */
+typedef struct {
+  struct wlr_pointer_constraint_v1 *constraint;
+  struct wl_listener destroy;
+} PointerConstraint;
+
+/* Session lock wrapper */
+typedef struct {
+  struct wlr_scene_tree *scene;
+  struct wlr_session_lock_v1 *lock;
+  struct wl_listener new_surface;
+  struct wl_listener unlock;
+  struct wl_listener destroy;
+} SessionLock;
 
 /* Per-tag layout state, ported from the dwl pertag patch:
  * https://codeberg.org/dwl/dwl-patches/src/branch/main/patches/pertag

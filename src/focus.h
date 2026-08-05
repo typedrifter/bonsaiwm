@@ -27,6 +27,11 @@ extern struct wlr_output_layout *output_layout;
 /* focusclient is the heavy side-effect orchestrator (still in bonsaiwm.c) */
 void focusclient(Client *c, int lift);
 
+/* compositor-level functions used by extracted modules */
+void arrange_effects(void);
+void printstatus(void);
+int arrange(Monitor *m);
+
 Client *focustop(Monitor *m);
 void focusmon(const Arg *arg);
 void focusstack(const Arg *arg);

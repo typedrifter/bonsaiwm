@@ -85,12 +85,14 @@ sources = files(
   'src/util.c',
   'src/lua.c',
   'src/ext-protocol/wlr_ext_workspace_v1.c',
+  'src/ext-protocol/ext-workspace.c',
 )
 
 # ── Executable ────────────────────────────────────────────────────────────────
 bonsaiwm = executable('bonsaiwm',
   sources,
   wayland_sources,
+  include_directories: include_directories('src'),
   dependencies: [scenefx, wayland_server, xkbcommon, libinput, wlroots, libm, xcb, xcb_icccm, lua],
   c_args: c_args,
   link_args: link_args,

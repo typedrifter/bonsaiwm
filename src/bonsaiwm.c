@@ -82,55 +82,12 @@
 #include "decorations.h"
 #include "focus.h"
 
-/* macros */
-#define MAX(A, B) ((A) > (B) ? (A) : (B))
-#define MIN(A, B) ((A) < (B) ? (A) : (B))
-#define CLEANMASK(mask) (mask & ~WLR_MODIFIER_CAPS)
-#define VISIBLEON(C, M) layout_visible((C), (M))
-#define LENGTH(X) (sizeof X / sizeof X[0])
-#define LISTEN(E, L, H) wl_signal_add((E), ((L)->notify = (H), (L)))
-#define LISTEN_STATIC(E, H)                                                    \
-  do {                                                                         \
-    struct wl_listener *_l = ecalloc(1, sizeof(*_l));                          \
-    _l->notify = (H);                                                          \
-    wl_signal_add((E), _l);                                                    \
-  } while (0)
-
 /* enums (client types + scene layers) live in bonsaiwm.h */
-
-/* Client, Monitor, TagState moved to bonsaiwm.h */
-
-typedef struct {
-  struct wlr_keyboard_group *wlr_group;
-
-  int nsyms;
-  const xkb_keysym_t *keysyms; /* invalid if nsyms == 0 */
-  uint32_t mods;               /* invalid if nsyms == 0 */
-  struct wl_event_source *key_repeat_source;
-
-  struct wl_listener modifiers;
-  struct wl_listener key;
-  struct wl_listener destroy;
-} KeyboardGroup;
-
-typedef struct {
-  struct wlr_pointer_constraint_v1 *constraint;
-  struct wl_listener destroy;
-} PointerConstraint;
-
-typedef struct {
-  struct wlr_scene_tree *scene;
-
-  struct wlr_session_lock_v1 *lock;
-  struct wl_listener new_surface;
-  struct wl_listener unlock;
-  struct wl_listener destroy;
-} SessionLock;
 
 /* function declarations */
 static void applyrules(Client *c);
 int arrange(Monitor *m);
-static void arrange_effects(void);
+void arrange_effects(void);
 static void arrangelayer(Monitor *m, struct wl_list *list,
                          struct wlr_box *usable_area, int exclusive);
 static void arrangelayers(Monitor *m);
@@ -198,7 +155,7 @@ static void outputmgrapplyortest(struct wlr_output_configuration_v1 *config,
 static void outputmgrtest(struct wl_listener *listener, void *data);
 static void pointerfocus(Client *c, struct wlr_surface *surface, double sx,
                          double sy, uint32_t time);
-static void printstatus(void);
+void printstatus(void);
 static void powermgrsetmode(struct wl_listener *listener, void *data);
 void quit(const Arg *arg);
 static void rendermon(struct wl_listener *listener, void *data);
@@ -255,7 +212,7 @@ static pid_t child_pid = -1;
 static int log_level = WLR_ERROR;
 static int locked;
 static void *exclusive_focus;
-static struct wl_display *dpy;
+struct wl_display *dpy;
 static struct wl_event_loop *event_loop;
 static struct wlr_backend *backend;
 static struct wlr_scene *scene;
@@ -391,7 +348,7 @@ void applyrules(Client *c) {
   setmon(c, mon, newtags);
 }
 
-static void arrange_effects(void) {
+void arrange_effects(void) {
   motionnotify(0, NULL, 0, 0, 0, 0);
   checkidleinhibitor(NULL);
 }
