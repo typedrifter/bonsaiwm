@@ -45,21 +45,30 @@ static void handle_ext_commit(struct wl_listener *listener, void *data) {
     struct wlr_ext_workspace_handle_v1 *handle;
     Monitor *m;
     uint32_t tag;
-    Arg arg;
-
     switch (request->type) {
     case WLR_EXT_WORKSPACE_V1_REQUEST_ACTIVATE:
       handle = request->activate.workspace;
       if (handle && find_workspace(handle, &m, &tag)) {
-        arg.ui = 1u << (tag - 1);
-        view_on(m, &arg);
+        uint32_t tags = 1u << (tag - 1);
+        if ((tags & TAGMASK) != m->tagset[m->seltags]) {
+          layout_view_set(m, tags);
+          focusclient(focustop(m), 1);
+          arrange(m);
+          printstatus();
+        }
       }
       break;
     case WLR_EXT_WORKSPACE_V1_REQUEST_DEACTIVATE:
       handle = request->deactivate.workspace;
       if (handle && find_workspace(handle, &m, &tag)) {
-        arg.ui = 1u << (tag - 1);
-        view_off(m, &arg);
+        uint32_t mask = 1u << (tag - 1);
+        uint32_t newtagset = m->tagset[m->seltags] & ~mask;
+        if (newtagset && newtagset != m->tagset[m->seltags]) {
+          layout_view_remove(m, mask);
+          focusclient(focustop(m), 1);
+          arrange(m);
+          printstatus();
+        }
       }
       break;
     default:

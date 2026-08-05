@@ -1,13 +1,18 @@
 /* Layout module: workspace state + tiling order + pure Placement computation.
  *
  * Owns:
- *   - the Tiling order (the list layout_insert/layout_promote/layout_remove)
- *   - the per-tag layout parameters (TagState) via the tagstate_* accessors
+ *   - the Tiling order (layout_insert/promote/remove)
+ *   - the per-tag layout parameters (TagState) — read via tagstate_*
+ *     accessors, written via layout_setlayout_* / layout_setmfact /
+ *     layout_incnmaster
+ *   - the tagset View (which tags a Monitor shows) — layout_view_set /
+ *     remove / toggle
+ *   - the monitor's gap values (gappoh/v/ih/iv) — layout_gaps_set
  *   - the placement computation (layout_place), pure and side-effect free
  *
- * Does NOT own: Focus (fstack/focusclient), the scene graph, or rendering.
- * layout_place computes final, bounds-clamped boxes; applying them to the
- * scene and sending configures is the compositor's job (resize()).
+ * The compositor (bonsaiwm.c) calls these mutation functions then handles
+ * focus, arrange, and status bar updates.  Does NOT own: Focus
+ * (fstack/focusclient), the scene graph, rendering, or config globals.
  */
 #ifndef LAYOUT_H
 #define LAYOUT_H
@@ -88,6 +93,30 @@ void layout_bounds(struct wlr_box *box, const struct wlr_box *bbox,
 size_t layout_place(const Monitor *m, enum layout_kind kind,
                     const struct layout_opts *opts, struct Placement *out,
                     size_t cap);
+
+/* ── State mutations (TagState, View, gaps) ── */
+
+/* TagState lifecycle: called from createmon / config reload. */
+void layout_tagstate_init(TagState *ts, int nmaster, float mfact,
+                          int lt0, int lt1, int sellt);
+void layout_tagstate_clamp(TagState *ts, size_t layouts_count);
+
+/* Per-tag layout parameter mutations. Action handlers in bonsaiwm.c call
+ * these, then separately manage focus, arrange, and the status bar. */
+int  layout_setlayout_toggle(Monitor *m);
+void layout_setlayout_idx(Monitor *m, int layout_idx, int slot);
+void layout_setmfact(Monitor *m, float factor);
+void layout_incnmaster(Monitor *m, int delta);
+
+/* Tagset mutations: change which tags form the Monitor's View. These
+ * write m->seltags, m->tagset[], and m->tagstate->curtag/prevtag.
+ * The compositor guards for duplicate calls before entering these. */
+void layout_view_set(Monitor *m, uint32_t tags);
+void layout_view_remove(Monitor *m, uint32_t mask);
+void layout_view_toggle(Monitor *m, uint32_t mask);
+
+/* Gap values on the Monitor. Values are clamped to >= 0. */
+void layout_gaps_set(Monitor *m, int oh, int ov, int ih, int iv);
 
 /* ── Tiling order ownership ── */
 

@@ -254,19 +254,13 @@ void togglefullscreen(const Arg *arg);
 void togglegaps(const Arg *arg);
 void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
-static void toggleview_on(Monitor *m, const Arg *arg);
 static void unlocksession(struct wl_listener *listener, void *data);
-static void tagstate_init(TagState *ts, int nmaster, float mfact, int lt0,
-                          int lt1, int sellt);
-static void tagstate_clamp_layouts(TagState *ts, size_t layouts_count);
 static void unmaplayersurfacenotify(struct wl_listener *listener, void *data);
 static void unmapnotify(struct wl_listener *listener, void *data);
 static void updatemons(struct wl_listener *listener, void *data);
 static void updatetitle(struct wl_listener *listener, void *data);
 static void urgent(struct wl_listener *listener, void *data);
 void view(const Arg *arg);
-static void view_off(Monitor *m, const Arg *arg);
-static void view_on(Monitor *m, const Arg *arg);
 static void virtualkeyboard(struct wl_listener *listener, void *data);
 static void virtualpointer(struct wl_listener *listener, void *data);
 static Monitor *xytomon(double x, double y);
@@ -408,30 +402,7 @@ static struct wlr_xwayland *xwayland;
  * When a monitor is created we have one default layout; all tags start from it
  * so that switching to a tag for the first time feels consistent instead of
  * falling back to zeroed state. */
-static void tagstate_init(TagState *ts, int nmaster, float mfact, int lt0,
-                          int lt1, int sellt) {
-  for (size_t i = 0; i <= TAGCOUNT; i++) {
-    ts->nmasters[i] = nmaster;
-    ts->mfacts[i] = mfact;
-    ts->ltidxs[i][0] = lt0;
-    ts->ltidxs[i][1] = lt1;
-    ts->sellts[i] = sellt;
-  }
-}
-
-/* Clamp saved layout indices after a config reload.
- * The user may have removed layouts since the last reload, so previously
- * valid indices can now be out of bounds; reset them to the first layout. */
-static void tagstate_clamp_layouts(TagState *ts, size_t layouts_count) {
-  for (size_t i = 0; i <= TAGCOUNT; i++) {
-    if ((size_t)ts->ltidxs[i][0] >= layouts_count)
-      ts->ltidxs[i][0] = 0;
-    if ((size_t)ts->ltidxs[i][1] >= layouts_count)
-      ts->ltidxs[i][1] = 0;
-    if (ts->sellts[i] > 1)
-      ts->sellts[i] = 0;
-  }
-}
+/* TagState init and clamp have moved to the layout module (layout.c). */
 
 /* function implementations */
 void applyrules(Client *c) {
@@ -1037,7 +1008,7 @@ void createmon(struct wl_listener *listener, void *data) {
       m->m.y = r->y;
       lt0 = r->lt;
       lt1 = (layouts_count > 1 && r->lt != LtFloat) ? LtFloat : LtTile;
-      tagstate_init(m->tagstate, r->nmaster, r->mfact, lt0, lt1, 0);
+      layout_tagstate_init(m->tagstate, r->nmaster, r->mfact, lt0, lt1, 0);
       strncpy(m->ltsymbol, layouts[tagstate_layout(m)].symbol,
               LENGTH(m->ltsymbol));
       wlr_output_state_set_scale(&state, r->scale);
@@ -1523,8 +1494,7 @@ void handlesig(int signo) {
 void incnmaster(const Arg *arg) {
   if (!arg || !selmon)
     return;
-  selmon->tagstate->nmasters[selmon->tagstate->curtag] =
-      MAX(tagstate_nmaster(selmon) + arg->i, 0);
+  layout_incnmaster(selmon, arg->i);
   arrange(selmon);
 }
 
@@ -1535,11 +1505,8 @@ void togglegaps(const Arg *arg) {
 }
 
 void setgaps(int oh, int ov, int ih, int iv) {
-  selmon->gappoh = MAX(oh, 0); /* clamp to minimum 0 */
-  selmon->gappov = MAX(ov, 0);
-  selmon->gappih = MAX(ih, 0);
-  selmon->gappiv = MAX(iv, 0);
-  arrange(selmon); /* re-tile with new gaps */
+  layout_gaps_set(selmon, oh, ov, ih, iv);
+  arrange(selmon);
 }
 
 void incgaps(const Arg *arg) {
@@ -2378,20 +2345,17 @@ void setfullscreen(Client *c, int fullscreen) {
 }
 
 void setlayout(const Arg *arg) {
-  TagState *ts;
-  unsigned int slot;
+  int slot;
 
   if (!selmon)
     return;
-  ts = selmon->tagstate;
-  /* arg->i < 0: just toggle between lt[0] and lt[1] */
   if (!arg || arg->i < 0 || arg->i != tagstate_layout(selmon))
-    slot = ts->sellts[ts->curtag] ^= 1;
+    slot = layout_setlayout_toggle(selmon);
   else
-    slot = ts->sellts[ts->curtag];
+    slot = (int)tagstate_sellt(selmon);
   if (arg && arg->i >= 0 && (size_t)arg->i < layouts_count)
-    ts->ltidxs[ts->curtag][slot] = arg->i;
-  strncpy(selmon->ltsymbol, layouts[ts->ltidxs[ts->curtag][slot]].symbol,
+    layout_setlayout_idx(selmon, arg->i, slot);
+  strncpy(selmon->ltsymbol, layouts[tagstate_lt(selmon, slot)].symbol,
           LENGTH(selmon->ltsymbol));
   arrange(selmon);
   printstatus();
@@ -2411,7 +2375,7 @@ void reload_monitor_layouts(void) {
     unsigned int oldsellt = tagstate_sellt(m);
     wlr_log(WLR_DEBUG, "reload_monitor_layouts: monitor %s lt=[%d,%d] sellt=%u",
             m->wlr_output->name, old0, old1, oldsellt);
-    tagstate_clamp_layouts(m->tagstate, layouts_count);
+    layout_tagstate_clamp(m->tagstate, layouts_count);
     if (old0 == tagstate_lt(m, 0) && old1 == tagstate_lt(m, 1) &&
         oldsellt == tagstate_sellt(m))
       wlr_log(WLR_DEBUG,
@@ -2422,15 +2386,7 @@ void reload_monitor_layouts(void) {
               "reload_monitor_layouts: %s layouts fixed -> lt=[%d,%d] sellt=%u",
               m->wlr_output->name, tagstate_lt(m, 0), tagstate_lt(m, 1),
               tagstate_sellt(m));
-    /* re-push gap values from the (possibly reloaded) config struct into
-     * per-monitor state. gappoh/gappov/gappih/gappiv are copied into
-     * m->gapp* only in createmon() otherwise, so without this a live
-     * Mod-Shift-R reload of the gap values would have no effect on
-     * existing monitors. arrange(m) below picks up the new values. */
-    m->gappoh = config.gappoh;
-    m->gappov = config.gappov;
-    m->gappih = config.gappih;
-    m->gappiv = config.gappiv;
+    layout_gaps_set(m, config.gappoh, config.gappov, config.gappih, config.gappiv);
     strncpy(m->ltsymbol, layouts[tagstate_layout(m)].symbol,
             LENGTH(m->ltsymbol));
     arrange(m);
@@ -2563,7 +2519,7 @@ void setmfact(const Arg *arg) {
   f = arg->f < 1.0f ? arg->f + tagstate_mfact(selmon) : arg->f - 1.0f;
   if (f < 0.1 || f > 0.9)
     return;
-  selmon->tagstate->mfacts[selmon->tagstate->curtag] = f;
+  layout_setmfact(selmon, f);
   arrange(selmon);
 }
 
@@ -2947,24 +2903,13 @@ void toggletag(const Arg *arg) {
   printstatus();
 }
 
-void toggleview(const Arg *arg) { toggleview_on(selmon, arg); }
-
-static void toggleview_on(Monitor *m, const Arg *arg) {
+void toggleview(const Arg *arg) {
   uint32_t newtagset;
-  if (!(newtagset = m ? m->tagset[m->seltags] ^ (arg->ui & TAGMASK) : 0))
+  if (!selmon || !(newtagset = selmon->tagset[selmon->seltags] ^ (arg->ui & TAGMASK)))
     return;
-
-  /* test if the user did not select the same tag (curtag == ALL_TAGS means all
-   * tags, so the tag is always considered changed). */
-  if (m->tagstate->curtag == ALL_TAGS ||
-      !(newtagset & 1 << (m->tagstate->curtag - 1))) {
-    m->tagstate->prevtag = m->tagstate->curtag;
-    m->tagstate->curtag = layout_firsttag(newtagset);
-  }
-
-  m->tagset[m->seltags] = newtagset;
-  focusclient(focustop(m), 1);
-  arrange(m);
+  layout_view_toggle(selmon, arg->ui & TAGMASK);
+  focusclient(focustop(selmon), 1);
+  arrange(selmon);
   printstatus();
 }
 
@@ -3144,44 +3089,13 @@ void urgent(struct wl_listener *listener, void *data) {
   }
 }
 
-void view(const Arg *arg) { view_on(selmon, arg); }
-
-static void view_off(Monitor *m, const Arg *arg) {
-  uint32_t newtagset;
-  if (!m)
+void view(const Arg *arg) {
+  uint32_t tags = arg->ui & TAGMASK;
+  if (!selmon || tags == selmon->tagset[selmon->seltags])
     return;
-  newtagset = m->tagset[m->seltags] & ~(arg->ui & TAGMASK);
-  if (!newtagset || newtagset == m->tagset[m->seltags])
-    return;
-
-  /* test if the user did not select the same tag (curtag == ALL_TAGS means all
-   * tags, so the tag is always considered changed). */
-  if (m->tagstate->curtag == ALL_TAGS ||
-      !(newtagset & 1 << (m->tagstate->curtag - 1))) {
-    m->tagstate->prevtag = m->tagstate->curtag;
-    m->tagstate->curtag = layout_firsttag(newtagset);
-  }
-
-  m->tagset[m->seltags] = newtagset;
-  focusclient(focustop(m), 1);
-  arrange(m);
-  printstatus();
-}
-
-static void view_on(Monitor *m, const Arg *arg) {
-  if (!m || (arg->ui & TAGMASK) == m->tagset[m->seltags])
-    return;
-  m->seltags ^= 1; /* toggle sel tagset */
-  m->tagset[m->seltags] = arg->ui & TAGMASK;
-  m->tagstate->prevtag = m->tagstate->curtag;
-
-  if (arg->ui == (unsigned int)TAGMASK)
-    m->tagstate->curtag = ALL_TAGS;
-  else
-    m->tagstate->curtag = layout_firsttag(arg->ui & TAGMASK);
-
-  focusclient(focustop(m), 1);
-  arrange(m);
+  layout_view_set(selmon, tags);
+  focusclient(focustop(selmon), 1);
+  arrange(selmon);
   printstatus();
 }
 

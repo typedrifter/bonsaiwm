@@ -61,6 +61,94 @@ void layout_bounds(struct wlr_box *box, const struct wlr_box *bbox,
     box->y = bbox->y;
 }
 
+/* ── TagState lifecycle ── */
+
+void layout_tagstate_init(TagState *ts, int nmaster, float mfact, int lt0,
+                          int lt1, int sellt) {
+  for (size_t i = 0; i <= TAGCOUNT; i++) {
+    ts->nmasters[i] = nmaster;
+    ts->mfacts[i] = mfact;
+    ts->ltidxs[i][0] = lt0;
+    ts->ltidxs[i][1] = lt1;
+    ts->sellts[i] = sellt;
+  }
+}
+
+void layout_tagstate_clamp(TagState *ts, size_t layouts_count) {
+  for (size_t i = 0; i <= TAGCOUNT; i++) {
+    if ((size_t)ts->ltidxs[i][0] >= layouts_count)
+      ts->ltidxs[i][0] = 0;
+    if ((size_t)ts->ltidxs[i][1] >= layouts_count)
+      ts->ltidxs[i][1] = 0;
+    if (ts->sellts[i] > 1)
+      ts->sellts[i] = 0;
+  }
+}
+
+/* ── Per-tag layout parameter mutations ── */
+
+int layout_setlayout_toggle(Monitor *m) {
+  unsigned int *sellt = &m->tagstate->sellts[m->tagstate->curtag];
+  *sellt ^= 1;
+  return (int)*sellt;
+}
+
+void layout_setlayout_idx(Monitor *m, int layout_idx, int slot) {
+  m->tagstate->ltidxs[m->tagstate->curtag][slot] = layout_idx;
+}
+
+void layout_setmfact(Monitor *m, float factor) {
+  m->tagstate->mfacts[m->tagstate->curtag] = factor;
+}
+
+void layout_incnmaster(Monitor *m, int delta) {
+  int *nmaster = &m->tagstate->nmasters[m->tagstate->curtag];
+  *nmaster = MAX(*nmaster + delta, 0);
+}
+
+/* ── View / tagset mutations ── */
+
+void layout_view_set(Monitor *m, uint32_t tags) {
+  m->seltags ^= 1;
+  m->tagset[m->seltags] = tags;
+  m->tagstate->prevtag = m->tagstate->curtag;
+  if (tags == (uint32_t)TAGMASK)
+    m->tagstate->curtag = ALL_TAGS;
+  else
+    m->tagstate->curtag = layout_firsttag(tags);
+}
+
+void layout_view_remove(Monitor *m, uint32_t mask) {
+  uint32_t newtagset = m->tagset[m->seltags] & ~mask;
+
+  if (m->tagstate->curtag == ALL_TAGS ||
+      !(newtagset & (1u << (m->tagstate->curtag - 1)))) {
+    m->tagstate->prevtag = m->tagstate->curtag;
+    m->tagstate->curtag = layout_firsttag(newtagset);
+  }
+  m->tagset[m->seltags] = newtagset;
+}
+
+void layout_view_toggle(Monitor *m, uint32_t mask) {
+  uint32_t newtagset = m->tagset[m->seltags] ^ mask;
+
+  if (m->tagstate->curtag == ALL_TAGS ||
+      !(newtagset & (1u << (m->tagstate->curtag - 1)))) {
+    m->tagstate->prevtag = m->tagstate->curtag;
+    m->tagstate->curtag = layout_firsttag(newtagset);
+  }
+  m->tagset[m->seltags] = newtagset;
+}
+
+/* ── Gap state ── */
+
+void layout_gaps_set(Monitor *m, int oh, int ov, int ih, int iv) {
+  m->gappoh = MAX(oh, 0);
+  m->gappov = MAX(ov, 0);
+  m->gappih = MAX(ih, 0);
+  m->gappiv = MAX(iv, 0);
+}
+
 size_t layout_place(const Monitor *m, enum layout_kind kind,
                     const struct layout_opts *opts, struct Placement *out,
                     size_t cap) {

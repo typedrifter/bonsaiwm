@@ -355,6 +355,146 @@ static void test_bounds_repositions_out_of_bounds(void **state) {
   assert_int_equal(box.y, 50);
 }
 
+/* ── state mutations ──────────────────────────────────────────────────────── */
+
+static void test_tagstate_init_writes_all_slots(void **state) {
+  (void)state;
+  TagState ts;
+  memset(&ts, 0xFF, sizeof(ts));
+  layout_tagstate_init(&ts, 2, 0.55f, 3, 4, 1);
+  assert_int_equal(ts.nmasters[1], 2);
+  assert_int_equal(ts.nmasters[TAGCOUNT], 2);
+  assert_float_equal(ts.mfacts[1], 0.55f, 0.001f);
+  assert_int_equal(ts.ltidxs[1][0], 3);
+  assert_int_equal(ts.ltidxs[5][1], 4);
+  assert_int_equal(ts.sellts[1], 1);
+}
+
+static void test_tagstate_clamp_resets_oob(void **state) {
+  (void)state;
+  TagState ts;
+  memset(&ts, 0, sizeof(ts));
+  ts.ltidxs[1][0] = 99;
+  ts.ltidxs[2][1] = 50;
+  ts.ltidxs[3][0] = 2;
+  ts.sellts[1] = 1;
+  ts.sellts[4] = 5;
+  layout_tagstate_clamp(&ts, 3);
+  assert_int_equal(ts.ltidxs[1][0], 0);
+  assert_int_equal(ts.ltidxs[2][1], 0);
+  assert_int_equal(ts.ltidxs[3][0], 2);
+  assert_int_equal(ts.sellts[1], 1);
+  assert_int_equal(ts.sellts[4], 0);
+}
+
+static void test_setlayout_toggle(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  int s = layout_setlayout_toggle(&m);
+  assert_int_equal(s, 1);
+  s = layout_setlayout_toggle(&m);
+  assert_int_equal(s, 0);
+}
+
+static void test_setlayout_idx(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  layout_setlayout_idx(&m, 2, 0);
+  assert_int_equal(m.tagstate->ltidxs[1][0], 2);
+  layout_setlayout_idx(&m, 5, 1);
+  assert_int_equal(m.tagstate->ltidxs[1][1], 5);
+}
+
+static void test_setmfact(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  layout_setmfact(&m, 0.75f);
+  assert_float_equal(tagstate_mfact(&m), 0.75f, 0.001f);
+}
+
+static void test_incnmaster_add(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  layout_incnmaster(&m, 2);
+  assert_int_equal(tagstate_nmaster(&m), 3);
+}
+
+static void test_incnmaster_clamps_to_zero(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  layout_incnmaster(&m, -5);
+  assert_int_equal(tagstate_nmaster(&m), 0);
+}
+
+static void test_view_set(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  layout_view_set(&m, 1u << 2);
+  assert_int_equal(m.seltags, 1);
+  assert_int_equal(m.tagset[m.seltags], 1u << 2);
+  assert_int_equal(m.tagset[1 - m.seltags], 1u << 0);
+  assert_int_equal(m.tagstate->curtag, 3);
+  assert_int_equal(m.tagstate->prevtag, 1);
+}
+
+static void test_view_set_all_tags(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  layout_view_set(&m, (uint32_t)TAGMASK);
+  assert_int_equal(m.tagstate->curtag, ALL_TAGS);
+}
+
+static void test_view_remove(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  m.tagset[0] = (1u << 0) | (1u << 2);
+  m.tagstate->curtag = 1;
+  layout_view_remove(&m, 1u << 0);
+  assert_int_equal(m.tagset[m.seltags], 1u << 2);
+  assert_int_equal(m.tagstate->curtag, 3);
+}
+
+static void test_view_toggle(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  m.tagset[0] = 1u << 0;
+  m.tagstate->curtag = 1;
+  layout_view_toggle(&m, 1u << 3);
+  assert_int_equal(m.tagset[m.seltags], (1u << 0) | (1u << 3));
+  assert_int_equal(m.tagstate->curtag, 1);
+}
+
+static void test_gaps_set(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  layout_gaps_set(&m, 10, 20, 5, 8);
+  assert_int_equal(m.gappoh, 10);
+  assert_int_equal(m.gappov, 20);
+  assert_int_equal(m.gappih, 5);
+  assert_int_equal(m.gappiv, 8);
+}
+
+static void test_gaps_clamps_negative(void **state) {
+  (void)state;
+  Monitor m;
+  init_monitor(&m, 800, 600);
+  layout_gaps_set(&m, -5, -5, -5, -5);
+  assert_int_equal(m.gappoh, 0);
+  assert_int_equal(m.gappov, 0);
+  assert_int_equal(m.gappih, 0);
+  assert_int_equal(m.gappiv, 0);
+}
+
 /* ── main ─────────────────────────────────────────────────────────────────── */
 
 int main(void) {
@@ -372,6 +512,19 @@ int main(void) {
       cmocka_unit_test(test_remove_drops_from_order),
       cmocka_unit_test(test_bounds_enforces_minimum_size),
       cmocka_unit_test(test_bounds_repositions_out_of_bounds),
+      cmocka_unit_test(test_tagstate_init_writes_all_slots),
+      cmocka_unit_test(test_tagstate_clamp_resets_oob),
+      cmocka_unit_test(test_setlayout_toggle),
+      cmocka_unit_test(test_setlayout_idx),
+      cmocka_unit_test(test_setmfact),
+      cmocka_unit_test(test_incnmaster_add),
+      cmocka_unit_test(test_incnmaster_clamps_to_zero),
+      cmocka_unit_test(test_view_set),
+      cmocka_unit_test(test_view_set_all_tags),
+      cmocka_unit_test(test_view_remove),
+      cmocka_unit_test(test_view_toggle),
+      cmocka_unit_test(test_gaps_set),
+      cmocka_unit_test(test_gaps_clamps_negative),
   };
   return cmocka_run_group_tests(tests, NULL, NULL);
 }
