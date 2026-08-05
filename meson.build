@@ -81,6 +81,7 @@ sources = files(
   'src/config.c',
   'src/decorations.c',
   'src/focus.c',
+  'src/layer_shell.c',
   'src/session_lock.c',
   'src/client.c',
   'src/util.c',

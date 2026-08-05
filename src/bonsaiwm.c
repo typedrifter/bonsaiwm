@@ -81,6 +81,7 @@
 #include "util.h"
 #include "decorations.h"
 #include "focus.h"
+#include "layer_shell.h"
 #include "session_lock.h"
 
 /* enums (client types + scene layers) live in bonsaiwm.h */
@@ -89,9 +90,6 @@
 static void applyrules(Client *c);
 int arrange(Monitor *m);
 void arrange_effects(void);
-static void arrangelayer(Monitor *m, struct wl_list *list,
-                         struct wlr_box *usable_area, int exclusive);
-static void arrangelayers(Monitor *m);
 static void axisnotify(struct wl_listener *listener, void *data);
 static void buttonpress(struct wl_listener *listener, void *data);
 void chvt(const Arg *arg);
@@ -99,14 +97,12 @@ static void cleanup(void);
 static void cleanupmon(struct wl_listener *listener, void *data);
 static void cleanuplisteners(void);
 static void closemon(Monitor *m);
-static void commitlayersurfacenotify(struct wl_listener *listener, void *data);
 static void commitnotify(struct wl_listener *listener, void *data);
 static void commitpopup(struct wl_listener *listener, void *data);
 static void createdecoration(struct wl_listener *listener, void *data);
 static void createidleinhibitor(struct wl_listener *listener, void *data);
 static void createkeyboard(struct wlr_keyboard *keyboard);
 static KeyboardGroup *createkeyboardgroup(void);
-static void createlayersurface(struct wl_listener *listener, void *data);
 static void createmon(struct wl_listener *listener, void *data);
 static void createnotify(struct wl_listener *listener, void *data);
 static void createpointer(struct wlr_pointer *pointer);
@@ -119,7 +115,6 @@ void defaultgaps(const Arg *arg);
 static void destroydecoration(struct wl_listener *listener, void *data);
 static void destroydragicon(struct wl_listener *listener, void *data);
 static void destroyidleinhibitor(struct wl_listener *listener, void *data);
-static void destroylayersurfacenotify(struct wl_listener *listener, void *data);
 static void destroynotify(struct wl_listener *listener, void *data);
 static void destroypointerconstraint(struct wl_listener *listener, void *data);
 static void destroykeyboardgroup(struct wl_listener *listener, void *data);
@@ -188,7 +183,6 @@ void togglefullscreen(const Arg *arg);
 void togglegaps(const Arg *arg);
 void toggletag(const Arg *arg);
 void toggleview(const Arg *arg);
-static void unmaplayersurfacenotify(struct wl_listener *listener, void *data);
 static void unmapnotify(struct wl_listener *listener, void *data);
 static void updatemons(struct wl_listener *listener, void *data);
 static void updatetitle(struct wl_listener *listener, void *data);
@@ -212,8 +206,6 @@ static struct wlr_backend *backend;
 struct wlr_scene *scene;
 struct wlr_scene_tree *layers[NUM_LAYERS];
 static struct wlr_scene_tree *drag_icon;
-/* Map from ZWLR_LAYER_SHELL_* constants to Lyr* enum */
-static const int layermap[] = {LyrBg, LyrBottom, LyrTop, LyrOverlay};
 static struct wlr_renderer *drw;
 static struct wlr_allocator *alloc;
 static struct wlr_compositor *compositor;
@@ -225,7 +217,6 @@ static struct wlr_xdg_decoration_manager_v1 *xdg_decoration_mgr;
 struct wl_list fstack; /* focus order */
 struct wlr_idle_notifier_v1 *idle_notifier;
 struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
-static struct wlr_layer_shell_v1 *layer_shell;
 static struct wlr_output_manager_v1 *output_mgr;
 static struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
 static struct wlr_virtual_pointer_manager_v1 *virtual_pointer_mgr;
@@ -270,7 +261,6 @@ static struct wl_listener new_output = {.notify = createmon};
 static struct wl_listener new_xdg_toplevel = {.notify = createnotify};
 static struct wl_listener new_xdg_popup = {.notify = createpopup};
 static struct wl_listener new_xdg_decoration = {.notify = createdecoration};
-static struct wl_listener new_layer_surface = {.notify = createlayersurface};
 static struct wl_listener output_mgr_apply = {.notify = outputmgrapply};
 static struct wl_listener output_mgr_test = {.notify = outputmgrtest};
 static struct wl_listener output_power_mgr_set_mode = {.notify =
@@ -379,68 +369,6 @@ int arrange(Monitor *m) {
   if (arr)
     arr(m);
   return arr != NULL;
-}
-
-void arrangelayer(Monitor *m, struct wl_list *list, struct wlr_box *usable_area,
-                  int exclusive) {
-  LayerSurface *l;
-  struct wlr_box full_area = m->m;
-
-  wl_list_for_each(l, list, link) {
-    struct wlr_layer_surface_v1 *layer_surface = l->layer_surface;
-
-    if (!layer_surface->initialized)
-      continue;
-
-    if (exclusive != (layer_surface->current.exclusive_zone > 0))
-      continue;
-
-    wlr_scene_layer_surface_v1_configure(l->scene_layer, &full_area,
-                                         usable_area);
-    wlr_scene_node_set_position(&l->popups->node, l->scene->node.x,
-                                l->scene->node.y);
-  }
-}
-
-void arrangelayers(Monitor *m) {
-  int i;
-  struct wlr_box usable_area = m->m;
-  LayerSurface *l;
-  uint32_t layers_above_shell[] = {
-      ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY,
-      ZWLR_LAYER_SHELL_V1_LAYER_TOP,
-  };
-  if (!m->wlr_output->enabled)
-    return;
-
-  /* Arrange exclusive surfaces from top->bottom */
-  for (i = 3; i >= 0; i--)
-    arrangelayer(m, &m->layers[i], &usable_area, 1);
-
-  if (!wlr_box_equal(&usable_area, &m->w)) {
-    m->w = usable_area;
-    arrange(m);
-    arrange_effects();
-  }
-
-  /* Arrange non-exclusive surfaces from top->bottom */
-  for (i = 3; i >= 0; i--)
-    arrangelayer(m, &m->layers[i], &usable_area, 0);
-
-  /* Find topmost keyboard interactive layer, if such a layer exists */
-  for (i = 0; i < (int)LENGTH(layers_above_shell); i++) {
-    wl_list_for_each_reverse(l, &m->layers[layers_above_shell[i]], link) {
-      if (locked || !l->layer_surface->current.keyboard_interactive ||
-          !l->mapped)
-        continue;
-      /* Deactivate the focused client. */
-      focusclient(NULL, 0);
-      exclusive_focus = l;
-      client_notify_enter(l->layer_surface->surface,
-                          wlr_seat_get_keyboard(seat));
-      return;
-    }
-  }
 }
 
 void axisnotify(struct wl_listener *listener, void *data) {
@@ -586,7 +514,7 @@ void cleanuplisteners(void) {
   wl_list_remove(&new_xdg_toplevel.link);
   wl_list_remove(&new_xdg_decoration.link);
   wl_list_remove(&new_xdg_popup.link);
-  wl_list_remove(&new_layer_surface.link);
+  layer_shell_cleanup();
   wl_list_remove(&output_mgr_apply.link);
   wl_list_remove(&output_mgr_test.link);
   wl_list_remove(&output_power_mgr_set_mode.link);
@@ -633,56 +561,6 @@ void closemon(Monitor *m) {
   }
   focusclient(focustop(selmon), 1);
   printstatus();
-}
-
-void commitlayersurfacenotify(struct wl_listener *listener, void *data) {
-  LayerSurface *l = wl_container_of(listener, l, surface_commit);
-  struct wlr_layer_surface_v1 *layer_surface = l->layer_surface;
-  struct wlr_scene_tree *scene_layer =
-      layers[layermap[layer_surface->current.layer]];
-  struct wlr_layer_surface_v1_state old_state;
-
-  if (l->layer_surface->initial_commit) {
-    client_set_scale(layer_surface->surface, l->mon->wlr_output->scale);
-
-    /* Temporarily set the layer's current state to pending
-     * so that we can easily arrange it */
-    old_state = l->layer_surface->current;
-    l->layer_surface->current = l->layer_surface->pending;
-    arrangelayers(l->mon);
-    l->layer_surface->current = old_state;
-    return;
-  }
-
-  if (layer_surface->current.committed == 0 &&
-      l->mapped == layer_surface->surface->mapped)
-    return;
-  l->mapped = layer_surface->surface->mapped;
-
-  if (scene_layer != l->scene->node.parent) {
-    wlr_scene_node_reparent(&l->scene->node, scene_layer);
-    wl_list_remove(&l->link);
-    wl_list_insert(&l->mon->layers[layer_surface->current.layer], &l->link);
-    wlr_scene_node_reparent(
-        &l->popups->node,
-        (layer_surface->current.layer < ZWLR_LAYER_SHELL_V1_LAYER_TOP
-             ? layers[LyrTop]
-             : scene_layer));
-  }
-
-  arrangelayers(l->mon);
-
-  if (blur) {
-    struct wlr_layer_surface_v1 *wlr_layer_surface = l->layer_surface;
-    if (wlr_layer_surface->current.layer ==
-            ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND ||
-        wlr_layer_surface->current.layer ==
-            ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM) {
-      if (l->mon) {
-        wlr_scene_optimized_blur_mark_dirty(l->mon->blur_layer);
-      }
-    }
-  }
 }
 
 void commitnotify(struct wl_listener *listener, void *data) {
@@ -807,41 +685,6 @@ KeyboardGroup *createkeyboardgroup(void) {
    */
   wlr_seat_set_keyboard(seat, &group->wlr_group->keyboard);
   return group;
-}
-
-void createlayersurface(struct wl_listener *listener, void *data) {
-  struct wlr_layer_surface_v1 *layer_surface = data;
-  LayerSurface *l;
-  struct wlr_surface *surface = layer_surface->surface;
-  struct wlr_scene_tree *scene_layer =
-      layers[layermap[layer_surface->pending.layer]];
-
-  if (!layer_surface->output &&
-      !(layer_surface->output = selmon ? selmon->wlr_output : NULL)) {
-    wlr_layer_surface_v1_destroy(layer_surface);
-    return;
-  }
-
-  l = layer_surface->data = ecalloc(1, sizeof(*l));
-  l->type = LayerShell;
-  LISTEN(&surface->events.commit, &l->surface_commit, commitlayersurfacenotify);
-  LISTEN(&surface->events.unmap, &l->unmap, unmaplayersurfacenotify);
-  LISTEN(&layer_surface->events.destroy, &l->destroy,
-         destroylayersurfacenotify);
-
-  l->layer_surface = layer_surface;
-  l->mon = layer_surface->output->data;
-  l->scene_layer =
-      wlr_scene_layer_surface_v1_create(scene_layer, layer_surface);
-  l->scene = l->scene_layer->tree;
-  l->popups = surface->data = wlr_scene_tree_create(
-      layer_surface->current.layer < ZWLR_LAYER_SHELL_V1_LAYER_TOP
-          ? layers[LyrTop]
-          : scene_layer);
-  l->scene->node.data = l->popups->node.data = l;
-
-  wl_list_insert(&l->mon->layers[layer_surface->pending.layer], &l->link);
-  wlr_surface_send_enter(surface, layer_surface->output);
 }
 
 void createmon(struct wl_listener *listener, void *data) {
@@ -1078,18 +921,6 @@ void destroyidleinhibitor(struct wl_listener *listener, void *data) {
   checkidleinhibitor(wlr_surface_get_root_surface(data));
   wl_list_remove(&listener->link);
   free(listener);
-}
-
-void destroylayersurfacenotify(struct wl_listener *listener, void *data) {
-  LayerSurface *l = wl_container_of(listener, l, destroy);
-
-  wl_list_remove(&l->link);
-  wl_list_remove(&l->destroy.link);
-  wl_list_remove(&l->unmap.link);
-  wl_list_remove(&l->surface_commit.link);
-  wlr_scene_node_destroy(&l->scene->node);
-  wlr_scene_node_destroy(&l->popups->node);
-  free(l);
 }
 
 void destroynotify(struct wl_listener *listener, void *data) {
@@ -2456,8 +2287,7 @@ static void init_shells(void) {
   wl_signal_add(&xdg_shell->events.new_toplevel, &new_xdg_toplevel);
   wl_signal_add(&xdg_shell->events.new_popup, &new_xdg_popup);
 
-  layer_shell = wlr_layer_shell_v1_create(dpy, 3);
-  wl_signal_add(&layer_shell->events.new_surface, &new_layer_surface);
+  layer_shell_init();
 }
 
 static void init_aux(void) {
@@ -2661,20 +2491,6 @@ void toggleview(const Arg *arg) {
   arrange(selmon);
   arrange_effects();
   printstatus();
-}
-
-void unmaplayersurfacenotify(struct wl_listener *listener, void *data) {
-  LayerSurface *l = wl_container_of(listener, l, unmap);
-
-  l->mapped = 0;
-  wlr_scene_node_set_enabled(&l->scene->node, 0);
-  if (l == exclusive_focus)
-    exclusive_focus = NULL;
-  if (l->layer_surface->output && (l->mon = l->layer_surface->output->data))
-    arrangelayers(l->mon);
-  if (l->layer_surface->surface == seat->keyboard_state.focused_surface)
-    focusclient(focustop(selmon), 1);
-  motionnotify(0, NULL, 0, 0, 0, 0);
 }
 
 void unmapnotify(struct wl_listener *listener, void *data) {
