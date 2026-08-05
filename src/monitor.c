@@ -43,7 +43,6 @@ static struct wl_listener output_mgr_test = {.notify = outputmgrtest};
 static struct wl_listener output_power_mgr_set_mode = {
     .notify = powermgrsetmode};
 
-extern struct wlr_scene_rect *locked_bg;
 extern struct wlr_xdg_shell *xdg_shell;
 extern struct wlr_cursor *cursor;
 extern struct wl_list fstack;
