@@ -32,10 +32,9 @@ extern Monitor *selmon;
 extern struct wlr_idle_notifier_v1 *idle_notifier;
 extern struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
 
-extern struct wlr_scene_rect *locked_bg;
-
 void session_lock_init(void);
 void session_lock_cleanup(void);
+void session_lock_update_geometry(void);
 void checkidleinhibitor(struct wlr_surface *exclude);
 void destroylocksurface(struct wl_listener *listener, void *data);
 

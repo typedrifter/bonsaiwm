@@ -16,7 +16,7 @@
 void motionnotify(uint32_t time, struct wlr_input_device *device, double dx,
                   double dy, double dx_unaccel, double dy_unaccel);
 
-struct wlr_scene_rect *locked_bg;
+static struct wlr_scene_rect *locked_bg;
 static struct wlr_session_lock_manager_v1 *session_lock_mgr;
 static struct wlr_session_lock_v1 *cur_lock;
 
@@ -144,6 +144,12 @@ void session_lock_init(void) {
   locked_bg = wlr_scene_rect_create(layers[LyrBlock], sgeom.width, sgeom.height,
                                     (float[4]){0.1f, 0.1f, 0.1f, 1.0f});
   wlr_scene_node_set_enabled(&locked_bg->node, 0);
+}
+
+
+void session_lock_update_geometry(void) {
+  wlr_scene_node_set_position(&locked_bg->node, sgeom.x, sgeom.y);
+  wlr_scene_rect_set_size(locked_bg, sgeom.width, sgeom.height);
 }
 
 void session_lock_cleanup(void) {

@@ -329,8 +329,7 @@ static void updatemons(struct wl_listener *listener, void *data) {
   wlr_scene_node_set_position(&root_bg->node, sgeom.x, sgeom.y);
   wlr_scene_rect_set_size(root_bg, sgeom.width, sgeom.height);
 
-  wlr_scene_node_set_position(&locked_bg->node, sgeom.x, sgeom.y);
-  wlr_scene_rect_set_size(locked_bg, sgeom.width, sgeom.height);
+  session_lock_update_geometry();
 
   wl_list_for_each(m, &mons, link) {
     if (!m->wlr_output->enabled)
